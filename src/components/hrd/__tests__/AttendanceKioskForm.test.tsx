@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 
 const {
@@ -145,5 +145,54 @@ describe('AttendanceKioskForm', () => {
                 screen.getByText('PIN yang Anda masukkan salah'),
             ).toBeTruthy(),
         );
+    });
+
+    describe('Tahap 2 kiosk layout', () => {
+        afterEach(() => vi.useRealTimers());
+
+        it('says why Masuk and Pulang are still locked', async () => {
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            expect(screen.getByText('Pilih nama, lalu isi PIN.')).toBeTruthy();
+
+            fireEvent.click(screen.getByTestId('pick-employee'));
+            fireEvent.change(screen.getByPlaceholderText('••••'), { target: { value: '1234' } });
+
+            expect(await screen.findByText('Ambil selfie dulu untuk Masuk. Pulang bisa tanpa selfie.')).toBeTruthy();
+        });
+
+        it('shows a load error instead of an empty employee search', () => {
+            render(<AttendanceKioskForm employees={[]} employeesError="Daftar karyawan gagal dimuat." geofenceMode="off" />);
+
+            expect(screen.getByRole('alert').textContent).toContain('Daftar karyawan gagal dimuat.');
+        });
+
+        it('lets the success message go by itself and keeps a named history', async () => {
+            vi.useFakeTimers({ shouldAdvanceTime: true });
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            await fillForm();
+            fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
+
+            const message = await screen.findByRole('status');
+            expect(message.textContent).toContain('Budi');
+            const history = screen.getByRole('region', { name: 'Tadi di tablet ini' });
+            expect(within(history).getByText('Budi')).toBeTruthy();
+            expect(within(history).queryByText('EMP-001')).toBeNull();
+
+            act(() => vi.advanceTimersByTime(5000));
+            await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+        });
+
+        it('writes the clock-out hours in plain words', async () => {
+            mockKioskClockOut.mockResolvedValue({
+                success: true,
+                data: { employeeName: 'Budi', employeeCode: 'EMP-001', shiftName: 'Shift 1', actualHours: 8.1, overtimeHours: 1 },
+            });
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            fireEvent.click(screen.getByTestId('pick-employee'));
+            fireEvent.change(screen.getByPlaceholderText('••••'), { target: { value: '1234' } });
+            fireEvent.click(await screen.findByRole('button', { name: /PULANG/i }));
+
+            expect((await screen.findByRole('status')).textContent).toContain('Budi pulang · kerja 8,1 jam · lembur 1 jam');
+        });
     });
 });

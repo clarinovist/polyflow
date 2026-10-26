@@ -47,7 +47,7 @@ export function EmployeeNameSearch({
         return () => document.removeEventListener('mousedown', onDoc);
     }, []);
 
-    const results = useMemo(() => {
+    const matches = useMemo(() => {
         const q = normalize(query);
         if (q.length < 1) return [];
         return employees
@@ -57,21 +57,22 @@ export function EmployeeNameSearch({
                 (a, b) =>
                     b.rank - a.rank || a.e.name.localeCompare(b.e.name, 'id'),
             )
-            .slice(0, MAX_RESULTS)
             .map((x) => x.e);
     }, [employees, query]);
+    const results = matches.slice(0, MAX_RESULTS);
+    const hiddenCount = matches.length - results.length;
 
     if (selected) {
         return (
             <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                <label className="block text-base font-semibold text-muted-foreground">
                     Karyawan
                 </label>
                 <div className="flex items-center gap-2 h-14 px-3 rounded-md border-2 bg-primary/5 border-primary/30">
                     <User className="h-5 w-5 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
                         <p className="font-bold truncate">{selected.name}</p>
-                        <p className="text-xs text-muted-foreground font-mono">
+                        <p className="text-sm text-muted-foreground font-mono">
                             {selected.code}
                         </p>
                     </div>
@@ -79,7 +80,7 @@ export function EmployeeNameSearch({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="shrink-0"
+                        className="size-12 shrink-0"
                         disabled={disabled}
                         onClick={() => {
                             onSelect(null);
@@ -88,7 +89,7 @@ export function EmployeeNameSearch({
                         }}
                         aria-label="Ganti karyawan"
                     >
-                        <X className="h-4 w-4" />
+                        <X className="size-5" />
                     </Button>
                 </div>
             </div>
@@ -97,8 +98,8 @@ export function EmployeeNameSearch({
 
     return (
         <div className="space-y-1 relative" ref={wrapRef}>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                Cari Nama Karyawan
+            <label className="block text-base font-semibold text-muted-foreground">
+                Cari nama karyawan
             </label>
             <Input
                 value={query}
@@ -107,7 +108,7 @@ export function EmployeeNameSearch({
                     setOpen(true);
                 }}
                 onFocus={() => setOpen(true)}
-                placeholder="Ketik nama… (contoh: Budi)"
+                placeholder="Ketik nama karyawan"
                 className="h-14 text-lg font-bold"
                 autoComplete="off"
                 autoFocus
@@ -121,8 +122,8 @@ export function EmployeeNameSearch({
                     role="listbox"
                 >
                     {results.length === 0 ? (
-                        <li className="px-4 py-3 text-sm text-muted-foreground">
-                            Tidak ada yang cocok
+                        <li className="px-4 py-3 text-base text-muted-foreground">
+                            Tidak ada nama yang cocok
                         </li>
                     ) : (
                         results.map((emp) => (
@@ -131,7 +132,7 @@ export function EmployeeNameSearch({
                                     type="button"
                                     role="option"
                                     aria-selected={false}
-                                    className="w-full text-left px-4 py-3 hover:bg-muted/80 border-b border-border/40 last:border-0 transition-colors"
+                                    className="min-h-12 w-full text-left px-4 py-3 hover:bg-muted/80 border-b border-border/40 last:border-0 transition-colors"
                                     onClick={() => {
                                         onSelect(emp);
                                         setQuery('');
@@ -141,12 +142,18 @@ export function EmployeeNameSearch({
                                     <span className="font-bold block">
                                         {emp.name}
                                     </span>
-                                    <span className="text-xs font-mono text-muted-foreground">
+                                    <span className="text-sm font-mono text-muted-foreground">
                                         {emp.code}
                                     </span>
                                 </button>
                             </li>
                         ))
+                    )}
+                    {hiddenCount > 0 && (
+                        <li className="px-4 py-3 text-base text-muted-foreground">
+                            {hiddenCount} nama lain. Ketik lebih lengkap untuk
+                            mempersempit.
+                        </li>
                     )}
                 </ul>
             )}

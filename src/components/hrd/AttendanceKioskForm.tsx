@@ -1,11 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import {
-    Clock,
     LogIn,
     LogOut,
     AlertCircle,
@@ -18,9 +15,10 @@ import {
     kioskClockOut,
     type KioskEmployeeOption,
 } from '@/actions/admin/attendance';
-import { cn } from '@/lib/utils/utils';
 import { EmployeeNameSearch } from '@/components/hrd/EmployeeNameSearch';
 import { LiveSelfieCapture } from '@/components/hrd/LiveSelfieCapture';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
+import { KioskPill } from '@/components/kiosk/ui/KioskPill';
 import { uploadSelfieWithRetry } from './attendance-selfie-upload';
 import {
     sampleBestPosition,
@@ -29,6 +27,10 @@ import {
 } from '@/lib/utils/geolocation-sampler';
 import type { GeofenceMode } from '@/services/hrd/attendance-location';
 
+/** A success message stays this long, then the tablet is ready for the next person. */
+export const SUCCESS_DISMISS_MS = 5000;
+const HISTORY_LIMIT = 20;
+
 interface Feedback {
     type: 'success' | 'error';
     message: string;
@@ -36,10 +38,9 @@ interface Feedback {
 
 interface LogEntry {
     id: number;
-    employeeCode: string;
-    shiftName: string;
-    isOvertime: boolean;
-    message: string;
+    employeeName: string;
+    kind: 'Masuk' | 'Pulang';
+    detail: string;
     time: string;
 }
 
@@ -51,6 +52,8 @@ interface LocationState {
 
 interface Props {
     employees: KioskEmployeeOption[];
+    /** Set when the employee list could not be loaded. */
+    employeesError?: string;
     /**
      * Only `enforce` makes a GPS fix mandatory here. Under `observe` the
      * coordinates are still requested and sent, but a phone that cannot produce
@@ -69,9 +72,15 @@ function nowWIB(): string {
     });
 }
 
-export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
+const hours = (value: number) =>
+    value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
+
+export function AttendanceKioskForm({
+    employees,
+    employeesError,
+    geofenceMode,
+}: Props) {
     const isLocationRequired = geofenceMode === 'enforce';
-    const [clock, setClock] = useState<string | null>(null);
     const [selectedEmployee, setSelectedEmployee] =
         useState<KioskEmployeeOption | null>(null);
     const [pin, setPin] = useState('');
@@ -80,16 +89,16 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
     const [loading, setLoading] = useState(false);
     const [feedback, setFeedback] = useState<Feedback | null>(null);
     const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [logId, setLogId] = useState(0);
     const [location, setLocation] = useState<LocationState | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
     const [gettingLocation, setGettingLocation] = useState(false);
 
+    // Success messages leave by themselves; errors stay until the next try.
     useEffect(() => {
-        setClock(nowWIB());
-        const id = setInterval(() => setClock(nowWIB()), 30_000);
-        return () => clearInterval(id);
-    }, []);
+        if (feedback?.type !== 'success') return;
+        const timer = setTimeout(() => setFeedback(null), SUCCESS_DISMISS_MS);
+        return () => clearTimeout(timer);
+    }, [feedback]);
 
     const requestLocation = useCallback(() => {
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -136,25 +145,12 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
         }
     }, [selectedEmployeeId, requestLocation]);
 
-    const addLog = (
-        code: string,
-        shiftName: string,
-        isOvertime: boolean,
-        message: string,
-    ) => {
-        setLogId((prev) => prev + 1);
+    const addLog = (entry: Omit<LogEntry, 'id' | 'time'>) => {
         setLogs((prev) =>
             [
-                {
-                    id: logId,
-                    employeeCode: code,
-                    shiftName,
-                    isOvertime,
-                    message,
-                    time: nowWIB(),
-                },
+                { ...entry, id: (prev[0]?.id ?? 0) + 1, time: nowWIB() },
                 ...prev,
-            ].slice(0, 20),
+            ].slice(0, HISTORY_LIMIT),
         );
     };
 
@@ -170,29 +166,8 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
     }, []);
 
     const handleClockIn = async () => {
-        if (!selectedEmployee) {
-            setFeedback({ type: 'error', message: 'Pilih karyawan dulu' });
-            return;
-        }
-        if (!pin.trim()) {
-            setFeedback({ type: 'error', message: 'Masukkan PIN' });
-            return;
-        }
-        if (!selfieFile) {
-            setFeedback({
-                type: 'error',
-                message: 'Ambil selfie terlebih dahulu',
-            });
-            return;
-        }
-        if (isLocationRequired && !location) {
-            setFeedback({
-                type: 'error',
-                message:
-                    'Lokasi GPS belum tersedia. Tunggu sebentar atau coba lagi.',
-            });
-            return;
-        }
+        if (!selectedEmployee || !pin.trim() || !selfieFile) return;
+        if (isLocationRequired && !location) return;
 
         setLoading(true);
         setFeedback(null);
@@ -227,15 +202,21 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
                 const d = result.data;
                 const shiftName = d.shiftName || '';
                 const msg = d.isOvertimeShift
-                    ? `${d.employeeName} · LEMBUR · ${shiftName}`
+                    ? `${d.employeeName} · lembur · ${shiftName}`
                     : `${d.employeeName} · ${shiftName} · ${nowWIB()}`;
                 setFeedback({ type: 'success', message: msg });
-                addLog(d.employeeCode, shiftName, d.isOvertimeShift, 'MASUK');
+                addLog({
+                    employeeName: d.employeeName,
+                    kind: 'Masuk',
+                    detail: d.isOvertimeShift
+                        ? `lembur · ${shiftName}`
+                        : shiftName,
+                });
                 resetForm();
             } else {
                 setFeedback({
                     type: 'error',
-                    message: result.error || 'Gagal clock-in',
+                    message: result.error || 'Gagal absen masuk',
                 });
             }
         } catch (err) {
@@ -250,22 +231,8 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
     };
 
     const handleClockOut = async () => {
-        if (!selectedEmployee) {
-            setFeedback({ type: 'error', message: 'Pilih karyawan dulu' });
-            return;
-        }
-        if (!pin.trim()) {
-            setFeedback({ type: 'error', message: 'Masukkan PIN' });
-            return;
-        }
-        if (isLocationRequired && !location) {
-            setFeedback({
-                type: 'error',
-                message:
-                    'Lokasi GPS belum tersedia. Tunggu sebentar atau coba lagi.',
-            });
-            return;
-        }
+        if (!selectedEmployee || !pin.trim()) return;
+        if (isLocationRequired && !location) return;
 
         setLoading(true);
         setFeedback(null);
@@ -295,20 +262,28 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
             );
             if (result.success && result.data) {
                 const d = result.data;
-                const ot =
+                const overtime =
                     d.overtimeHours > 0
-                        ? ` · +${d.overtimeHours}h lembur jam`
+                        ? ` · lembur ${hours(d.overtimeHours)} jam`
+                        : '';
+                const worked =
+                    d.actualHours != null
+                        ? ` · kerja ${hours(d.actualHours)} jam`
                         : '';
                 setFeedback({
                     type: 'success',
-                    message: `${d.employeeName} pulang ${d.actualHours?.toFixed(1)}j${ot}`,
+                    message: `${d.employeeName} pulang${worked}${overtime}`,
                 });
-                addLog(d.employeeCode, d.shiftName, false, 'PULANG');
+                addLog({
+                    employeeName: d.employeeName,
+                    kind: 'Pulang',
+                    detail: overtime.replace(' · ', ''),
+                });
                 resetForm();
             } else {
                 setFeedback({
                     type: 'error',
-                    message: result.error || 'Gagal clock-out',
+                    message: result.error || 'Gagal absen pulang',
                 });
             }
         } catch (err) {
@@ -323,195 +298,230 @@ export function AttendanceKioskForm({ employees, geofenceMode }: Props) {
     };
 
     const hasRequiredLocation = !isLocationRequired || !!location;
-    const canClockIn =
-        !!selectedEmployee &&
-        !!pin.trim() &&
-        !!selfieFile &&
-        hasRequiredLocation &&
-        !loading;
     const canClockOut =
         !!selectedEmployee && !!pin.trim() && hasRequiredLocation && !loading;
+    const canClockIn = canClockOut && !!selfieFile;
+    const lockReason =
+        !selectedEmployee || !pin.trim()
+            ? 'Pilih nama, lalu isi PIN.'
+            : !hasRequiredLocation
+              ? 'Lokasi belum terbaca. Masuk dan Pulang menunggu lokasi.'
+              : !selfieFile
+                ? 'Ambil selfie dulu untuk Masuk. Pulang bisa tanpa selfie.'
+                : null;
 
     return (
-        <div className="flex flex-col gap-4 md:gap-6">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight uppercase">
+        <div className="grid gap-4">
+            <div>
+                <h1 className="text-3xl font-extrabold tracking-tight">
                     Absensi
                 </h1>
-                <div className="bg-muted px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium border">
-                    <Clock className="h-4 w-4 text-primary" />
-                    {clock ?? '--:--'} WIB
-                </div>
-            </div>
-
-            <div className="bg-card rounded-2xl border-2 p-4 md:p-6 space-y-4">
-                <EmployeeNameSearch
-                    employees={employees}
-                    selected={selectedEmployee}
-                    onSelect={setSelectedEmployee}
-                    disabled={loading}
-                />
-
-                <div>
-                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">
-                        PIN
-                    </label>
-                    <Input
-                        type="password"
-                        inputMode="numeric"
-                        value={pin}
-                        onChange={(e) =>
-                            setPin(
-                                e.target.value.replace(/\D/g, '').slice(0, 6),
-                            )
-                        }
-                        placeholder="••••"
-                        className="h-14 text-lg font-bold tracking-[0.5em]"
-                        maxLength={6}
-                        autoComplete="off"
-                        disabled={loading}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && canClockIn)
-                                void handleClockIn();
-                        }}
-                    />
-                </div>
-
-                <LiveSelfieCapture
-                    key={selfieKey}
-                    onCapture={handleSelfieCapture}
-                    disabled={loading}
-                    label="Selfie (wajib untuk MASUK)"
-                />
-
-                <div className="flex items-center gap-2 text-xs">
-                    <MapPin
-                        className={cn(
-                            'h-4 w-4 shrink-0',
-                            location
-                                ? 'text-emerald-600'
-                                : locationError
-                                  ? 'text-destructive'
-                                  : 'text-muted-foreground',
-                        )}
-                    />
-                    {gettingLocation && (
-                        <span className="flex items-center gap-1 text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Mencari lokasi GPS...
-                        </span>
-                    )}
-                    {!gettingLocation && location && (
-                        <span className="text-emerald-600">
-                            Lokasi didapat (±{Math.round(location.accuracy)}m)
-                        </span>
-                    )}
-                    {!gettingLocation && !location && locationError && (
-                        <>
-                            <span className="text-destructive">
-                                {locationError}
-                            </span>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 px-2 text-xs"
-                                onClick={requestLocation}
-                            >
-                                Coba Lagi
-                            </Button>
-                        </>
-                    )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                    <Button
-                        size="lg"
-                        className="h-16 text-lg font-black uppercase tracking-wider"
-                        onClick={() => void handleClockIn()}
-                        disabled={!canClockIn}
-                    >
-                        {loading ? (
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        ) : (
-                            <LogIn className="mr-2 h-5 w-5" />
-                        )}
-                        MASUK
-                    </Button>
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        className="h-16 text-lg font-black uppercase tracking-wider border-2"
-                        onClick={() => void handleClockOut()}
-                        disabled={!canClockOut}
-                    >
-                        {loading ? (
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                        ) : (
-                            <LogOut className="mr-2 h-5 w-5" />
-                        )}
-                        PULANG
-                    </Button>
-                </div>
-                <p className="text-xs text-muted-foreground text-center">
-                    MASUK wajib selfie kamera live · PULANG selfie opsional ·
-                    PIN wajib
+                <p className="mt-1 text-lg text-muted-foreground">
+                    Untuk semua karyawan: bulanan, harian, helper.
                 </p>
             </div>
 
-            {feedback && (
-                <div
-                    className={cn(
-                        'flex items-center gap-3 p-4 rounded-xl border-2 text-sm font-medium',
-                        feedback.type === 'success'
-                            ? 'bg-green-500/5 border-green-500/20 text-green-700'
-                            : 'bg-destructive/5 border-destructive/20 text-destructive',
-                    )}
-                >
-                    {feedback.type === 'success' ? (
-                        <CheckCircle2 className="h-5 w-5 shrink-0" />
-                    ) : (
-                        <AlertCircle className="h-5 w-5 shrink-0" />
-                    )}
-                    <span>{feedback.message}</span>
-                </div>
-            )}
-
-            {logs.length > 0 && (
-                <div className="bg-card rounded-xl border p-3 space-y-1 max-h-64 overflow-y-auto">
-                    {logs.map((l) => (
-                        <div
-                            key={l.id}
-                            className="flex items-center gap-3 text-sm py-1 border-b border-border/50 last:border-0"
+            <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4">
+                    {employeesError && (
+                        <p
+                            role="alert"
+                            className="rounded-xl bg-kiosk-stop-soft p-3 text-base font-semibold text-kiosk-stop-ink"
                         >
-                            <span className="text-muted-foreground font-mono text-xs w-12">
-                                {l.time}
-                            </span>
-                            <Badge
-                                variant={
-                                    l.message === 'MASUK'
-                                        ? 'default'
-                                        : 'secondary'
-                                }
-                                className="text-xs"
+                            {employeesError}
+                        </p>
+                    )}
+                    <EmployeeNameSearch
+                        employees={employees}
+                        selected={selectedEmployee}
+                        onSelect={setSelectedEmployee}
+                        disabled={loading}
+                    />
+
+                    <div className="grid gap-1.5">
+                        <label
+                            htmlFor="attendance-pin"
+                            className="text-base font-semibold text-muted-foreground"
+                        >
+                            PIN
+                        </label>
+                        <Input
+                            id="attendance-pin"
+                            type="password"
+                            inputMode="numeric"
+                            value={pin}
+                            onChange={(e) =>
+                                setPin(
+                                    e.target.value
+                                        .replace(/\D/g, '')
+                                        .slice(0, 6),
+                                )
+                            }
+                            placeholder="••••"
+                            className="h-14 text-2xl font-bold tracking-[0.5em]"
+                            maxLength={6}
+                            autoComplete="off"
+                            disabled={loading}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && canClockIn)
+                                    void handleClockIn();
+                            }}
+                        />
+                    </div>
+
+                    {feedback &&
+                        (feedback.type === 'success' ? (
+                            <p
+                                role="status"
+                                className="flex items-center gap-3 rounded-xl bg-kiosk-go-soft p-3 text-base font-semibold text-kiosk-go-ink"
                             >
-                                {l.message}
-                            </Badge>
-                            <span className="font-medium">
-                                {l.employeeCode}
-                            </span>
-                            <span className="text-muted-foreground">
-                                · {l.shiftName}
-                            </span>
-                            {l.isOvertime && (
-                                <Badge className="bg-orange-500/10 text-orange-600 text-xs">
-                                    LEMBUR
-                                </Badge>
-                            )}
-                        </div>
-                    ))}
+                                <CheckCircle2
+                                    aria-hidden="true"
+                                    className="size-5 shrink-0"
+                                />
+                                {feedback.message}
+                            </p>
+                        ) : (
+                            <p
+                                role="alert"
+                                className="flex items-center gap-3 rounded-xl bg-kiosk-stop-soft p-3 text-base font-semibold text-kiosk-stop-ink"
+                            >
+                                <AlertCircle
+                                    aria-hidden="true"
+                                    className="size-5 shrink-0"
+                                />
+                                {feedback.message}
+                            </p>
+                        ))}
+
+                    {logs.length > 0 && (
+                        <section
+                            aria-label="Tadi di tablet ini"
+                            className="grid gap-2"
+                        >
+                            <h2 className="text-base font-semibold text-muted-foreground">
+                                Tadi di tablet ini
+                            </h2>
+                            <ul className="grid max-h-64 overflow-y-auto">
+                                {logs.map((log) => (
+                                    <li
+                                        key={log.id}
+                                        className="flex flex-wrap items-center gap-3 border-b py-2 text-base last:border-0"
+                                    >
+                                        <span className="tabular-nums text-muted-foreground">
+                                            {log.time}
+                                        </span>
+                                        <span className="font-semibold">
+                                            {log.employeeName}
+                                        </span>
+                                        <KioskPill
+                                            tone={
+                                                log.kind === 'Masuk'
+                                                    ? 'go'
+                                                    : 'neutral'
+                                            }
+                                        >
+                                            {log.kind}
+                                            {log.detail && ` · ${log.detail}`}
+                                        </KioskPill>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    )}
                 </div>
-            )}
+
+                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4">
+                    <LiveSelfieCapture
+                        key={selfieKey}
+                        onCapture={handleSelfieCapture}
+                        disabled={loading}
+                        label="Selfie (wajib untuk Masuk)"
+                    />
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        {gettingLocation ? (
+                            <KioskPill tone="warn">
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="size-4 animate-spin"
+                                />
+                                Mencari lokasi…
+                            </KioskPill>
+                        ) : location ? (
+                            <KioskPill tone="go">
+                                <MapPin aria-hidden="true" className="size-4" />
+                                Lokasi terbaca · ±
+                                {Math.round(location.accuracy)} m
+                            </KioskPill>
+                        ) : (
+                            <>
+                                <KioskPill tone="stop">
+                                    <MapPin
+                                        aria-hidden="true"
+                                        className="size-4"
+                                    />
+                                    {locationError ?? 'Lokasi belum terbaca'}
+                                </KioskPill>
+                                <button
+                                    type="button"
+                                    className={kioskButton()}
+                                    onClick={requestLocation}
+                                >
+                                    Coba lagi
+                                </button>
+                            </>
+                        )}
+                        <span className="text-base text-muted-foreground">
+                            {isLocationRequired
+                                ? 'Lokasi wajib untuk absen.'
+                                : geofenceMode === 'observe'
+                                  ? 'Lokasi dicatat, tidak wajib.'
+                                  : null}
+                        </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            className={kioskButton({ size: 'xl', tone: 'go' })}
+                            onClick={() => void handleClockIn()}
+                            disabled={!canClockIn}
+                        >
+                            {loading ? (
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <LogIn aria-hidden="true" />
+                            )}
+                            Masuk
+                        </button>
+                        <button
+                            type="button"
+                            className={kioskButton({ size: 'xl' })}
+                            onClick={() => void handleClockOut()}
+                            disabled={!canClockOut}
+                        >
+                            {loading ? (
+                                <Loader2
+                                    aria-hidden="true"
+                                    className="animate-spin"
+                                />
+                            ) : (
+                                <LogOut aria-hidden="true" />
+                            )}
+                            Pulang
+                        </button>
+                    </div>
+                    {lockReason && (
+                        <p className="text-center text-base text-muted-foreground">
+                            {lockReason}
+                        </p>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

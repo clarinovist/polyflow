@@ -150,7 +150,7 @@ export function LiveSelfieCapture({
     if (previewUrl) {
         return (
             <div className={cn('space-y-2', className)}>
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                <label className="block text-base font-semibold text-muted-foreground">
                     {label}
                 </label>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -162,8 +162,7 @@ export function LiveSelfieCapture({
                 <Button
                     type="button"
                     variant="outline"
-                    size="sm"
-                    className="w-full"
+                    className="h-12 w-full text-base"
                     onClick={() => void handleRetake()}
                     disabled={disabled}
                 >
@@ -176,7 +175,7 @@ export function LiveSelfieCapture({
 
     return (
         <div className={cn('space-y-2', className)}>
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+            <label className="block text-base font-semibold text-muted-foreground">
                 {label}
             </label>
             <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border-2 border-dashed border-border bg-black">
@@ -201,8 +200,8 @@ export function LiveSelfieCapture({
                         <p>{cameraError}</p>
                         <Button
                             type="button"
-                            size="sm"
                             variant="outline"
+                            className="h-12 text-base"
                             onClick={() => void startCamera()}
                         >
                             Coba Lagi
