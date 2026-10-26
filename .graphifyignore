@@ -1,0 +1,2 @@
+# Release version bookkeeping has no code entities; keep it in Git/CI.
+/.release-please-manifest.json

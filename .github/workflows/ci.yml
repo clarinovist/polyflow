@@ -161,11 +161,14 @@ jobs:
         run: npx prisma generate
       - name: Record runner and runtime
         run: node scripts/ci/metrics.mjs hardware
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8.0.2
         with:
+          skip-decompress: true
           pattern: test-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}-shard-*
           path: coverage/ci-input
           merge-multiple: false
+      - name: Extract verified artifact ZIPs
+        run: python3 scripts/ci/extract-artifacts.py coverage/ci-input
       - name: Run Tests with Coverage
         run: node scripts/ci/benchmark.mjs merge coverage/ci-input
       - uses: actions/upload-artifact@v6

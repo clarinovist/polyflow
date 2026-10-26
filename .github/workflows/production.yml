@@ -103,13 +103,16 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8.0.2
         with:
+          skip-decompress: true
           name: release-${{ needs.release-readiness.outputs.run-id }}-${{ needs.release-readiness.outputs.run-attempt }}-${{ needs.release-readiness.outputs.release-sha }}
           path: release-evidence
           repository: ${{ github.repository }}
           run-id: ${{ needs.release-readiness.outputs.run-id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract verified artifact ZIPs
+        run: python3 scripts/ci/extract-artifacts.py release-evidence
       - name: Verify release manifest identity
         id: manifest
         env:
