@@ -4,6 +4,7 @@ import { createJournalEntry } from './journals-service';
 import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
+import { allocateProductionWip } from './production-wip-provenance';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } };
@@ -106,21 +107,36 @@ export async function recordInventoryMovement(
         productVariant?: StockMovementWithProduct['productVariant'];
     },
     tx?: Prisma.TransactionClient,
-    options?: { journalTotal?: number },
+    options?: { journalTotal?: number; productionOutput?: boolean },
 ): Promise<void> {
-    if (movement.goodsReceiptId && !tx) {
+    if ((movement.goodsReceiptId || options?.productionOutput) && !tx) {
         return prisma.$transaction((innerTx) =>
             recordInventoryMovement(movement, innerTx, options),
         );
     }
 
     const db = tx || prisma;
+    if (options?.productionOutput) {
+        if (!movement.productionOrderId || movement.type !== 'IN' || movement.reversalOfId || movement.goodsReceiptId) {
+            throw new BusinessRuleError('Identitas hasil produksi tidak valid.');
+        }
+        await db.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${movement.productionOrderId} FOR UPDATE`;
+    }
 
     // Serialize receipt posting by its persisted movement. A plain find-first
     // idempotency check races when two workers replay the same movement before
     // either has created its journal.
-    if (movement.goodsReceiptId) {
+    if (movement.goodsReceiptId || options?.productionOutput) {
         await db.$queryRaw`SELECT id FROM "StockMovement" WHERE id = ${movement.id} FOR UPDATE`;
+    }
+    if (options?.productionOutput) {
+        const persisted = await db.stockMovement.findUnique({ where: { id: movement.id } });
+        if (!persisted || persisted.productionOrderId !== movement.productionOrderId ||
+            persisted.productVariantId !== movement.productVariantId || persisted.type !== 'IN' ||
+            persisted.reversalOfId || persisted.goodsReceiptId || persisted.salesOrderId) {
+            throw new BusinessRuleError('Transaksi hasil produksi tersimpan tidak sesuai sumber.');
+        }
+        movement = persisted;
     }
 
     // A movement is the accounting idempotency key. This guard must precede
@@ -225,8 +241,12 @@ export async function recordInventoryMovement(
     } else if (movement.productionOrderId) {
         const po = await db.productionOrder.findUnique({
             where: { id: movement.productionOrderId },
-            select: { isMaklon: true },
+            select: { isMaklon: true, actualPackagingEnabled: true, bom: { select: { productVariantId: true } } },
         });
+        if (options?.productionOutput && (!po || po.actualPackagingEnabled ||
+            po.bom.productVariantId !== movement.productVariantId)) {
+            throw new BusinessRuleError('Sumber hasil utama produksi tidak sesuai WO.');
+        }
         if (po?.isMaklon) isMaklon = true;
     } else if (movement.salesOrderId) {
         const so = await db.salesOrder.findUnique({
@@ -378,7 +398,9 @@ export async function recordInventoryMovement(
 
     const totalAmount =
         options?.journalTotal ??
-        (movement.goodsReceiptId && goodsReceipt && movement.cost != null
+        (options?.productionOutput && movement.cost != null
+            ? new Prisma.Decimal(movement.quantity).mul(movement.cost).toDecimalPlaces(2).toNumber()
+            : movement.goodsReceiptId && goodsReceipt && movement.cost != null
             ? toPersistedDecimal(movement.quantity, 'movement.quantity', {
                   movementId: movement.id,
                   goodsReceiptId: movement.goodsReceiptId,
@@ -468,23 +490,27 @@ export async function recordInventoryMovement(
         const debitAccount =
             productVariant.product.inventoryAccountId ||
             (await resolveAccountCode(productType, 'inventory')).code;
-        const wipAccount =
-            productVariant.product.wipAccountId ||
-            (await resolveAccountCode(productType, 'wip')).code;
-        lines.push(
-            {
+        if (options?.productionOutput && !isMaklon) {
+            const amount = new Prisma.Decimal(totalAmount).toDecimalPlaces(2);
+            const credits = await allocateProductionWip(db, movement, amount);
+            lines.push({
                 accountId: await getAccountId(debitAccount, db),
-                debit: totalAmount,
-                credit: 0,
+                debit: amount.toNumber(), credit: 0,
                 description: `Production Output: ${productVariant.name}`,
-            },
-            {
-                accountId: await getAccountId(wipAccount, db),
-                debit: 0,
-                credit: totalAmount,
-                description: `WIP Relief`,
-            },
-        );
+            }, ...credits.map(line => ({
+                accountId: line.accountId, debit: 0, credit: line.credit.toNumber(),
+                description: 'WIP Relief: posted WO source',
+            })));
+        } else {
+            const wipAccount = productVariant.product.wipAccountId ||
+                (await resolveAccountCode(productType, 'wip')).code;
+            lines.push(
+                { accountId: await getAccountId(debitAccount, db), debit: totalAmount, credit: 0,
+                    description: `Production Output: ${productVariant.name}` },
+                { accountId: await getAccountId(wipAccount, db), debit: 0, credit: totalAmount,
+                    description: 'WIP Relief' },
+            );
+        }
     } else if (movement.type === 'ADJUSTMENT') {
         const invAccount =
             productVariant.product.inventoryAccountId ||
@@ -548,10 +574,16 @@ export async function recordInventoryMovement(
         if (movement.type !== 'PURCHASE') {
             for (const line of lines) {
                 if (line.credit > 0) {
+                    // Source-funded output may return WIP into inventory on the
+                    // same account. Validate its net change, not a phantom outflow.
+                    const credit = options?.productionOutput
+                        ? Math.max(0, lines.filter(l => l.accountId === line.accountId)
+                            .reduce((net, l) => net + l.credit - l.debit, 0))
+                        : line.credit;
                     await validateGlBalance(
                         db,
                         line.accountId,
-                        line.credit,
+                        credit,
                         productVariant.name,
                     );
                 }
@@ -580,15 +612,6 @@ export async function recordInventoryMovement(
     }
 }
 
-interface CacheEntry {
-    id: string;
-    timestamp: number;
-}
-
-const ACCOUNT_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-const MAX_CACHE_SIZE = 200;
-const accountCache = new Map<string, CacheEntry>();
-
 async function getAccountId(
     code: string,
     db: Prisma.TransactionClient,
@@ -602,21 +625,10 @@ async function getAccountId(
         return code;
     }
 
-    const cached = accountCache.get(code);
-    if (cached && Date.now() - cached.timestamp < ACCOUNT_CACHE_TTL_MS) {
-        return cached.id;
-    }
-
+    // A code is not globally unique across tenant databases. Resolve on the
+    // caller's transaction instead of reusing a process-global code -> UUID.
     const acc = await db.account.findUnique({ where: { code } });
     if (!acc) throw new NotFoundError('Account', code);
-
-    // Evict oldest if at capacity
-    if (accountCache.size >= MAX_CACHE_SIZE) {
-        const oldestKey = accountCache.keys().next().value;
-        if (oldestKey) accountCache.delete(oldestKey);
-    }
-
-    accountCache.set(code, { id: acc.id, timestamp: Date.now() });
     return acc.id;
 }
 

@@ -1103,9 +1103,9 @@ export class ProductionExecutionService {
     /**
      * Void a Production Execution (Reverses stock movements and output totals)
      */
-    static async voidExecution(executionId: string, _userId?: string) {
+    static async voidExecution(executionId: string, userId?: string) {
         await prisma.$transaction(async (tx) => {
-            await voidProductionExecutionInTransaction(tx, executionId);
+            await voidProductionExecutionInTransaction(tx, executionId, { userId });
         });
     }
 }

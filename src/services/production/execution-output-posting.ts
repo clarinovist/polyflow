@@ -157,7 +157,7 @@ export async function recordFinishedGoodsOutput(params: {
             productionOrderId,
         },
     });
-    await AccountingService.recordInventoryMovement(movement, tx);
+    await AccountingService.recordInventoryMovement(movement, tx, { productionOutput: true });
 }
 
 /**

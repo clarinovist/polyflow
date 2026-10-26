@@ -41,6 +41,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/sales/__tests__/order-edit-postgres.test.ts \
   src/services/dashboard/__tests__/dashboard-hardening-postgres.test.ts \
   src/services/accounting/__tests__/closing-filter-postgres.test.ts \
+  src/services/accounting/__tests__/production-wip-postgres.test.ts \
   src/services/finance/__tests__/cogs-economic-diagnosis-postgres.test.ts \
   src/services/finance/__tests__/inventory-economic-diagnosis-postgres.test.ts \
   src/lib/bot/__tests__/help-guides-postgres.test.ts \

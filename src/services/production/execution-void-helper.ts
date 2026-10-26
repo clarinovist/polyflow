@@ -5,7 +5,9 @@ import {
   ProductionRuleViolationError,
 } from '@/lib/errors/errors';
 import { InventoryCoreService } from '@/services/inventory/core-service';
-import { AccountingService } from '../accounting/accounting-service';
+import { reverseProductionMovementJournal } from '@/services/accounting/production-movement-reversal';
+import { getActorUserId } from '@/lib/core/actor-context';
+import { logActivity } from '@/lib/tools/audit';
 import {
   adjustReservationsForVoidOutput,
   cancelSpecificReservation,
@@ -18,6 +20,7 @@ type VoidExecutionOptions = {
   /** Force-cancel uses a source marker so overlapping windows cannot reverse twice. */
   sourceMarker?: boolean;
   syncRun?: boolean;
+  userId?: string;
 };
 
 function sourceMarker(id: string) {
@@ -34,7 +37,7 @@ export async function voidProductionExecutionInTransaction(
   executionId: string,
   options: VoidExecutionOptions = {},
 ): Promise<void> {
-  const execution = await tx.productionExecution.findUnique({
+  let execution = await tx.productionExecution.findUnique({
     where: { id: executionId },
     include: {
       productionOrder: {
@@ -43,6 +46,12 @@ export async function voidProductionExecutionInTransaction(
     },
   });
 
+  if (!execution) throw new NotFoundError('ProductionExecution', executionId);
+  await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${execution.productionOrderId} FOR UPDATE`;
+  // Re-read after serializing on the WO; another request may have voided it.
+  execution = await tx.productionExecution.findUnique({
+    where: { id: executionId }, include: { productionOrder: { include: { bom: true } } },
+  });
   if (!execution) throw new NotFoundError('ProductionExecution', executionId);
   if (execution.status === 'VOIDED') throw new ConflictError('Eksekusi sudah di-void');
 
@@ -68,6 +77,8 @@ export async function voidProductionExecutionInTransaction(
     throw new ProductionRuleViolationError('Eksekusi masih berjalan, tidak bisa di-void');
   }
 
+  const userId = options.userId ?? getActorUserId();
+  if (!userId) throw new ProductionRuleViolationError('Aktor pembatalan wajib tersedia.');
   const { productionOrderId, quantityProduced, createdAt } = execution;
   const adjacentExecutions = await tx.productionExecution.findMany({
     where: { productionOrderId, id: { not: executionId } },
@@ -88,17 +99,25 @@ export async function voidProductionExecutionInTransaction(
     ? await reversePackagedExecution(tx, executionId, productionOrderId)
     : await tx.stockMovement.findMany({ where: { productionOrderId, createdAt: range, productionExecutionId: null } });
 
-  for (const move of execution.clientRequestId ? [] : movements) {
-    if (move.reference?.startsWith('VOID:')) continue;
+  // Restore output WIP before crediting it back to raw inventory. The original
+  // posting order is usually the opposite, and would falsely fail a zero WIP pool.
+  const orderedMovements = [...movements].sort((a, b) =>
+    (a.type === 'IN' ? 0 : 1) - (b.type === 'IN' ? 0 : 1) || a.id.localeCompare(b.id),
+  );
+  for (const move of execution.clientRequestId ? [] : orderedMovements) {
+    if (move.reference?.startsWith('VOID:') || move.reversalOfId) continue;
 
-    // Force-cancel may process multiple executions whose historical windows
-    // overlap. A source marker makes each original movement reversible once.
-    if (options.sourceMarker) {
-      const existingReversal = await tx.stockMovement.findFirst({
-        where: { reference: { contains: sourceMarker(move.id) } },
-        select: { id: true },
-      });
-      if (existingReversal) continue;
+    // The durable edge covers manual void and force-cancel; retain legacy markers
+    // for already-corrected records instead of writing a second financial inverse.
+    const existingReversal = await tx.stockMovement.findFirst({
+      where: { OR: [
+        { reversalOfId: move.id },
+        { productionOrderId, reference: { contains: sourceMarker(move.id) } },
+      ] }, select: { id: true },
+    });
+    if (existingReversal) {
+      if (options.sourceMarker) continue;
+      throw new ConflictError('Transaksi sumber sudah dibalik.');
     }
 
     const marker = options.sourceMarker ? ` ${sourceMarker(move.id)}` : '';
@@ -112,10 +131,10 @@ export async function voidProductionExecutionInTransaction(
           quantity: move.quantity,
           cost: move.cost,
           reference: `VOID: ${move.reference ?? move.id}${marker}`,
-          productionOrderId,
+          productionOrderId, reversalOfId: move.id,
         },
       });
-      await AccountingService.recordInventoryMovement(reversal, tx);
+      await reverseProductionMovementJournal(tx, move, reversal, userId);
 
       if (move.reference?.includes('| RESERVE:')) {
         const reservationId = move.reference.split('| RESERVE:')[1]?.trim();
@@ -131,10 +150,10 @@ export async function voidProductionExecutionInTransaction(
           quantity: move.quantity,
           cost: move.cost,
           reference: `VOID: ${move.reference ?? move.id}${marker}`,
-          productionOrderId,
+          productionOrderId, reversalOfId: move.id,
         },
       });
-      await AccountingService.recordInventoryMovement(reversal, tx);
+      await reverseProductionMovementJournal(tx, move, reversal, userId);
     }
   }
 
@@ -190,6 +209,9 @@ export async function voidProductionExecutionInTransaction(
     );
   }
 
+  await logActivity({ userId, action: 'VOID_PRODUCTION_EXECUTION',
+    entityType: 'ProductionExecution', entityId: executionId,
+    details: 'Production reversal with original journal accounts and amounts.', tx });
   if (options.syncRun !== false && execution.productionOrder.productionRunId) {
     await syncProductionRunStatusFromOrders(tx, execution.productionOrder.productionRunId);
   }
