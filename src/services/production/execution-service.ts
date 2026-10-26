@@ -293,7 +293,7 @@ async function processOutputAndBackflush(params: {
     const totalConsumed = isPackingOrder
         ? resolvedBaseQty
         : resolvedBaseQty + normalizedScrap;
-    await backflushMaterials({
+    const materialValuation = await backflushMaterials({
         tx,
         order: order as ProductionExecutionOrder,
         productionOrderId,
@@ -319,6 +319,7 @@ async function processOutputAndBackflush(params: {
         productionOrderId,
         order: order as ProductionExecutionOrder,
         quantityProduced: resolvedBaseQty,
+        materialRoundingAdjustment: materialValuation?.roundingAdjustment,
         reference: `Production Output: WO#${order.orderNumber}`,
     });
 

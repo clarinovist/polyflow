@@ -24,7 +24,34 @@ export class ProductionCostService {
      * Calculate Batch Cost of Goods Manufactured (COGM)
      * Formula: (Total Material Cost + Conversion Cost) / Total Yield
      */
+    static async calculateBatchOutputValuation(
+        productionOrderId: string,
+        quantity: number,
+        tx: Prisma.TransactionClient,
+        materialRoundingAdjustment = 0,
+    ) {
+        const basis = await this.calculateBatchCostBasis(productionOrderId, tx);
+        const persistedQuantity = new Prisma.Decimal(quantity).toDecimalPlaces(4);
+        // First output also covers manually issued materials. Later results only
+        // carry THIS backflush's rounding, never average old cents into new costs.
+        const adjustment = basis.actualQty.eq(persistedQuantity)
+            ? basis.roundedMaterial.minus(basis.rawMaterial.toDecimalPlaces(2))
+            : new Prisma.Decimal(materialRoundingAdjustment);
+        const total = basis.unitCost.mul(persistedQuantity).toDecimalPlaces(2).plus(adjustment);
+        return {
+            unitCost: persistedQuantity.gt(0) ? total.div(persistedQuantity).toNumber() : 0,
+            journalTotal: total.toNumber(),
+        };
+    }
+
     static async calculateBatchCOGM(
+        productionOrderId: string,
+        tx?: Prisma.TransactionClient,
+    ) {
+        return (await this.calculateBatchCostBasis(productionOrderId, tx)).unitCost.toNumber();
+    }
+
+    private static async calculateBatchCostBasis(
         productionOrderId: string,
         tx?: Prisma.TransactionClient,
     ) {
@@ -33,7 +60,8 @@ export class ProductionCostService {
             where: { id: productionOrderId },
             include: { bom: { select: { productVariantId: true } } },
         });
-        if (!order) return 0;
+        const zero = new Prisma.Decimal(0);
+        if (!order) return { unitCost: zero, actualQty: zero, rawMaterial: zero, roundedMaterial: zero };
 
         const fgVariantId = order.bom?.productVariantId;
         const packagedOutputs = order.actualPackagingEnabled ? await client.productionOutputGroup.findMany({
@@ -54,51 +82,25 @@ export class ProductionCostService {
             },
         });
 
-        let totalMaterialCost = 0;
-        movements.forEach((m) => {
-            // Exclude movements of the finished good itself (e.g. FG output IN, or voided FG OUT)
-            if (outputIds.has(m.productVariantId)) return;
-
-            const c = Number(m.cost || 0);
-            const q = Number(m.quantity);
-
-            if (m.type === MovementType.OUT) {
-                totalMaterialCost += c * q;
-            } else if (
-                m.type === MovementType.IN &&
-                (m.reference?.startsWith('VOID:') ||
-                    m.reference?.startsWith(
-                        'CORRECTION: PACKING_SCRAP_UNIT_',
-                    ))
-            ) {
-                // Only IN rows that explicitly reverse/correct a production
-                // issue reduce COGM. Ordinary production IN rows for scrap or
-                // by-products must not offset consumed material.
-                totalMaterialCost -= c * q;
-            }
+        const amounts = movements.map(movement => {
+            if (outputIds.has(movement.productVariantId)) return zero;
+            const amount = new Prisma.Decimal(movement.cost ?? 0).mul(movement.quantity);
+            if (movement.type === MovementType.OUT) return amount;
+            if (movement.type === MovementType.IN &&
+                (movement.reference?.startsWith('VOID:') ||
+                 movement.reference?.startsWith('CORRECTION: PACKING_SCRAP_UNIT_'))) return amount.negated();
+            return zero;
         });
+        const rawMaterial = amounts.reduce((sum, amount) => sum.plus(amount), zero);
+        const roundedMaterial = amounts.reduce((sum, amount) => sum.plus(amount.toDecimalPlaces(2)), zero);
 
-        // 2. Conversion Cost
-        let conversionCost = Number(order.estimatedConversionCost || 0);
-
-        if (order.isMaklon) {
-            const maklonCosts = await client.maklonCostItem.findMany({
-                where: { productionOrderId: order.id },
-            });
-            conversionCost = maklonCosts.reduce(
-                (sum, item) => sum + Number(item.amount),
-                0,
-            );
-        }
-
-        // 3. Total Cost
-        const totalCost = totalMaterialCost + conversionCost;
-
-        // 4. Net Yield
-        const actualQty = Number(order.actualQuantity || 0);
-
-        if (actualQty <= 0) return 0;
-
-        return totalCost / actualQty;
+        const conversionCost = order.isMaklon
+            ? (await client.maklonCostItem.findMany({ where: { productionOrderId: order.id } }))
+                .reduce((sum, item) => sum.plus(item.amount), new Prisma.Decimal(0))
+            : new Prisma.Decimal(order.estimatedConversionCost ?? 0);
+        const actualQty = new Prisma.Decimal(order.actualQuantity ?? 0);
+        return { rawMaterial, roundedMaterial, actualQty,
+            unitCost: actualQty.gt(0) ? rawMaterial.plus(conversionCost).div(actualQty) : zero,
+        };
     }
 }

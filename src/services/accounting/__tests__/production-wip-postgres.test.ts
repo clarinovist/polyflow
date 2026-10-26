@@ -6,6 +6,8 @@ import { tenantContext } from '@/lib/core/prisma';
 import { recordInventoryMovement } from '../inventory-link-service';
 import { reverseProductionMovementJournal } from '../production-movement-reversal';
 import { ProductionCostService } from '../../production/cost-service';
+import { recordFinishedGoodsOutput } from '../../production/execution-output-posting';
+import type { ProductionExecutionOrder } from '../../production/execution-types';
 
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const db = connection ? returnTestClient(connection) : null;
@@ -88,6 +90,53 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
         expect(await balance(db!, a.raw)).toBe(10000); expect(await balance(db!, a.legacy)).toBe(0);
         expect(await balance(db!, a.wip)).toBe(10); expect(await balance(db!, a.output)).toBe(0);
         expect(await db!.auditLog.count({ where: { action: 'REVERSE_PRODUCTION_JOURNAL' } })).toBe(2);
+    });
+    it('persists exact output cents, replays unchanged and reverses the original monetary vector', async () => {
+        const a = ids.get(db!)!;
+        await db!.journalLine.updateMany({ where: { accountId: a.raw }, data: { debit: 10000000 } });
+        await db!.journalLine.updateMany({ where: { accountId: 'equity' }, data: { credit: 10000010 } });
+        const original = await run(db!, async tx => {
+            for (const [quantity, cost] of [[350, 3570.1728], [350, 11818.1818], [11, 21080.2253]]) {
+                const material = await tx.stockMovement.create({ data: {
+                    type: 'OUT', productVariantId: 'raw', productionOrderId: 'wo', fromLocationId: 'loc', quantity, cost, reference: 'Synthetic issue',
+                } });
+                await recordInventoryMovement(material, tx);
+            }
+            const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: 711 }, include: { bom: true } });
+            await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                quantityProduced: 711, reference: 'Synthetic exact output' });
+            return tx.stockMovement.findFirstOrThrow({ where: { productionOrderId: 'wo', type: 'IN' } });
+        });
+        expect(original.cost?.toString()).toBe('7901.2751');
+        expect(await balance(db!, a.output)).toBe(5617806.59);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        await run(db!, tx => recordInventoryMovement(original, tx, { productionOutput: true }));
+        expect(await db!.journalEntry.count({ where: { referenceId: original.id } })).toBe(1);
+        expect(await balance(db!, a.output)).toBe(5617806.59);
+        await run(db!, async tx => {
+            const reversal = await tx.stockMovement.create({ data: {
+                type: 'OUT', productVariantId: 'output', productionOrderId: 'wo', fromLocationId: 'loc',
+                quantity: original.quantity, cost: original.cost, reversalOfId: original.id, reference: 'VOID: Synthetic exact output',
+            } });
+            await reverseProductionMovementJournal(tx, original, reversal, 'actor');
+        });
+        expect(await balance(db!, a.output)).toBe(0);
+        expect(await balance(db!, a.legacy)).toBe(5617806.59);
+    });
+    it('keeps partial outputs funded when the same material price has fractional cents', async () => {
+        for (const quantity of [6.71, 62.1, 27.76, 74.06, 69.24]) {
+            await run(db!, async tx => {
+                const material = await tx.stockMovement.create({ data: {
+                    type: 'OUT', productVariantId: 'raw', productionOrderId: 'wo', fromLocationId: 'loc', quantity, cost: 14.5299,
+                } });
+                await recordInventoryMovement(material, tx);
+                const order = await tx.productionOrder.update({ where: { id: 'wo' },
+                    data: { actualQuantity: { increment: quantity } }, include: { bom: true } });
+                await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                    quantityProduced: quantity, reference: 'Synthetic partial' });
+            });
+            expect(await balance(db!, ids.get(db!)!.legacy)).toBe(0);
+        }
     });
     it('does not borrow another WO funds and rolls back a rejected movement', async () => {
         await run(db!, tx => issue(tx, 100, 'other-wo'));

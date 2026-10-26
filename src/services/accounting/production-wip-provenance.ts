@@ -8,7 +8,7 @@ const zero = () => new Prisma.Decimal(0);
 
 function unresolved(reason: string): never {
     throw new BusinessRuleError(
-        `Sumber nilai WIP WO belum dapat direkonsiliasi: ${reason}. Minta Finance memeriksa jurnal sumber; jangan menambah stok atau saldo untuk melewati validasi.`,
+        `Hasil belum disimpan. Nilai WIP WO belum cocok: ${reason}. Minta admin memeriksa perhitungan biaya dan jurnal SPK; jangan mengubah jumlah hasil, stok, atau saldo untuk melewati pemeriksaan ini.`,
         {}, 'PRODUCTION_WIP_UNRESOLVED',
     );
 }

@@ -5,6 +5,7 @@ import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
 import { allocateProductionWip } from './production-wip-provenance';
+import { assertProductionOutputAmount } from './production-output-amount';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
     include: { productVariant: { include: { product: true } } };
@@ -396,9 +397,12 @@ export async function recordInventoryMovement(
         }
     }
 
+    if (options?.productionOutput && options.journalTotal !== undefined) {
+        assertProductionOutputAmount(movement, options.journalTotal);
+    }
     const totalAmount =
         options?.journalTotal ??
-        (options?.productionOutput && movement.cost != null
+        ((options?.productionOutput || (movement.productionOrderId && movement.type === 'OUT')) && movement.cost != null
             ? new Prisma.Decimal(movement.quantity).mul(movement.cost).toDecimalPlaces(2).toNumber()
             : movement.goodsReceiptId && goodsReceipt && movement.cost != null
             ? toPersistedDecimal(movement.quantity, 'movement.quantity', {

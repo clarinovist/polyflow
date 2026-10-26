@@ -208,6 +208,8 @@ export async function backflushMaterials(params: {
             ? resolvePackingScrapMaterialId(itemsToBackflush)
             : null;
 
+    let rawMaterialValue = new Prisma.Decimal(0);
+    let postedMaterialValue = new Prisma.Decimal(0);
     for (const item of itemsToBackflush) {
         if (params.actualPackagingIds?.includes(item.productVariantId)) continue;
         const consumptionLocationId = await resolveMaterialLocation(
@@ -316,6 +318,12 @@ export async function backflushMaterials(params: {
             },
         });
         await AccountingService.recordInventoryMovement(movement, tx);
+        // Match the persisted movement's quantity/cost scales and each journal's
+        // cents. Carry only this execution's representation difference forward.
+        const rawValue = new Prisma.Decimal(qtyToDeduct).toDecimalPlaces(4)
+            .mul(new Prisma.Decimal(sourceUnitCost).toDecimalPlaces(4));
+        rawMaterialValue = rawMaterialValue.plus(rawValue);
+        postedMaterialValue = postedMaterialValue.plus(rawValue.toDecimalPlaces(2));
 
         // Convert warehouse STAGED (transfer ke WIP) into ISSUED for actual consumption,
         // so progress stays correct (STAGED+ISSUED) and HPP only counts ISSUED.
@@ -388,4 +396,5 @@ export async function backflushMaterials(params: {
             });
         }
     }
+    return { roundingAdjustment: postedMaterialValue.minus(rawMaterialValue.toDecimalPlaces(2)).toNumber() };
 }
