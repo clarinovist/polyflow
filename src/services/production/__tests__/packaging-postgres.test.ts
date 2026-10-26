@@ -52,6 +52,26 @@ function payload() {
     };
 }
 const run = <T>(client: PrismaClient, fn: () => Promise<T>) => tenantContext.run(client, () => runWithActor(actor, fn));
+async function kioskShell() {
+    await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'synthetic-only', role: 'ADMIN', isActive: false } });
+    await db!.productionOrder.update({ where: { id: 'order' }, data: { actualPackagingEnabled: true } });
+    return db!.productionExecution.create({ data: { productionOrderId: 'order', startTime: new Date(), quantityProduced: 0, scrapQuantity: 0 } });
+}
+function kioskInput(executionId: string, packagedOutput: ReturnType<typeof payload>['packagedOutput'], shiftId?: string) {
+    return {
+        executionId, quantityProduced: 24.7, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', shiftId,
+        packagedOutput, kioskOperator: { employeeId: 'synthetic-operator', code: 'OP-01' },
+    };
+}
+const custodyLabelStock = async () => Number((await db!.inventory.findFirstOrThrow({ where: { locationId: 'custody-a', productVariantId: 'label' } })).quantity);
+const orderActualQuantity = async () => Number((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'order' } })).actualQuantity);
+async function openCurrentFiscalPeriod() {
+    const date = new Date();
+    const year = date.getUTCFullYear(); const month = date.getUTCMonth() + 1;
+    await db!.fiscalPeriod.upsert({ where: { year_month: { year, month } }, update: { status: 'OPEN' }, create: {
+        year, month, name: 'Synthetic current period', status: 'OPEN', startDate: new Date(Date.UTC(year, month - 1, 1)), endDate: new Date(Date.UTC(year, month, 1)),
+    } });
+}
 describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
     beforeEach(async () => { await seed(db!); });
     afterAll(async () => { await Promise.all([db?.$disconnect(), other?.$disconnect()]); });
@@ -111,11 +131,7 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         const input = payload();
         await run(db!, () => ProductionExecutionService.addProductionOutput(input));
         const execution = await db!.productionExecution.findFirstOrThrow();
-        const date = new Date();
-        const year = date.getUTCFullYear(); const month = date.getUTCMonth() + 1;
-        await db!.fiscalPeriod.upsert({ where: { year_month: { year, month } }, update: { status: 'OPEN' }, create: {
-            year, month, name: 'Synthetic current period', status: 'OPEN', startDate: new Date(Date.UTC(year, month - 1, 1)), endDate: new Date(Date.UTC(year, month, 1)),
-        } });
+        await openCurrentFiscalPeriod();
         const outcomes = await run(db!, () => Promise.allSettled([
             ProductionExecutionService.voidExecution(execution.id, actor), ProductionExecutionService.voidExecution(execution.id, actor),
         ]));
@@ -158,21 +174,16 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         expect(Number(wip._sum.debit)).toBe(Number(wip._sum.credit));
     });
     it('kiosk output with packaging posts once on a concurrent retry and stop only closes the shell', async () => {
-        await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'synthetic-only', role: 'ADMIN', isActive: false } });
-        await db!.productionOrder.update({ where: { id: 'order' }, data: { actualPackagingEnabled: true } });
-        const shell = await db!.productionExecution.create({ data: { productionOrderId: 'order', startTime: new Date(), quantityProduced: 0, scrapQuantity: 0 } });
+        const shell = await kioskShell();
         const { packagedOutput } = payload();
-        const input = {
-            executionId: shell.id, quantityProduced: 24.7, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', shiftId: undefined,
-            packagedOutput, kioskOperator: { employeeId: 'synthetic-operator', code: 'OP-01' },
-        };
+        const input = kioskInput(shell.id, packagedOutput);
         await run(db!, () => Promise.all([ProductionExecutionService.logRunningOutput(input), ProductionExecutionService.logRunningOutput(input)]));
 
         expect(await db!.productionExecution.count({ where: { clientRequestId: packagedOutput.clientRequestId } })).toBe(1);
         const outputGroups = await db!.productionOutputGroup.findMany({ select: { productVariantId: true, quantity: true } });
         expect(outputGroups.map((group) => [group.productVariantId, Number(group.quantity)])).toEqual([['brand-a', 24.7]]);
-        expect(Number((await db!.inventory.findFirstOrThrow({ where: { locationId: 'custody-a', productVariantId: 'label' } })).quantity)).toBe(90);
-        expect(Number((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'order' } })).actualQuantity)).toBe(24.7);
+        expect(await custodyLabelStock()).toBe(90);
+        expect(await orderActualQuantity()).toBe(24.7);
         const audit = await db!.auditLog.findFirstOrThrow({ where: { action: 'RECORD_PACKAGED_OUTPUT' } });
         expect(audit.userId).toBe('system');
         expect(audit.details).toContain('OP-01');
@@ -184,7 +195,39 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
             executionId: shell.id, quantityProduced: 0, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', completed: false,
         }));
         expect((await db!.productionExecution.findUniqueOrThrow({ where: { id: shell.id } })).endTime).not.toBeNull();
-        expect(Number((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'order' } })).actualQuantity)).toBe(24.7);
+        expect(await orderActualQuantity()).toBe(24.7);
+    });
+    it('kiosk shortage rolls back everything, and the corrected resubmit with the same request id posts once', async () => {
+        const shell = await kioskShell();
+        const { packagedOutput } = payload();
+        packagedOutput.groups[0].packaging[0].quantity = 101;
+        await expect(run(db!, () => ProductionExecutionService.logRunningOutput(kioskInput(shell.id, packagedOutput, 'shift')))).rejects.toThrow();
+
+        expect(await db!.productionExecution.count({ where: { clientRequestId: packagedOutput.clientRequestId } })).toBe(0);
+        expect((await db!.productionExecution.findUniqueOrThrow({ where: { id: shell.id } })).shiftId).toBeNull();
+        expect(await db!.stockMovement.count()).toBe(0);
+        expect(await custodyLabelStock()).toBe(100);
+        expect(await orderActualQuantity()).toBe(0);
+
+        packagedOutput.groups[0].packaging[0].quantity = 10;
+        const corrected = kioskInput(shell.id, packagedOutput, 'shift');
+        await run(db!, () => Promise.all([ProductionExecutionService.logRunningOutput(corrected), ProductionExecutionService.logRunningOutput(corrected)]));
+        expect(await db!.productionExecution.count({ where: { clientRequestId: packagedOutput.clientRequestId } })).toBe(1);
+        expect(await custodyLabelStock()).toBe(90);
+        expect(await orderActualQuantity()).toBe(24.7);
+    });
+    it('voiding a kiosk output restores packaging stock and the realized quantity', async () => {
+        const shell = await kioskShell();
+        const { packagedOutput } = payload();
+        await run(db!, () => ProductionExecutionService.logRunningOutput(kioskInput(shell.id, packagedOutput)));
+        const logged = await db!.productionExecution.findUniqueOrThrow({ where: { clientRequestId: packagedOutput.clientRequestId } });
+        await openCurrentFiscalPeriod();
+
+        await run(db!, () => ProductionExecutionService.voidExecution(logged.id, actor));
+
+        expect((await db!.productionExecution.findUniqueOrThrow({ where: { id: logged.id } })).status).toBe('VOIDED');
+        expect(await custodyLabelStock()).toBe(100);
+        expect(await orderActualQuantity()).toBe(0);
     });
 
     it('same IDs in a second tenant do not share balances or postings', async () => {
