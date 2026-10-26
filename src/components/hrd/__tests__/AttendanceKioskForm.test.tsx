@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { act, render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 
 const {
@@ -148,8 +148,6 @@ describe('AttendanceKioskForm', () => {
     });
 
     describe('Tahap 2 kiosk layout', () => {
-        afterEach(() => vi.useRealTimers());
-
         it('says why Masuk and Pulang are still locked', async () => {
             render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
             expect(screen.getByText('Pilih nama, lalu isi PIN.')).toBeTruthy();
@@ -167,8 +165,7 @@ describe('AttendanceKioskForm', () => {
         });
 
         it('lets the success message go by itself and keeps a named history', async () => {
-            vi.useFakeTimers({ shouldAdvanceTime: true });
-            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" successDismissMs={50} />);
             await fillForm();
             fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
 
@@ -178,8 +175,7 @@ describe('AttendanceKioskForm', () => {
             expect(within(history).getByText('Budi')).toBeTruthy();
             expect(within(history).queryByText('EMP-001')).toBeNull();
 
-            act(() => vi.advanceTimersByTime(5000));
-            await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+            await waitFor(() => expect(screen.queryByRole('status')).toBeNull(), { timeout: 3000 });
         });
 
         it('writes the clock-out hours in plain words', async () => {

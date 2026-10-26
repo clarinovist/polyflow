@@ -61,6 +61,8 @@ interface Props {
      * nobody.
      */
     geofenceMode: GeofenceMode;
+    /** How long a success message stays; defaults to SUCCESS_DISMISS_MS. */
+    successDismissMs?: number;
 }
 
 function nowWIB(): string {
@@ -79,6 +81,7 @@ export function AttendanceKioskForm({
     employees,
     employeesError,
     geofenceMode,
+    successDismissMs = SUCCESS_DISMISS_MS,
 }: Props) {
     const isLocationRequired = geofenceMode === 'enforce';
     const [selectedEmployee, setSelectedEmployee] =
@@ -96,9 +99,9 @@ export function AttendanceKioskForm({
     // Success messages leave by themselves; errors stay until the next try.
     useEffect(() => {
         if (feedback?.type !== 'success') return;
-        const timer = setTimeout(() => setFeedback(null), SUCCESS_DISMISS_MS);
+        const timer = setTimeout(() => setFeedback(null), successDismissMs);
         return () => clearTimeout(timer);
-    }, [feedback]);
+    }, [feedback, successDismissMs]);
 
     const requestLocation = useCallback(() => {
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
