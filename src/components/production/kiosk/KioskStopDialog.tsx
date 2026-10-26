@@ -40,6 +40,8 @@ interface KioskStopDialogProps {
         createdAt: string;
     }>;
     operatorId?: string;
+    /** Output and affal of these SPKs are posted only through Catat Hasil. */
+    actualPackagingEnabled?: boolean;
     onSuccess: () => void;
 }
 
@@ -55,6 +57,7 @@ export function KioskStopDialog({
     targetQuantity,
     logs,
     operatorId,
+    actualPackagingEnabled = false,
     onSuccess,
 }: KioskStopDialogProps) {
     const [loading, setLoading] = useState(false);
@@ -225,66 +228,81 @@ export function KioskStopDialog({
                         dapat ditandai selesai selama permintaan masih menunggu
                         review gudang.
                     </div>
-                    <div className="space-y-2">
-                        <Label
-                            htmlFor="quantity"
-                            className="text-sm font-semibold"
-                        >
-                            Tambah Hasil Akhir? ({unitMeta.displayUnit})
-                        </Label>
-                        <Input
-                            id="quantity"
-                            type="number"
-                            inputMode="decimal"
-                            step="0.01"
-                            placeholder="0.00"
-                            className="h-14 text-xl font-bold border-primary/20 focus:border-primary"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            Kosongkan jika semua hasil sudah dicatat sebelumnya.
+                    {actualPackagingEnabled ? (
+                        <p className="rounded-lg border p-3 text-sm">
+                            SPK ini mencatat etiket dan kemasan. Hasil dan affal
+                            terakhir dicatat lewat Catat Hasil, lalu hentikan di
+                            sini.
                         </p>
-                    </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                                <Label
+                                    htmlFor="quantity"
+                                    className="text-sm font-semibold"
+                                >
+                                    Tambah Hasil Akhir? ({unitMeta.displayUnit})
+                                </Label>
+                                <Input
+                                    id="quantity"
+                                    type="number"
+                                    inputMode="decimal"
+                                    step="0.01"
+                                    placeholder="0.00"
+                                    className="h-14 text-xl font-bold border-primary/20 focus:border-primary"
+                                    value={quantity}
+                                    onChange={(e) =>
+                                        setQuantity(e.target.value)
+                                    }
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Kosongkan jika semua hasil sudah dicatat
+                                    sebelumnya.
+                                </p>
+                            </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
-                            <Label
-                                htmlFor="scrap-prongkol"
-                                className="text-sm font-semibold"
-                            >
-                                Scrap Prongkol ({unitMeta.primaryUnit})
-                            </Label>
-                            <Input
-                                id="scrap-prongkol"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                className="h-12 text-lg font-bold"
-                                value={scrapProngkol}
-                                onChange={(e) =>
-                                    setScrapProngkol(e.target.value)
-                                }
-                            />
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label
-                                htmlFor="scrap-daun"
-                                className="text-sm font-semibold"
-                            >
-                                Scrap Daun ({unitMeta.primaryUnit})
-                            </Label>
-                            <Input
-                                id="scrap-daun"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                className="h-12 text-lg font-bold"
-                                value={scrapDaun}
-                                onChange={(e) => setScrapDaun(e.target.value)}
-                            />
-                        </div>
-                    </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="scrap-prongkol"
+                                        className="text-sm font-semibold"
+                                    >
+                                        Scrap Prongkol ({unitMeta.primaryUnit})
+                                    </Label>
+                                    <Input
+                                        id="scrap-prongkol"
+                                        type="number"
+                                        inputMode="decimal"
+                                        step="0.01"
+                                        className="h-12 text-lg font-bold"
+                                        value={scrapProngkol}
+                                        onChange={(e) =>
+                                            setScrapProngkol(e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label
+                                        htmlFor="scrap-daun"
+                                        className="text-sm font-semibold"
+                                    >
+                                        Scrap Daun ({unitMeta.primaryUnit})
+                                    </Label>
+                                    <Input
+                                        id="scrap-daun"
+                                        type="number"
+                                        inputMode="decimal"
+                                        step="0.01"
+                                        className="h-12 text-lg font-bold"
+                                        value={scrapDaun}
+                                        onChange={(e) =>
+                                            setScrapDaun(e.target.value)
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </>
+                    )}
 
                     <div className="space-y-2">
                         <Label htmlFor="notes">Catatan</Label>

@@ -39,6 +39,14 @@ import {
     resolveKioskMode,
     computeMaterialPreview,
 } from '@/lib/production/rewinder-workflow';
+import {
+    buildInitialGroups,
+    materialName,
+    packagingStepProblem,
+    type KioskPackagingContext,
+} from '@/lib/production/kiosk-packaging';
+import type { PackagedOutputValues } from '@/lib/schemas/production-packaging';
+import { KioskPackagingStep } from './KioskPackagingStep';
 
 interface ShiftInfo {
     id: string;
@@ -82,8 +90,24 @@ interface KioskLogOutputDialogProps {
             primaryUnit?: string | null;
         };
     }>;
+    /** SPKs in actual-packaging mode add the Kemasan step and send packagedOutput. */
+    actualPackagingEnabled?: boolean;
+    packaging?: {
+        context: KioskPackagingContext | null;
+        isLoading: boolean;
+        error: string;
+        onRetry: () => void;
+    };
     onSuccess?: () => void;
 }
+
+type PackagingGroups = PackagedOutputValues['groups'];
+
+const PACKAGING_STEP = {
+    key: 'packaging',
+    title: kioskLabels.wizardStepKemasan,
+    subtitle: kioskLabels.wizardKemasanDesc,
+} as const;
 
 const BASE_STEPS = [
     {
@@ -141,6 +165,8 @@ export function KioskLogOutputDialog({
     processNameSnapshot = null,
     bomOutputQuantity,
     bomItems = [],
+    actualPackagingEnabled = false,
+    packaging,
     onSuccess,
 }: KioskLogOutputDialogProps) {
     const [step, setStep] = useState(0);
@@ -164,11 +190,21 @@ export function KioskLogOutputDialog({
     const [selectedShiftId, setSelectedShiftId] = useState<string>('');
     const [qcParameters, setQcParameters] = useState<QcParameter[]>([]);
     const [qcValues, setQcValues] = useState<Record<string, string>>({});
+    // null until the operator edits the step; until then it follows the prefill.
+    const [packagingGroups, setPackagingGroups] =
+        useState<PackagingGroups | null>(null);
+    // One id per submission, reused on retry so a lost response cannot double-post.
+    const [clientRequestId, setClientRequestId] = useState(() =>
+        crypto.randomUUID(),
+    );
 
     const hasQcStep = qcParameters.length > 0;
+    const headSteps = actualPackagingEnabled
+        ? [BASE_STEPS[0], PACKAGING_STEP, BASE_STEPS[1]]
+        : [...BASE_STEPS];
     const STEPS = hasQcStep
-        ? [...BASE_STEPS, QC_STEP, ...TAIL_STEPS]
-        : [...BASE_STEPS, ...TAIL_STEPS];
+        ? [...headSteps, QC_STEP, ...TAIL_STEPS]
+        : [...headSteps, ...TAIL_STEPS];
 
     // Fetch QC parameters for this variant once per dialog open — kalau
     // varian belum punya parameter terdefinisi, step QC tidak pernah muncul.
@@ -241,6 +277,15 @@ export function KioskLogOutputDialog({
     // Pick the single BOM item whose input unit differs from the output unit.
     // Ambiguous (none or several) → null → submit blocked, no ratio-1 fallback.
     const qtyNum = parseFloat(quantity) || 0;
+    const baseQtyNum = unitMeta.hasAlternateUnit
+        ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
+        : qtyNum;
+    const packagingContext = packaging?.context ?? null;
+    const effectiveGroups: PackagingGroups =
+        packagingGroups ??
+        (packagingContext
+            ? buildInitialGroups(packagingContext, baseQtyNum)
+            : []);
     const outputUnit = unitMeta.displayUnit;
     const ratioItem = (() => {
         if (mode !== 'MATERIAL_CONVERSION' || bomItems.length === 0)
@@ -314,9 +359,7 @@ export function KioskLogOutputDialog({
     };
 
     const submitOutput = async () => {
-        const baseQty = unitMeta.hasAlternateUnit
-            ? toBaseQuantity(qtyNum, unitMeta.conversionFactor)
-            : qtyNum;
+        const baseQty = baseQtyNum;
 
         const effectiveShiftId = selectedShiftId || autoSelectedShift?.id;
 
@@ -369,6 +412,19 @@ export function KioskLogOutputDialog({
                         value: parseFloat(qcValues[param.id] ?? ''),
                     }))
                     .filter((m) => !Number.isNaN(m.value)),
+                packagedOutput: actualPackagingEnabled
+                    ? {
+                          clientRequestId,
+                          groups:
+                              baseQty > 0
+                                  ? effectiveGroups.map((group) =>
+                                        effectiveGroups.length === 1
+                                            ? { ...group, quantity: baseQty }
+                                            : group,
+                                    )
+                                  : [],
+                      }
+                    : undefined,
             });
 
             if (result.success) {
@@ -430,6 +486,24 @@ export function KioskLogOutputDialog({
         setStep(step + 1);
     };
 
+    const handleNextFromPackaging = () => {
+        const problem = packagingContext
+            ? packagingStepProblem(
+                  packagingContext,
+                  effectiveGroups,
+                  baseQtyNum,
+                  unitMeta.primaryUnit,
+              )
+            : baseQtyNum > 0
+              ? kioskLabels.packagingNotLoaded
+              : null;
+        if (problem) {
+            toast.error(problem);
+            return;
+        }
+        setStep(step + 1);
+    };
+
     const handleScrapConfirm = () => {
         setScrapConfirmMode('idle');
         setStep(step + 1);
@@ -479,6 +553,8 @@ export function KioskLogOutputDialog({
         setScrapConfirmMode('idle');
         setSelectedShiftId('');
         setQcValues({});
+        setPackagingGroups(null);
+        setClientRequestId(crypto.randomUUID());
         setStep(0);
     };
 
@@ -656,6 +732,19 @@ export function KioskLogOutputDialog({
                                     )}
                             </div>
                         </div>
+                    )}
+
+                    {STEPS[step].key === 'packaging' && (
+                        <KioskPackagingStep
+                            context={packagingContext}
+                            isLoading={packaging?.isLoading ?? false}
+                            error={packaging?.error ?? ''}
+                            onRetry={packaging?.onRetry ?? (() => {})}
+                            groups={effectiveGroups}
+                            onChange={setPackagingGroups}
+                            baseQty={baseQtyNum}
+                            unit={unitMeta.primaryUnit}
+                        />
                     )}
 
                     {/* Step 2: Scrap */}
@@ -922,6 +1011,38 @@ export function KioskLogOutputDialog({
                                             : kioskLabels.wizardSummaryTidak}
                                     </span>
                                 </div>
+                                {actualPackagingEnabled &&
+                                    packagingContext &&
+                                    baseQtyNum > 0 && (
+                                        <div className="text-sm space-y-1 border-t pt-3">
+                                            <span className="text-xs text-muted-foreground uppercase font-bold">
+                                                {kioskLabels.wizardSummaryKemasan}
+                                            </span>
+                                            {effectiveGroups.flatMap((group) =>
+                                                group.packaging.map((row) => (
+                                                    <div
+                                                        key={`${group.productVariantId}-${row.productVariantId}-${row.sourceLocationId}`}
+                                                        className="flex justify-between gap-3"
+                                                    >
+                                                        <span>
+                                                            {materialName(
+                                                                packagingContext,
+                                                                row.productVariantId,
+                                                            )}
+                                                        </span>
+                                                        <span className="font-bold tabular-nums">
+                                                            {row.quantity.toLocaleString(
+                                                                'id-ID',
+                                                            )}{' '}
+                                                            {row.unit === 'KG'
+                                                                ? 'KG'
+                                                                : 'lembar/pcs'}
+                                                        </span>
+                                                    </div>
+                                                )),
+                                            )}
+                                        </div>
+                                    )}
                                 {hasQcStep && (
                                     <div className="text-sm space-y-1 border-t pt-3">
                                         <span className="text-xs text-muted-foreground uppercase font-bold">
@@ -1129,7 +1250,9 @@ export function KioskLogOutputDialog({
                             onClick={
                                 STEPS[step].key === 'qty'
                                     ? handleNextFromQty
-                                    : STEPS[step].key === 'scrap'
+                                    : STEPS[step].key === 'packaging'
+                                      ? handleNextFromPackaging
+                                      : STEPS[step].key === 'scrap'
                                       ? handleNextFromScrap
                                       : STEPS[step].key === 'qc'
                                         ? handleNextFromQC

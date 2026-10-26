@@ -157,6 +157,36 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         const wip = await db!.journalLine.aggregate({ where: { accountId: wipAccount, journalEntry: { referenceId: { in: movements.map((move) => move.id) } } }, _sum: { debit: true, credit: true } });
         expect(Number(wip._sum.debit)).toBe(Number(wip._sum.credit));
     });
+    it('kiosk output with packaging posts once on a concurrent retry and stop only closes the shell', async () => {
+        await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'synthetic-only', role: 'ADMIN', isActive: false } });
+        await db!.productionOrder.update({ where: { id: 'order' }, data: { actualPackagingEnabled: true } });
+        const shell = await db!.productionExecution.create({ data: { productionOrderId: 'order', startTime: new Date(), quantityProduced: 0, scrapQuantity: 0 } });
+        const { packagedOutput } = payload();
+        const input = {
+            executionId: shell.id, quantityProduced: 24.7, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', shiftId: undefined,
+            packagedOutput, kioskOperator: { employeeId: 'synthetic-operator', code: 'OP-01' },
+        };
+        await run(db!, () => Promise.all([ProductionExecutionService.logRunningOutput(input), ProductionExecutionService.logRunningOutput(input)]));
+
+        expect(await db!.productionExecution.count({ where: { clientRequestId: packagedOutput.clientRequestId } })).toBe(1);
+        const outputGroups = await db!.productionOutputGroup.findMany({ select: { productVariantId: true, quantity: true } });
+        expect(outputGroups.map((group) => [group.productVariantId, Number(group.quantity)])).toEqual([['brand-a', 24.7]]);
+        expect(Number((await db!.inventory.findFirstOrThrow({ where: { locationId: 'custody-a', productVariantId: 'label' } })).quantity)).toBe(90);
+        expect(Number((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'order' } })).actualQuantity)).toBe(24.7);
+        const audit = await db!.auditLog.findFirstOrThrow({ where: { action: 'RECORD_PACKAGED_OUTPUT' } });
+        expect(audit.userId).toBe('system');
+        expect(audit.details).toContain('OP-01');
+
+        await expect(run(db!, () => ProductionExecutionService.stopExecution({
+            executionId: shell.id, quantityProduced: 1, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', completed: false,
+        }))).rejects.toThrow('Catat hasil dan affal terakhir lewat Catat Hasil');
+        await run(db!, () => ProductionExecutionService.stopExecution({
+            executionId: shell.id, quantityProduced: 0, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0, notes: '', completed: false,
+        }));
+        expect((await db!.productionExecution.findUniqueOrThrow({ where: { id: shell.id } })).endTime).not.toBeNull();
+        expect(Number((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'order' } })).actualQuantity)).toBe(24.7);
+    });
+
     it('same IDs in a second tenant do not share balances or postings', async () => {
         await seed(other!);
         await run(db!, () => ProductionExecutionService.addProductionOutput(payload()));

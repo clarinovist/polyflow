@@ -26,6 +26,8 @@ import {
     summarizeShiftOutput,
 } from '@/lib/production/kiosk-shift-status';
 import { useVerifiedKioskOperator } from '@/components/kiosk/useVerifiedKioskOperator';
+import { useKioskPackagingContext } from '@/components/production/kiosk/useKioskPackagingContext';
+import { KioskPackagingPanel } from '@/components/production/kiosk/KioskPackagingPanel';
 import { startExecution } from '@/actions/production/production';
 import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
@@ -55,6 +57,8 @@ export interface Order {
     plannedEnteredUnit?: string | null;
     plannedConversionFactorSnapshot?: number | null;
     actualQuantity: number | null;
+    /** Output and packaging are recorded together (etiket, karung, plastik). */
+    actualPackagingEnabled?: boolean;
     status: string;
     executionModeSnapshot?: string | null;
     processCodeSnapshot?: string | null;
@@ -139,6 +143,11 @@ export default function KioskJobFocus({
     const operator = useVerifiedKioskOperator();
     const operatorId = operator.operatorId;
     const isInitialized = operator.isReady;
+    const usesActualPackaging = Boolean(order.actualPackagingEnabled);
+    const packaging = useKioskPackagingContext(
+        order.id,
+        usesActualPackaging && Boolean(operatorId),
+    );
     const [timeLeft, setTimeLeft] = useState(30);
     const [optimisticExecutionId, setOptimisticExecutionId] = useState<
         string | null
@@ -452,6 +461,19 @@ export default function KioskJobFocus({
                 )}
             </div>
 
+            {usesActualPackaging && (
+                <KioskPackagingPanel
+                    context={packaging.context}
+                    isLoading={packaging.isLoading}
+                    error={packaging.error}
+                    onRetry={packaging.reload}
+                    remainingBaseQty={Math.max(
+                        order.plannedQuantity - (order.actualQuantity || 0),
+                        0,
+                    )}
+                />
+            )}
+
             {/* Rekap shift */}
             {selectedShift && (
                 <div className="bg-muted/30 border rounded-xl p-4 space-y-3">
@@ -594,6 +616,7 @@ export default function KioskJobFocus({
                         targetQuantity={order.plannedQuantity}
                         logs={order.outputLogs || []}
                         operatorId={operatorId || undefined}
+                        actualPackagingEnabled={usesActualPackaging}
                         onSuccess={() => router.refresh()}
                     />
                     <KioskLogOutputDialog
@@ -614,7 +637,17 @@ export default function KioskJobFocus({
                         processNameSnapshot={order.processNameSnapshot ?? null}
                         bomOutputQuantity={order.bom.outputQuantity}
                         bomItems={order.bom.items || []}
-                        onSuccess={() => router.refresh()}
+                        actualPackagingEnabled={usesActualPackaging}
+                        packaging={{
+                            context: packaging.context,
+                            isLoading: packaging.isLoading,
+                            error: packaging.error,
+                            onRetry: packaging.reload,
+                        }}
+                        onSuccess={() => {
+                            packaging.reload();
+                            router.refresh();
+                        }}
                     />
                 </>
             )}

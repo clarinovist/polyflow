@@ -11,7 +11,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { KioskStopDialog } from '../KioskStopDialog';
 
-function Harness() {
+function Harness({ actualPackagingEnabled = false }: { actualPackagingEnabled?: boolean }) {
     const [open, setOpen] = useState(true);
     return (
         <>
@@ -27,6 +27,7 @@ function Harness() {
                 currentProduced={10}
                 targetQuantity={100}
                 logs={[]}
+                actualPackagingEnabled={actualPackagingEnabled}
                 onSuccess={() => {}}
             />
         </>
@@ -62,5 +63,22 @@ describe('KioskStopDialog', () => {
 
         await waitFor(() => expect(mockStopExecution).toHaveBeenCalledTimes(1));
         expect(mockStopExecution.mock.calls[0][0]).toMatchObject({ completed: true, executionId: 'exec-1' });
+    });
+
+    it('only closes the shift for an SPK that records actual packaging', async () => {
+        render(<Harness actualPackagingEnabled />);
+
+        expect(screen.queryByLabelText(/Tambah Hasil Akhir/)).toBeNull();
+        expect(screen.queryByLabelText(/Scrap Prongkol/)).toBeNull();
+        expect(screen.getByText(/lewat Catat Hasil/)).toBeTruthy();
+        fireEvent.click(screen.getByRole('button', { name: /Hentikan & Simpan/ }));
+
+        await waitFor(() => expect(mockStopExecution).toHaveBeenCalledTimes(1));
+        expect(mockStopExecution.mock.calls[0][0]).toMatchObject({
+            quantityProduced: 0,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+        });
     });
 });
