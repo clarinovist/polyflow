@@ -1,7 +1,7 @@
 /**
  * Per-tenant kiosk feature flags.
  *
- * HD / Potong-Plong are film-bag processes. Whether a tenant uses them is a
+ * HD is a film-bag process. Whether a tenant uses it is a
  * tenant-owned operational preference stored in AppSetting — not derived from
  * the tenant name or subdomain. Default is off (fail-closed).
  */

@@ -78,11 +78,10 @@ export function KioskFeatureSettings() {
 
                 <div className="flex items-center justify-between">
                     <div className="space-y-0.5">
-                        <Label>Aktifkan Proses Khusus HD &amp; Potong/Plong</Label>
+                        <Label>Aktifkan Laporan HD</Label>
                         <p className="text-sm text-muted-foreground">
-                            Menampilkan tile Proses Khusus di hub kiosk dan
-                            mengizinkan akses langsung ke laporan HD serta
-                            Potong/Plong.
+                            Menampilkan tile Laporan HD di hub kiosk dan
+                            mengizinkan akses langsung ke laporan harian HD.
                         </p>
                     </div>
                     <Switch

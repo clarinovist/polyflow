@@ -25,7 +25,7 @@ interface KioskHubProps {
     machines: Array<{ id: string; name: string }>;
     /** Operators with an SPK running right now, for the gate filter. */
     runningOperatorIds?: string[];
-    /** Enables the HD / Potong-Plong Proses Khusus tile and direct links. */
+    /** Enables the Laporan HD tile and direct link. */
     hasProsesKhusus?: boolean;
 }
 

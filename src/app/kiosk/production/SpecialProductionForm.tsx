@@ -73,7 +73,6 @@ type NumericField =
     | 'bruto'
     | 'bobin'
     | 'quantityProduced'
-    | 'scrapQuantity'
     | 'scrapProngkolQty'
     | 'scrapDaunQty';
 const VARIANTS = {
@@ -87,16 +86,11 @@ const VARIANTS = {
             'scrapDaunQty',
         ],
     },
-    potongplong: {
-        title: 'Potong/Plong',
-        fields: ['quantityProduced', 'scrapQuantity'],
-    },
 } as const;
 const LABELS: Record<NumericField, string> = {
     bruto: 'Bruto (KG)',
     bobin: 'Bobin (KG)',
     quantityProduced: 'Netto',
-    scrapQuantity: 'Scrap Potong (KG)',
     scrapProngkolQty: 'Scrap Prongkol (KG)',
     scrapDaunQty: 'Scrap Daun (KG)',
 };
