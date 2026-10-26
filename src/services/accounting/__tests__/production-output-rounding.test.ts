@@ -29,6 +29,18 @@ describe('production output monetary rounding', () => {
         const saved = await f.db.stockMovement.findUnique();
         expect(saved?.cost).toEqual(d('7901.2751'));
     });
+    it('accepts an exact GL balance without binary subtraction drift', async () => {
+        const f = fixture([['74.06', '14.5299']], '74.06');
+        f.db.journalLine.aggregate.mockResolvedValue({ _sum: { debit: d('2479.24'), credit: d('1403.16') } });
+        await f.post();
+        expect(journal.mock.calls[0][0].lines[0].debit).toBe(1076.08);
+    });
+    it('still rejects a true one-cent GL shortage after source allocation', async () => {
+        const f = fixture([['74.06', '14.5299']], '74.06');
+        f.db.journalLine.aggregate.mockResolvedValue({ _sum: { debit: d('2479.24'), credit: d('1403.17') } });
+        await expect(f.post()).rejects.toThrow('Saldo akun GL akan minus');
+        expect(journal).not.toHaveBeenCalled();
+    });
     it('rounds the material journal amount before passing it to the journal writer', async () => {
         const f = fixture([], '1');
         await recordInventoryMovement({ id: 'material', type: 'OUT', productionOrderId: 'wo', productVariantId: 'raw',
