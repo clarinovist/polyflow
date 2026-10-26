@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { explicitWorkers, hardware, timed } from '../../../../scripts/ci/metrics.mjs';
 import { identity, reconcile, validateReports } from '../../../../scripts/ci/benchmark.mjs';
 import TimingReporter from '../../../../scripts/ci/timing-reporter.mjs';
-import base from '../../../../vitest.config';
+import base from '../../../../vitest.config.mjs';
 
 interface WorkflowStep {
     name?: string;

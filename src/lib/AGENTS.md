@@ -150,7 +150,7 @@ The extension creates `AuditLog` entries using the outer PrismaClient, not the `
 
 ## Coverage
 
-Threshold enforced in `vitest.config.ts`: 71/63/75/72 (Stmts/Branch/Funcs/Lines), target 80%. CI job `test` runs `npx vitest run --coverage` and gates deploy. New lib ≥100 LOC needs test in `__tests__/`. Don't lower threshold — add test.
+Threshold enforced in `vitest.config.mts`: 71/63/75/72 (Stmts/Branch/Funcs/Lines), target 80%. CI job `test` runs `npx vitest run --coverage` and gates deploy. New lib ≥100 LOC needs test in `__tests__/`. Don't lower threshold — add test.
 
 ## Gotchas
 

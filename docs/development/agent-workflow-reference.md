@@ -7,7 +7,7 @@ file plan untuk Kritis, delegasi, atau pekerjaan panjang/multitahap yang perlu h
 
 ## Coverage: diagnosis tanpa menurunkan standar
 
-- Sumber konfigurasi: `vitest.config.ts`, provider `v8`, threshold
+- Sumber konfigurasi: `vitest.config.mts`, provider `v8`, threshold
   **71/63/75/72** (statements/branches/functions/lines), target 80%.
 - Coverage dihitung pada surface yang dieksekusi test, tanpa broad `include`. Menambah
   test untuk modul yang sebelumnya tidak tersentuh bisa menurunkan rasio global:

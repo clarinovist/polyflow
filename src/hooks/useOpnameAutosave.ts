@@ -31,7 +31,7 @@ export function useOpnameAutosave<T>(
     }, []);
 
     const runSave = useCallback(
-        async (payload: NonNullable<T>) => {
+        async function savePayload(payload: NonNullable<T>) {
             isSavingRef.current = true;
             setStatus('saving');
             try {
@@ -50,7 +50,7 @@ export function useOpnameAutosave<T>(
                 if (mountedRef.current && pendingRef.current) {
                     pendingRef.current = false;
                     if (payloadRef.current != null) {
-                        runSave(payloadRef.current);
+                        void savePayload(payloadRef.current);
                     }
                 }
             }
