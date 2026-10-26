@@ -49,7 +49,24 @@ export function DeliveryPrintActions({
                         ESC/P (Dot Matrix)
                     </a>
                 </DropdownMenuItem>
-                {invoices.length > 0 && <DropdownMenuSeparator />}
+                {invoices.length > 0 && (
+                    <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Invoice saja (ESC/P)</DropdownMenuLabel>
+                        {invoices.map((invoice) => (
+                            <DropdownMenuItem key={invoice.id} asChild className="min-h-11">
+                                <a
+                                    href={`/api/print/invoice?id=${encodeURIComponent(invoice.id)}`}
+                                    aria-label={`Cetak invoice ${invoice.invoiceNumber} saja (ESC/P)`}
+                                >
+                                    <Printer className="h-4 w-4" aria-hidden="true" />
+                                    Cetak {invoice.invoiceNumber}
+                                </a>
+                            </DropdownMenuItem>
+                        ))}
+                        <DropdownMenuSeparator />
+                    </>
+                )}
                 {invoices.length === 1 && (
                     <DropdownMenuItem asChild className="min-h-11">
                         <a href={bundleHref(invoices[0].id)}>

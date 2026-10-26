@@ -31,6 +31,47 @@ const invoice = {
     },
 };
 
+describe('InvoiceTable standalone sales invoice printing', () => {
+    it('links the invoice, not the sales order, on desktop and mobile without enabling delete', () => {
+        const { container } = render(
+            <InvoiceTable invoices={[invoice]} canPrint canDelete={false} />,
+        );
+        const links = screen.getAllByRole('link', {
+            name: 'Cetak invoice INV-001 (ESC/P)',
+        });
+        expect(links).toHaveLength(2);
+        for (const link of links) {
+            expect(link.getAttribute('href')).toBe('/api/print/invoice?id=invoice-1');
+            expect(link.textContent).toContain('Cetak Invoice');
+        }
+        const card = container.querySelector('[data-slot="card"]') as HTMLElement;
+        const mobilePrint = within(card).getByRole('link', {
+            name: 'Cetak invoice INV-001 (ESC/P)',
+        });
+        mobilePrint.focus();
+        expect(document.activeElement).toBe(mobilePrint);
+        expect(screen.queryByTitle('Delete/Void')).toBeNull();
+    });
+
+    it('keeps printing opt-in and excludes purchase invoices', () => {
+        const { rerender } = render(<InvoiceTable invoices={[invoice]} />);
+        expect(screen.queryByRole('link', { name: /Cetak invoice/ })).toBeNull();
+        rerender(
+            <InvoiceTable
+                canPrint
+                invoices={[{
+                    ...invoice,
+                    salesOrderId: null,
+                    salesOrder: null,
+                    purchaseOrderId: 'purchase-1',
+                    purchaseOrder: { orderNumber: 'PO-001', supplier: { name: 'Supplier fixture' } },
+                }]}
+            />,
+        );
+        expect(screen.queryByRole('link', { name: /Cetak invoice/ })).toBeNull();
+    });
+});
+
 describe('InvoiceTable finance server pagination', () => {
     it('shows credit separately from cash payments and reduces remaining balance', () => {
         render(<InvoiceTable invoices={[{ ...invoice, creditedAmount: 25000 }]} basePath="/finance/invoices/sales" />);

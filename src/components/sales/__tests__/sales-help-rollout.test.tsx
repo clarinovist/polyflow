@@ -120,6 +120,16 @@ describe('compact Sales help rollout', () => {
         expect(screen.queryByRole('link', { name: /Lihat Aging/ })).toBeNull();
     });
 
+    it('enables standalone invoice printing for Marketing without Finance actions', () => {
+        mocks.session.data.user.role = 'MARKETING';
+        render(<SalesInvoicesShell initialInvoices={[]} stats={null} periodLabel="September 2026" />);
+        expect(mocks.invoiceTable).toHaveBeenLastCalledWith(expect.objectContaining({
+            canPrint: true,
+            canDelete: false,
+        }));
+        expect(screen.queryByRole('link', { name: /Lihat Aging/ })).toBeNull();
+    });
+
     it('retains the authorized finance navigation link outside help', () => {
         mocks.session.data.user.role = 'ADMIN';
         render(<SalesInvoicesShell initialInvoices={[]} stats={null} periodLabel="September 2026" />);
