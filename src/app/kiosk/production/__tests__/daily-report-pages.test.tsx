@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import HdKioskPage from '../hd/page';
 import PotongPlongKioskPage from '../potongplong/page';
 
-const mocks = vi.hoisted(() => ({ enabled: vi.fn(), orders: vi.fn(), machines: vi.fn(), employees: vi.fn(), form: vi.fn() }));
+const mocks = vi.hoisted(() => ({ session: vi.fn(), enabled: vi.fn(), orders: vi.fn(), machines: vi.fn(), employees: vi.fn(), form: vi.fn() }));
+vi.mock('@/lib/auth/kiosk-operator-session', () => ({ getKioskOperatorSession: mocks.session }));
 vi.mock('@/lib/core/tenant', () => ({ withTenantPage: (fn: unknown) => fn }));
 vi.mock('@/services/settings/kiosk-feature-service', () => ({ readKioskFeatureSettings: mocks.enabled }));
 vi.mock('@/actions/production/production-orders', () => ({ getProductionOrders: mocks.orders }));
@@ -17,6 +18,7 @@ vi.mock('next/navigation', () => ({ redirect: () => { throw new Error('redirect'
 beforeEach(() => {
     vi.clearAllMocks();
     mocks.enabled.mockResolvedValue(true);
+    mocks.session.mockResolvedValue({ employeeId: 'operator-1', name: 'Operator Uji', code: 'OP-TEST', tenantId: 'tenant-test' });
     const order = { id: 'order-1', orderNumber: 'SPK-TEST', notes: 'private-order-note', bom: { productVariant: {
         name: 'Produk Uji', primaryUnit: 'KG', salesUnit: 'BAL', conversionFactor: 10, costPrice: 123, sellingPrice: 456,
     } } };
@@ -34,6 +36,7 @@ for (const [variant, Page] of [['HD', HdKioskPage], ['Potong/Plong', PotongPlong
         it('passes only display identifiers/names/unit metadata to the client', async () => {
             render(await Page());
             expect(mocks.form.mock.calls[0][0]).toEqual({
+                operator: { id: 'operator-1', name: 'Operator Uji' },
                 orders: [{ id: 'order-1', orderNumber: 'SPK-TEST', bom: { productVariant: {
                     name: 'Produk Uji', primaryUnit: 'KG', salesUnit: 'BAL', conversionFactor: 10,
                 } } }],
@@ -42,6 +45,12 @@ for (const [variant, Page] of [['HD', HdKioskPage], ['Potong/Plong', PotongPlong
             const back = screen.getByRole('link', { name: /Kembali ke hub/ });
             expect(back.getAttribute('href')).toBe('/kiosk');
             expect(back.className).toContain('min-h-12');
+        });
+        it('requires a PIN session before reading any form data', async () => {
+            mocks.session.mockResolvedValue(null);
+            await expect(Page()).rejects.toThrow('redirect');
+            expect(mocks.orders).not.toHaveBeenCalled();
+            expect(mocks.employees).not.toHaveBeenCalled();
         });
         it('keeps the feature gate before data reads', async () => {
             mocks.enabled.mockResolvedValue(false);

@@ -978,12 +978,12 @@ export class ProductionExecutionService {
      * Record Production Output (Batch/Completed)
      */
     static async addProductionOutput(
-        data: ProductionOutputValues & { userId?: string },
+        data: ProductionOutputValues & { userId?: string; kioskOperator?: KioskOperatorActor },
     ) {
         const {
             productionOrderId,
             machineId,
-            operatorId,
+            operatorId: requestedOperatorId,
             shiftId,
             helperIds,
             quantityProduced,
@@ -996,13 +996,19 @@ export class ProductionExecutionService {
             startTime,
             endTime,
             notes,
-            userId,
+            userId: requestedUserId,
             enteredQuantity,
             enteredUnit,
             baseQuantityProduced,
             conversionFactorSnapshot,
         } = data;
 
+        // kioskOperator is internal context supplied only after PIN verification, never parsed from the browser.
+        const operatorId = data.kioskOperator?.employeeId ?? requestedOperatorId;
+        const userId = data.kioskOperator ? KIOSK_AUDIT_ACTOR_USER_ID : requestedUserId;
+        if (data.kioskOperator && (!data.clientRequestId || !shiftId || data.packagedOutput)) {
+            throw new ProductionRuleViolationError('SPK, shift dan ID kiriman wajib; catat kemasan melalui fokus SPK.');
+        }
         const clientRequestId = data.packagedOutput?.clientRequestId ?? data.clientRequestId;
         const requestHash = clientRequestId ? createHash('sha256').update(JSON.stringify({
             productionOrderId, machineId, operatorId, shiftId, helperIds, quantityProduced,
@@ -1024,6 +1030,18 @@ export class ProductionExecutionService {
             } else if (clientRequestId) {
                 const fresh = await claimOutputRequest(tx, { productionOrderId, clientRequestId, requestHash: requestHash! });
                 if (!fresh) return;
+            }
+            if (data.kioskOperator) {
+                const order = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
+                if (!['RELEASED', 'IN_PROGRESS'].includes(order.status)) {
+                    throw new ProductionRuleViolationError('SPK tidak dapat menerima hasil baru.');
+                }
+                // Helpers may be any ACTIVE employee, with no attendance prerequisite.
+                const uniqueHelpers = [...new Set(helperIds ?? [])];
+                const activeHelpers = await tx.employee.count({ where: { id: { in: uniqueHelpers }, status: 'ACTIVE' } });
+                if (uniqueHelpers.includes(operatorId!) || activeHelpers !== uniqueHelpers.length) {
+                    throw new ProductionRuleViolationError('Helper harus karyawan aktif selain operator pencatat.');
+                }
             }
             const resolved = await resolveOutputQuantity({
                 productionOrderId,
@@ -1188,6 +1206,11 @@ export class ProductionExecutionService {
             if (data.packagedOutput) await logActivity({
                 userId: userId!, action: 'RECORD_PACKAGED_OUTPUT', entityType: 'ProductionExecution', entityId: execution.id,
                 details: 'Hasil dan pemakaian kemasan aktual dicatat.', tx,
+            });
+            if (data.kioskOperator) await logActivity({
+                userId: KIOSK_AUDIT_ACTOR_USER_ID, action: 'RECORD_PRODUCTION_OUTPUT',
+                entityType: 'ProductionExecution', entityId: execution.id,
+                details: `Laporan proses khusus dicatat dari kiosk oleh operator ${data.kioskOperator.code} (${data.kioskOperator.employeeId}).`, tx,
             });
             const batchOrder = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },

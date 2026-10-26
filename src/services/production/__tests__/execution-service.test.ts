@@ -43,6 +43,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         employee: {
             findUnique: vi.fn(),
+            count: vi.fn(),
         },
         processPieceRate: {
             findFirst: vi.fn(),
@@ -1695,6 +1696,52 @@ describe('plain output submissions with a client request id post exactly once', 
         await expect(ProductionExecutionService.logRunningOutput(kioskLog))
             .rejects.toMatchObject({ code: 'PACKAGED_REQUEST_REUSED' });
         expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('posts a PIN operator with any active helper without attendance, and audits atomically', async () => {
+        vi.mocked(tx.employee.count).mockResolvedValue(1);
+        await ProductionExecutionService.addProductionOutput({
+            ...dailyReport, operatorId: 'forged', userId: 'forged', helperIds: ['helper-1'],
+            kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' },
+        });
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ operatorId: 'op-1', helpers: { connect: [{ id: 'helper-1' }] } }) }));
+        expect(tx.employee.count).toHaveBeenCalledWith({ where: { id: { in: ['helper-1'] }, status: 'ACTIVE' } });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ userId: 'system', action: 'RECORD_PRODUCTION_OUTPUT', entityId: 'exec-new', details: expect.stringContaining('OP-TEST (op-1)'), tx }));
+        replaying(savedHash());
+        vi.mocked(logActivity).mockClear();
+        await ProductionExecutionService.addProductionOutput({ ...dailyReport, helperIds: ['helper-1'], kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } });
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    it.each(['COMPLETED', 'CLOSED', 'CANCELLED', 'DRAFT'])('rejects new kiosk reports on %s SPKs', async status => {
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({ ...plainOrder, status } as never);
+        await expect(ProductionExecutionService.addProductionOutput({ ...dailyReport, kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } })).rejects.toThrow('SPK tidak dapat');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it.each([['inactive'], ['foreign-tenant'], ['op-1']])('rejects inactive, foreign or self helpers (%j)', async helperId => {
+        vi.mocked(tx.employee.count).mockResolvedValue(helperId === 'op-1' ? 1 : 0);
+        await expect(ProductionExecutionService.addProductionOutput({ ...dailyReport, helperIds: [helperId], kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } })).rejects.toThrow('Helper harus');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('keeps the shift ownership guard for PIN reports', async () => {
+        vi.mocked(tx.employee.count).mockResolvedValue(0);
+        vi.mocked(tx.productionShift.findFirst).mockResolvedValue(null as never);
+        await expect(ProductionExecutionService.addProductionOutput({ ...dailyReport, kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } })).rejects.toThrow('Shift tidak valid');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it.each([{ clientRequestId: undefined }, { shiftId: '' }])('requires kiosk request ID and shift (%j)', async patch => {
+        await expect(ProductionExecutionService.addProductionOutput({ ...dailyReport, ...patch, kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } })).rejects.toThrow('wajib');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('lets an audit failure abort the transaction', async () => {
+        vi.mocked(tx.employee.count).mockResolvedValue(0);
+        vi.mocked(logActivity).mockRejectedValueOnce(new Error('audit failed'));
+        await expect(ProductionExecutionService.addProductionOutput({ ...dailyReport, kioskOperator: { employeeId: 'op-1', code: 'OP-TEST' } })).rejects.toThrow('audit failed');
     });
 
     it('replays a daily-report entry that was already saved', async () => {

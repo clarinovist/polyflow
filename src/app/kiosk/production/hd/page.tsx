@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { getKioskOperatorSession } from '@/lib/auth/kiosk-operator-session';
 import { getProductionOrders } from '@/actions/production/production-orders';
 import { getMachines } from '@/actions/production/machines';
 import { getEmployees } from '@/actions/admin/employees';
@@ -20,6 +21,9 @@ const getData = withTenantPage(async function getData() {
     if (!hasProsesKhusus) {
         redirect('/kiosk');
     }
+
+    const operator = await getKioskOperatorSession();
+    if (!operator) redirect('/kiosk');
 
     const allOrders = await getProductionOrders();
     const orders = allOrders.filter((o) =>
@@ -57,13 +61,14 @@ const getData = withTenantPage(async function getData() {
                 },
             })),
         ),
+        operator: { id: operator.employeeId, name: operator.name },
         machines: machines.map(({ id, name }) => ({ id, name })),
         employees: employees.map(({ id, name }) => ({ id, name })),
     };
 });
 
 export default async function HdKioskPage() {
-    const { orders, machines, employees } = await getData();
+    const { orders, machines, employees, operator } = await getData();
 
     return (
         <div className="bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
@@ -78,6 +83,7 @@ export default async function HdKioskPage() {
                     orders={orders}
                     machines={machines}
                     employees={employees}
+                    operator={operator}
                 />
             </div>
         </div>

@@ -19,6 +19,7 @@ export type DailyReportOrder = {
 };
 
 export type DailyReportFormProps = {
+    operator: { id: string; name: string };
     orders: DailyReportOrder[];
     machines: { id: string; name: string }[];
     employees: { id: string; name: string; code?: string }[];

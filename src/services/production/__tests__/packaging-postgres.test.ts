@@ -1,4 +1,5 @@
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as audit from '@/lib/tools/audit';
 import { PrismaClient } from '@prisma/client';
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { randomUUID } from 'node:crypto';
@@ -254,6 +255,44 @@ describe.skipIf(!db)('actual packaging PostgreSQL contracts', () => {
         expect(await orderActualQuantity()).toBe(29.7);
         await expect(run(db!, () => ProductionExecutionService.addProductionOutput({ ...report, quantityProduced: 30 })))
             .rejects.toMatchObject({ code: 'PACKAGED_REQUEST_REUSED' });
+    });
+    it('PIN daily reports allow active helpers without attendance and audit one concurrent posting', async () => {
+        const suffix = randomUUID();
+        const operatorId = `pin-op-${suffix}`;
+        const helperId = `pin-helper-${suffix}`;
+        await db!.employee.createMany({ data: [
+            { id: operatorId, name: 'Synthetic PIN operator', code: operatorId, role: 'OPERATOR' },
+            { id: helperId, name: 'Synthetic helper', code: helperId, role: 'OPERATOR' },
+        ] });
+        await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'synthetic-only', role: 'ADMIN', isActive: false } });
+        const input = { ...payload(), packagedOutput: undefined, clientRequestId: randomUUID(), helperIds: [helperId], kioskOperator: { employeeId: operatorId, code: operatorId } };
+        await run(db!, () => Promise.all([ProductionExecutionService.addProductionOutput(input), ProductionExecutionService.addProductionOutput(input)]));
+        expect(await db!.attendanceRecord.count({ where: { employeeId: { in: [operatorId, helperId] } } })).toBe(0);
+        const execution = await db!.productionExecution.findUniqueOrThrow({ where: { clientRequestId: input.clientRequestId }, include: { helpers: true } });
+        expect(execution.operatorId).toBe(operatorId);
+        expect(execution.helpers.map(e => e.id)).toEqual([helperId]);
+        expect(await orderActualQuantity()).toBe(24.7);
+        const audits = await db!.auditLog.findMany({ where: { action: 'RECORD_PRODUCTION_OUTPUT', entityId: execution.id } });
+        expect(audits).toHaveLength(1);
+        expect(audits[0]).toMatchObject({ userId: 'system', details: expect.stringContaining(operatorId) });
+    });
+    it('PIN daily report audit failure rolls back output, stock and realized quantity', async () => {
+        const operatorId = `pin-op-${randomUUID()}`;
+        await db!.employee.create({ data: { id: operatorId, name: 'Synthetic PIN operator', code: operatorId, role: 'OPERATOR' } });
+        await db!.user.create({ data: { id: 'system', email: 'system@example.invalid', password: 'synthetic-only', role: 'ADMIN', isActive: false } });
+        const input = { ...payload(), packagedOutput: undefined, clientRequestId: randomUUID(), kioskOperator: { employeeId: operatorId, code: operatorId } };
+        const originalAudit = audit.logActivity;
+        const failure = vi.spyOn(audit, 'logActivity').mockImplementation(async params => {
+            if (params.action === 'RECORD_PRODUCTION_OUTPUT') throw new Error('Synthetic audit unavailable');
+            return originalAudit(params);
+        });
+        try {
+            await expect(run(db!, () => ProductionExecutionService.addProductionOutput(input))).rejects.toThrow('Synthetic audit unavailable');
+        } finally { failure.mockRestore(); }
+        expect(await db!.productionExecution.count({ where: { clientRequestId: input.clientRequestId } })).toBe(0);
+        expect(await db!.stockMovement.count()).toBe(0);
+        expect(await db!.inventory.count({ where: { productVariantId: 'base', locationId: 'fg' } })).toBe(0);
+        expect(await orderActualQuantity()).toBe(0);
     });
     it('same IDs in a second tenant do not share balances or postings', async () => {
         await seed(other!);

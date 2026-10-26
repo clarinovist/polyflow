@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { startTransition, useCallback, useRef, useState } from 'react';
+import { submitKioskDailyReports } from '@/actions/production/kiosk-daily-report';
 import { useFieldArray, useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -109,12 +110,12 @@ function toLocalDatetime(date: Date | string): string {
         .toISOString()
         .slice(0, 16);
 }
-function makeEmpty(): Report {
+function makeEmpty(operatorId: string): Report {
     return {
         productionOrderId: '',
         clientRequestId: newClientRequestId(),
         machineId: '',
-        operatorId: '',
+        operatorId,
         helperIds: [],
         shiftId: '',
         quantityProduced: 0,
@@ -135,6 +136,7 @@ export default function SpecialProductionForm({
     orders,
     machines,
     employees,
+    operator,
 }: DailyReportFormProps & {
     variant: keyof typeof VARIANTS;
 }) {
@@ -151,7 +153,7 @@ export default function SpecialProductionForm({
     );
     const form = useForm<BulkFormValues>({
         resolver: zodResolver(bulkSchema) as Resolver<BulkFormValues>,
-        defaultValues: { reports: [makeEmpty()] },
+        defaultValues: { reports: [makeEmpty(operator.id)] },
     });
     const { fields, append, remove } = useFieldArray({
         control: form.control,
@@ -179,53 +181,66 @@ export default function SpecialProductionForm({
         [shiftsByOrder],
     );
 
-    const onSubmit = async (data: BulkFormValues) => {
+    const onSubmit = (data: BulkFormValues) => {
         if (submitting.current) return;
         submitting.current = true;
         setIsSubmitting(true);
         setEntryErrors({});
-        try {
-            const reports = data.reports.map((report) =>
-                toDailyReportPayload(report, orders),
-            );
-            const res = await fetch('/api/production/daily-report', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(reports),
-            });
-            const json = await res.json();
-            if (res.status === 207) {
-                const outcome = readDailyReportOutcome(
-                    reports.map((report) => report.clientRequestId ?? ''),
-                    json,
+        startTransition(async () => {
+            try {
+                const reports = data.reports.map((report) =>
+                    toDailyReportPayload(report, orders),
                 );
-                remove(outcome.savedIndexes);
-                setEntryErrors(outcome.errorsById);
-                toast.warning(
-                    `${outcome.savedIndexes.length} laporan tersimpan, ${Object.keys(outcome.errorsById).length} gagal. Perbaiki entri bertanda merah lalu kirim lagi.`,
+                const response = await submitKioskDailyReports(reports);
+                if (!response.success) {
+                    toast.error(response.error);
+                    return;
+                }
+                const json = response.data;
+                if (json.status === 207) {
+                    const outcome = readDailyReportOutcome(
+                        reports.map((report) => report.clientRequestId ?? ''),
+                        json,
+                    );
+                    remove(outcome.savedIndexes);
+                    setEntryErrors(outcome.errorsById);
+                    toast.warning(
+                        `${outcome.savedIndexes.length} laporan tersimpan, ${Object.keys(outcome.errorsById).length} gagal. Perbaiki entri bertanda merah lalu kirim lagi.`,
+                    );
+                    return;
+                }
+                toast.success(
+                    `${json.count ?? reports.length} laporan berhasil disimpan.`,
                 );
-                return;
+                form.reset({ reports: [makeEmpty(operator.id)] });
+                router.refresh();
+            } catch {
+                toast.error(
+                    'Gagal menyimpan data produksi. Silakan coba lagi.',
+                );
+            } finally {
+                submitting.current = false;
+                setIsSubmitting(false);
             }
-            if (!res.ok)
-                throw new Error(
-                    json.message || json.error || 'Gagal menyimpan laporan',
-                );
-            toast.success(
-                `${json.count ?? reports.length} laporan berhasil disimpan.`,
-            );
-            form.reset({ reports: [makeEmpty()] });
-            router.refresh();
-        } catch {
-            toast.error('Gagal menyimpan data produksi. Silakan coba lagi.');
-        } finally {
-            submitting.current = false;
-            setIsSubmitting(false);
-        }
+        });
     };
 
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2 rounded-xl border-2 border-border bg-card p-4">
+                    <p className="font-semibold">
+                        Operator PIN: {operator.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                        Ganti operator melalui hub. Helper boleh dipilih dari
+                        seluruh karyawan aktif.
+                    </p>
+                    <p className="rounded-lg bg-kiosk-warn-soft p-3 text-kiosk-warn-ink">
+                        Jika absensi belum lengkap, laporan tetap dapat dikirim.
+                        Lengkapi absensi secara terpisah.
+                    </p>
+                </div>
                 <fieldset
                     disabled={isSubmitting}
                     className="min-w-0 space-y-6"
@@ -258,12 +273,6 @@ export default function SpecialProductionForm({
                                 label: 'Mesin',
                                 placeholder: 'Pilih mesin...',
                                 options: machines,
-                            },
-                            {
-                                name: 'operatorId',
-                                label: 'Operator (Ketua)',
-                                placeholder: 'Pilih operator...',
-                                options: employees,
                             },
                         ] as const;
                         return (
@@ -304,7 +313,7 @@ export default function SpecialProductionForm({
                                         Gagal disimpan: {entryError}
                                     </p>
                                 )}
-                                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                     {choices.map((choice) => (
                                         <FormField
                                             key={choice.name}
@@ -585,7 +594,7 @@ export default function SpecialProductionForm({
                         <button
                             type="button"
                             className={kioskButton()}
-                            onClick={() => append(makeEmpty())}
+                            onClick={() => append(makeEmpty(operator.id))}
                         >
                             <PlusCircle aria-hidden="true" /> Tambah entri
                         </button>
