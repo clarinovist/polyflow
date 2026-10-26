@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Users, LogIn } from 'lucide-react';
 import { kioskLabels } from '@/lib/labels';
+import { startKioskOperatorSession } from '@/actions/production/kiosk-operator-session';
+import { KioskOperatorPin, PIN_MIN_LENGTH } from './KioskOperatorPin';
 
 interface Employee {
     id: string;
@@ -15,7 +17,8 @@ interface Employee {
 interface KioskOperatorGateProps {
     employees: Employee[];
     machines: Array<{ id: string; name: string }>;
-    onSelect: (operatorId: string) => void;
+    /** Called only after the server accepted the operator's PIN. */
+    onSelect: (operatorId: string, operatorName: string) => void;
 }
 
 export function KioskOperatorGate({
@@ -23,20 +26,49 @@ export function KioskOperatorGate({
     machines,
     onSelect,
 }: KioskOperatorGateProps) {
-    const [_selectedId, setSelectedId] = useState<string | null>(null);
+    const [selected, setSelected] = useState<Employee | null>(null);
+    const [pin, setPin] = useState('');
+    const [error, setError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    useEffect(() => {
-        const saved = sessionStorage.getItem('kiosk_operator_id');
-        if (saved) {
-            onSelect(saved);
-        }
-    }, [onSelect]);
-
-    const handleSelect = (emp: Employee) => {
-        setSelectedId(emp.id);
-        sessionStorage.setItem('kiosk_operator_id', emp.id);
-        onSelect(emp.id);
+    const choose = (employee: Employee | null) => {
+        setSelected(employee);
+        setPin('');
+        setError('');
     };
+
+    const submitPin = async () => {
+        if (!selected || pin.length < PIN_MIN_LENGTH) return;
+        setIsSubmitting(true);
+        setError('');
+        try {
+            const result = await startKioskOperatorSession(selected.id, pin);
+            if (result.success) {
+                onSelect(selected.id, result.data.name);
+                return;
+            }
+            setError(result.error || kioskLabels.pinCheckFailed);
+        } catch {
+            setError(kioskLabels.pinCheckFailed);
+        } finally {
+            setIsSubmitting(false);
+        }
+        setPin('');
+    };
+
+    if (selected) {
+        return (
+            <KioskOperatorPin
+                operatorName={selected.name}
+                pin={pin}
+                error={error}
+                isSubmitting={isSubmitting}
+                onPinChange={setPin}
+                onSubmit={submitPin}
+                onCancel={() => choose(null)}
+            />
+        );
+    }
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-in fade-in zoom-in duration-300">
@@ -50,6 +82,12 @@ export function KioskOperatorGate({
                 {kioskLabels.operatorGateDesc}
             </p>
 
+            {employees.length === 0 && (
+                <p className="max-w-md rounded-xl border border-dashed p-6 text-muted-foreground">
+                    {kioskLabels.operatorGateEmpty}
+                </p>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-4xl">
                 {employees.map((emp) => (
                     <Button
@@ -57,7 +95,7 @@ export function KioskOperatorGate({
                         variant="outline"
                         size="lg"
                         className="h-24 text-xl font-bold border-2 hover:border-primary hover:bg-primary/5 active:scale-95 transition-all text-left justify-start px-6 gap-4"
-                        onClick={() => handleSelect(emp)}
+                        onClick={() => choose(emp)}
                     >
                         <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm">
                             {emp.name.charAt(0)}

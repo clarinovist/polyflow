@@ -34,6 +34,8 @@ import {
 } from '@/services/production/shift-service';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { getKioskOperatorSession } from '@/lib/auth/kiosk-operator-session';
+import { KIOSK_OPERATOR_SESSION_REQUIRED } from '@/lib/kiosk/operator-session-errors';
 
 export const startExecution = withTenant(async function startExecution(
     data: StartExecutionValues,
@@ -111,6 +113,35 @@ export const startExecution = withTenant(async function startExecution(
     });
 });
 
+/**
+ * Who records a kiosk-capable mutation. A PIN-verified kiosk operator always
+ * wins over the operator id the tablet sends; signed-in users keep working.
+ */
+async function resolveExecutionActor(clientOperatorId?: string) {
+    const kioskOperator = await getKioskOperatorSession();
+    let userId: string | undefined;
+    try {
+        const session = await requireAuth();
+        userId = session.user.id;
+    } catch {
+        // Kiosk mode: no NextAuth session.
+    }
+    if (!userId && !kioskOperator) {
+        throw new BusinessRuleError(
+            'Sesi operator berakhir. Pilih nama Anda dan masukkan PIN lagi.',
+            undefined,
+            KIOSK_OPERATOR_SESSION_REQUIRED,
+        );
+    }
+    return {
+        userId,
+        operatorId: kioskOperator?.employeeId ?? clientOperatorId,
+        kioskOperator: kioskOperator
+            ? { employeeId: kioskOperator.employeeId, code: kioskOperator.code }
+            : undefined,
+    };
+}
+
 export const stopExecution = withTenant(async function stopExecution(
     data: StopExecutionValues,
 ) {
@@ -121,23 +152,12 @@ export const stopExecution = withTenant(async function stopExecution(
         }
 
         try {
-            // Try to get user session, but allow kiosk mode without auth
-            let userId: string | undefined;
-            try {
-                const session = await requireAuth();
-                userId = session.user.id;
-            } catch {
-                // Kiosk mode: no session required if operatorId is provided
-                if (!result.data.operatorId) {
-                    throw new BusinessRuleError(
-                        'Autentikasi diperlukan atau ID operator harus diisi',
-                    );
-                }
-            }
+            const actor = await resolveExecutionActor(result.data.operatorId);
 
             const execution = await ProductionService.stopExecution({
                 ...result.data,
-                userId,
+                operatorId: actor.operatorId,
+                userId: actor.userId,
             });
 
             revalidatePath('/production');
@@ -241,23 +261,15 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
         }
 
         try {
-            // Try to get user session, but allow kiosk mode without auth
-            let userId: string | undefined;
-            try {
-                const session = await requireAuth();
-                userId = session.user.id;
-            } catch {
-                // Kiosk mode: no session required if operatorId is provided
-                if (!result.data.operatorId) {
-                    throw new BusinessRuleError(
-                        'Autentikasi diperlukan atau ID operator harus diisi',
-                    );
-                }
-            }
+            const actor = await resolveExecutionActor(result.data.operatorId);
 
             await ProductionService.logRunningOutput({
                 ...result.data,
-                userId,
+                operatorId: actor.operatorId,
+                userId: actor.userId,
+                ...(actor.kioskOperator
+                    ? { kioskOperator: actor.kioskOperator }
+                    : {}),
             });
 
             revalidatePath('/production');

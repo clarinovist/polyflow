@@ -6,6 +6,8 @@ import {
     useKioskIdleSession,
     KioskIdleWarning,
 } from '@/components/kiosk/KioskIdleSession';
+import { KIOSK_OPERATOR_STORAGE_KEY } from '@/components/kiosk/useVerifiedKioskOperator';
+import { endKioskOperatorSession } from '@/actions/production/kiosk-operator-session';
 
 interface KioskIdleShellProps {
     children: React.ReactNode;
@@ -15,7 +17,8 @@ export function KioskIdleShell({ children }: KioskIdleShellProps) {
     const router = useRouter();
 
     const handleIdle = useCallback(() => {
-        sessionStorage.removeItem('kiosk_operator_id');
+        sessionStorage.removeItem(KIOSK_OPERATOR_STORAGE_KEY);
+        void endKioskOperatorSession().catch(() => undefined);
         router.push('/kiosk');
     }, [router]);
 

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { kioskLabels } from '@/lib/labels';
 import { KioskOperatorGate } from '@/components/kiosk/KioskOperatorGate';
+import { useVerifiedKioskOperator } from '@/components/kiosk/useVerifiedKioskOperator';
 import { KioskOperatorChip } from '@/components/kiosk/KioskOperatorChip';
 import { MyPortalQr } from '@/components/kiosk/MyPortalQr';
 import { KioskTodayStrip } from '@/components/kiosk/KioskTodayStrip';
@@ -95,8 +96,9 @@ export function KioskHub({
     machines,
     hasProsesKhusus = false,
 }: KioskHubProps) {
-    const [operatorId, setOperatorId] = useState<string | null>(null);
-    const [isInitialized, setIsInitialized] = useState(false);
+    const operator = useVerifiedKioskOperator();
+    const operatorId = operator.operatorId;
+    const isInitialized = operator.isReady;
     const [summary, setSummary] = useState<OperatorTodaySummary | null>(null);
     const [isLoadingSummary, setIsLoadingSummary] = useState(false);
     const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
@@ -118,23 +120,15 @@ export function KioskHub({
     }, []);
 
     useEffect(() => {
-        const saved = sessionStorage.getItem('kiosk_operator_id');
-        if (saved) {
-            setOperatorId(saved);
-            fetchSummary(saved);
-        }
-        setIsInitialized(true);
-    }, [fetchSummary]);
+        if (operatorId) fetchSummary(operatorId);
+    }, [operatorId, fetchSummary]);
 
-    const handleOperatorSelect = (id: string) => {
-        setOperatorId(id);
-        sessionStorage.setItem('kiosk_operator_id', id);
-        fetchSummary(id);
+    const handleOperatorSelect = (id: string, name: string) => {
+        operator.select(id, name);
     };
 
     const handleConfirmLogout = () => {
-        sessionStorage.removeItem('kiosk_operator_id');
-        setOperatorId(null);
+        operator.forget();
         setSummary(null);
         setIsLogoutDialogOpen(false);
     };
@@ -189,6 +183,15 @@ export function KioskHub({
                         </span>
                     </div>
                 </div>
+
+                {operator.expired && (
+                    <p
+                        role="status"
+                        className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-center font-semibold"
+                    >
+                        {kioskLabels.sessionExpired}
+                    </p>
+                )}
 
                 <KioskOperatorGate
                     employees={employees}

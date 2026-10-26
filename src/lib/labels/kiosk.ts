@@ -109,8 +109,18 @@ export const kioskLabels = {
 
     // Operator gate
     operatorGateTitle: 'Siapa yang beroperasi?',
-    operatorGateDesc: 'Pilih nama Anda untuk mulai mengelola produksi.',
-    operatorGateHint: 'Operator akan disimpan untuk sesi ini.',
+    operatorGateDesc: 'Ketuk nama Anda, lalu masukkan PIN absensi.',
+    operatorGateHint:
+        'Sesi berakhir saat ganti operator atau 15 menit tanpa aktivitas.',
+    operatorGateEmpty:
+        'Belum ada operator terdaftar. Minta kepala regu menambahkan Anda sebagai operator di Data Karyawan.',
+    pinTitle: 'Masukkan PIN absensi',
+    pinNoPinHint: 'Belum punya PIN? Minta HRD membuatkan PIN absensi.',
+    pinSubmit: 'Masuk',
+    pinNotMe: 'Bukan saya',
+    pinCheckFailed: 'Gagal memeriksa PIN. Periksa koneksi lalu coba lagi.',
+    sessionExpired:
+        'Sesi operator berakhir. Pilih nama Anda dan masukkan PIN lagi.',
 
     // Session
     sessionLogout: 'Keluar',

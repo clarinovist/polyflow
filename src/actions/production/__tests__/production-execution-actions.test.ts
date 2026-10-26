@@ -43,6 +43,11 @@ vi.mock('@/lib/core/prisma', () => ({
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
 
+const { mockKioskSession } = vi.hoisted(() => ({ mockKioskSession: vi.fn() }));
+vi.mock('@/lib/auth/kiosk-operator-session', () => ({
+    getKioskOperatorSession: () => mockKioskSession(),
+}));
+
 vi.mock('@/lib/tools/auth-checks', () => ({
     requireAuth: vi.fn(),
     requireProductionLeaderRole: vi.fn(),
@@ -92,6 +97,7 @@ describe('production execution actions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(requireAuth).mockResolvedValue(SESSION as never);
+        mockKioskSession.mockResolvedValue(null);
         vi.mocked(requireProductionLeaderRole).mockResolvedValue(
             SESSION as never,
         );
@@ -256,6 +262,28 @@ describe('production execution actions', () => {
             expect(res.success).toBe(false);
             expect(ProductionService.stopExecution).not.toHaveBeenCalled();
         });
+
+        it('stops on behalf of the PIN operator when there is no signed-in user', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new Error('NEXT_REDIRECT'));
+            mockKioskSession.mockResolvedValue({ employeeId: 'op-pin', code: 'OP-07', name: 'Operator 7', tenantId: null });
+            vi.mocked(ProductionService.stopExecution).mockResolvedValue({ id: 'exec-1' } as never);
+
+            const res = await stopExecution({ ...stopInput, operatorId: 'op-claimed' } as never);
+
+            expect(res.success).toBe(true);
+            expect(ProductionService.stopExecution).toHaveBeenCalledWith(
+                expect.objectContaining({ operatorId: 'op-pin', userId: undefined }),
+            );
+        });
+
+        it('refuses an anonymous stop without an operator session', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new Error('NEXT_REDIRECT'));
+
+            const res = await stopExecution(stopInput as never);
+
+            expect(res).toMatchObject({ success: false, code: 'KIOSK_OPERATOR_SESSION_REQUIRED' });
+            expect(ProductionService.stopExecution).not.toHaveBeenCalled();
+        });
     });
 
     describe('logRunningOutput', () => {
@@ -282,6 +310,27 @@ describe('production execution actions', () => {
             // Assert
             expect(res.success).toBe(true);
             expect(ProductionService.logRunningOutput).toHaveBeenCalled();
+        });
+
+        it('takes the operator from the PIN session, not from the tablet', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new Error('NEXT_REDIRECT'));
+            mockKioskSession.mockResolvedValue({ employeeId: 'op-pin', code: 'OP-07', name: 'Operator 7', tenantId: null });
+
+            const res = await logRunningOutput({ ...logInput, operatorId: 'op-claimed' } as never);
+
+            expect(res.success).toBe(true);
+            const args = vi.mocked(ProductionService.logRunningOutput).mock.calls[0][0] as Record<string, unknown>;
+            expect(args).toMatchObject({ operatorId: 'op-pin', kioskOperator: { employeeId: 'op-pin', code: 'OP-07' } });
+            expect(args.userId).toBeUndefined();
+        });
+
+        it('asks for the PIN again when an anonymous kiosk has no operator session', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new Error('NEXT_REDIRECT'));
+
+            const res = await logRunningOutput(logInput as never);
+
+            expect(res).toMatchObject({ success: false, code: 'KIOSK_OPERATOR_SESSION_REQUIRED' });
+            expect(ProductionService.logRunningOutput).not.toHaveBeenCalled();
         });
     });
 

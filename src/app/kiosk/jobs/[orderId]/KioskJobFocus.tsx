@@ -25,6 +25,7 @@ import {
     pickRekapShift,
     summarizeShiftOutput,
 } from '@/lib/production/kiosk-shift-status';
+import { useVerifiedKioskOperator } from '@/components/kiosk/useVerifiedKioskOperator';
 import { startExecution } from '@/actions/production/production';
 import { KioskStopDialog } from '@/components/production/kiosk/KioskStopDialog';
 import { DowntimeDialog } from '@/components/production/kiosk/DowntimeDialog';
@@ -135,8 +136,9 @@ export default function KioskJobFocus({
     const [logDialogOpen, setLogDialogOpen] = useState(false);
     const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
     const [downtimeDialogOpen, setDowntimeDialogOpen] = useState(false);
-    const [operatorId, setOperatorId] = useState<string | null>(null);
-    const [isInitialized, setIsInitialized] = useState(false);
+    const operator = useVerifiedKioskOperator();
+    const operatorId = operator.operatorId;
+    const isInitialized = operator.isReady;
     const [timeLeft, setTimeLeft] = useState(30);
     const [optimisticExecutionId, setOptimisticExecutionId] = useState<
         string | null
@@ -160,19 +162,13 @@ export default function KioskJobFocus({
     );
     const processName = order.processNameSnapshot || null;
 
-    // Hydrate operator from sessionStorage
-    useEffect(() => {
-        const saved = sessionStorage.getItem('kiosk_operator_id');
-        setOperatorId(saved);
-        setIsInitialized(true);
-    }, []);
-
-    // Gate: redirect to hub if no operator selected
+    // Gate: back to the hub when no operator holds a valid PIN session
     useEffect(() => {
         if (isInitialized && !operatorId) {
+            if (operator.expired) toast.error(kioskLabels.sessionExpired);
             router.push('/kiosk');
         }
-    }, [isInitialized, operatorId, router]);
+    }, [isInitialized, operatorId, operator.expired, router]);
 
     // Clear optimistic override once real execution lands via router.refresh()
     useEffect(() => {
@@ -365,7 +361,7 @@ export default function KioskJobFocus({
                         <span className="font-semibold">
                             {kioskLabels.operator}:
                         </span>{' '}
-                        {operatorId ? 'Anda' : '-'}
+                        {operator.operatorName || (operatorId ? 'Anda' : '-')}
                     </span>
                     <span className="flex items-center gap-1">
                         <span className="font-semibold">Satuan:</span>{' '}
