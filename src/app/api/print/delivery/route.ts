@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { withTenantRoute } from '@/lib/core/tenant';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { requireAnyModuleOrNextResponse } from '@/lib/modules/guard';
@@ -36,6 +37,8 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
 
         return escpAttachmentResponse(document.bytes, document.documentNumber);
     } catch (error) {
+        // requireAuth redirects to /login; let Next answer it instead of a 500.
+        unstable_rethrow(error);
         console.error('[ESC/P Delivery] Error:', error);
         return NextResponse.json(
             { error: 'Failed to generate ESC/P file' },
