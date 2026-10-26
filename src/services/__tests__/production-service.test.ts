@@ -215,7 +215,9 @@ describe("ProductionService", () => {
       skuCode: "SCRAP-PRONGKOL",
     });
 
-    (ProductionCostService.calculateBatchCOGM as any).mockResolvedValue(500);
+    vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockImplementation(
+      async (_orderId, quantity) => ({ unitCost: 500, journalTotal: quantity * 500 }),
+    );
 
     (AccountingService.recordInventoryMovement as any).mockResolvedValue(
       undefined,

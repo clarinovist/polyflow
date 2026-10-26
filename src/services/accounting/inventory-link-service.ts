@@ -87,15 +87,14 @@ async function validateGlBalance(
         _sum: { debit: true, credit: true },
     });
 
-    const totalDebit = Number(result._sum.debit || 0);
-    const totalCredit = Number(result._sum.credit || 0);
-    const currentBalance = totalDebit - totalCredit;
+    const currentBalance = new Prisma.Decimal(result._sum.debit ?? 0)
+        .minus(result._sum.credit ?? 0);
 
-    if (currentBalance < creditAmount) {
+    if (currentBalance.lt(creditAmount)) {
         throw new BusinessRuleError(
             `Saldo akun GL akan minus!\n` +
                 `Akun: ${account.code} - ${account.name}\n` +
-                `Saldo saat ini: Rp ${currentBalance.toLocaleString('id-ID')}\n` +
+                `Saldo saat ini: Rp ${currentBalance.toNumber().toLocaleString('id-ID')}\n` +
                 `Akan di-credit: Rp ${creditAmount.toLocaleString('id-ID')}\n` +
                 `Produk: ${productName}\n` +
                 `Tip: Pastikan stok sudah di-receipt/adjustment ke akun yang benar sebelum konsumsi.`,
@@ -581,8 +580,8 @@ export async function recordInventoryMovement(
                     // Source-funded output may return WIP into inventory on the
                     // same account. Validate its net change, not a phantom outflow.
                     const credit = options?.productionOutput
-                        ? Math.max(0, lines.filter(l => l.accountId === line.accountId)
-                            .reduce((net, l) => net + l.credit - l.debit, 0))
+                        ? Prisma.Decimal.max(0, lines.filter(l => l.accountId === line.accountId)
+                            .reduce((net, l) => net.plus(l.credit).minus(l.debit), new Prisma.Decimal(0))).toNumber()
                         : line.credit;
                     await validateGlBalance(
                         db,
