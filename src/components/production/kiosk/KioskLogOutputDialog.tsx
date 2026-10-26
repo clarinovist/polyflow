@@ -397,6 +397,7 @@ export function KioskLogOutputDialog({
         const clientRequestId = pendingRequestIdRef.current;
         const prongkolKg = Number.isFinite(prongkolNum) ? prongkolNum : 0;
         const daunKg = Number.isFinite(daunNum) ? daunNum : 0;
+        const sendsSalesUnit = unitMeta.hasAlternateUnit && safeQty > 0;
 
         setIsLoading(true);
         try {
@@ -410,16 +411,13 @@ export function KioskLogOutputDialog({
             const result = await logRunningOutput({
                 executionId,
                 quantityProduced: baseQty,
-                enteredQuantity: unitMeta.hasAlternateUnit
-                    ? safeQty
-                    : undefined,
-                enteredUnit: unitMeta.hasAlternateUnit
+                // Sales-unit fields only with an output: the schema rejects 0.
+                enteredQuantity: sendsSalesUnit ? safeQty : undefined,
+                enteredUnit: sendsSalesUnit
                     ? (unitMeta.salesUnit as Unit)
                     : undefined,
-                baseQuantityProduced: unitMeta.hasAlternateUnit
-                    ? baseQty
-                    : undefined,
-                conversionFactorSnapshot: unitMeta.hasAlternateUnit
+                baseQuantityProduced: sendsSalesUnit ? baseQty : undefined,
+                conversionFactorSnapshot: sendsSalesUnit
                     ? unitMeta.conversionFactor
                     : undefined,
                 scrapQuantity: prongkolKg + daunKg,

@@ -18,6 +18,7 @@ vi.mock('@/components/ui/camera-capture', () => ({ CameraCapture: () => null }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: mocks.toastError } }));
 
 import { KioskLogOutputDialog } from '../KioskLogOutputDialog';
+import { logRunningOutputSchema } from '@/lib/schemas/production';
 
 const now = Date.now();
 const activeShift = { id: 'shift-1', shiftName: 'Shift 1', startTime: new Date(now - 3_600_000), endTime: new Date(now + 3_600_000), operatorId: 'op-1' };
@@ -90,6 +91,7 @@ describe('KioskLogOutputDialog', () => {
             clientRequestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
         });
         expect(sent().packagedOutput).toBeUndefined();
+        expect(logRunningOutputSchema.safeParse(sent()).success).toBe(true);
     });
 
     it('locks Lanjut with its reason until there is an output or an affal-only choice', async () => {
@@ -136,6 +138,21 @@ describe('KioskLogOutputDialog', () => {
             baseQuantityProduced: 50,
             conversionFactorSnapshot: 25,
         });
+    });
+
+    it('sends an affal-only entry on a sales-unit SPK without zero unit fields the schema rejects', async () => {
+        renderWizard({ salesUnit: 'BAL', conversionFactor: 25 });
+        fireEvent.click(screen.getByRole('button', { name: 'Hasil 0, hanya affal' }));
+        fireEvent.change(screen.getByLabelText(/^Prongkol/), { target: { value: '1' } });
+        next();
+        await submitAndWait();
+
+        expect(sent()).toMatchObject({ quantityProduced: 0, scrapProngkolQty: 1 });
+        expect(sent().enteredQuantity).toBeUndefined();
+        expect(sent().enteredUnit).toBeUndefined();
+        expect(sent().baseQuantityProduced).toBeUndefined();
+        expect(sent().conversionFactorSnapshot).toBeUndefined();
+        expect(logRunningOutputSchema.safeParse(sent()).success).toBe(true);
     });
 
     it('asks for every QC measurement and sends them', async () => {
