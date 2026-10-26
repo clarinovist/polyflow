@@ -122,6 +122,10 @@ vi.mock('../execution-helpers', () => ({
     triggerProductionOutputJournal: vi.fn(),
 }));
 
+vi.mock('../packaging-output-service', () => ({
+    validatePackagedOutput: vi.fn(async (_tx: unknown, _order: unknown, data: unknown) => ({ data, ids: ['label-a'] })),
+    postPackagedOutput: vi.fn(),
+}));
 vi.mock('../execution-unit-conversion', () => ({
     resolveProductionOutputUnit: vi.fn().mockResolvedValue({
         baseQuantityProduced: 50,
@@ -153,6 +157,8 @@ import {
     backflushMaterials,
     resolvePackingScrapMaterialId,
 } from '../execution-helpers';
+import { validatePackagedOutput, postPackagedOutput } from '../packaging-output-service';
+import { logActivity } from '@/lib/tools/audit';
 
 describe('ProductionExecutionService.voidExecution', () => {
     beforeEach(() => {
@@ -1377,3 +1383,174 @@ describe('ProductionExecutionService.logRunningOutput - multi-operator attributi
         );
     });
 });
+
+describe('ProductionExecutionService kiosk actual packaging', () => {
+    const shell = {
+        id: 'exec-shell',
+        productionOrderId: 'po-1',
+        machineId: 'machine-1',
+        operatorId: 'op-1',
+        shiftId: null,
+        enteredQuantity: null,
+        enteredUnit: null,
+        conversionFactorSnapshot: null,
+    };
+    const flaggedOrder = {
+        id: 'po-1',
+        status: 'IN_PROGRESS',
+        actualPackagingEnabled: true,
+        actualQuantity: 0,
+        orderNumber: 'WO-001',
+        isMaklon: false,
+        locationId: 'loc-1',
+        productionRunId: null,
+        bom: { productVariantId: 'pv-1', category: 'PACKING', items: [] },
+        plannedMaterials: [],
+    };
+    const kioskOperator = { employeeId: 'op-1', code: 'OP-01' };
+    const packagedOutput = {
+        clientRequestId: 'ce26b37c-85c5-46cb-bc5c-5ec212db2da4',
+        groups: [{
+            productVariantId: 'pv-1',
+            quantity: 1,
+            packaging: [{ productVariantId: 'label-a', sourceLocationId: 'loc-pack', ownerCustomerId: null, unit: 'PCS' as const, quantity: 240 }],
+        }],
+    };
+    const logInput = {
+        executionId: 'exec-shell',
+        quantityProduced: 50,
+        scrapQuantity: 0,
+        scrapProngkolQty: 0,
+        scrapDaunQty: 0,
+        notes: '',
+        shiftId: undefined,
+        operatorId: 'op-1',
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(tx.$queryRaw).mockResolvedValue([] as never);
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue(shell as never);
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue(null as never);
+        vi.mocked(tx.productionExecution.create).mockResolvedValue({ id: 'exec-new' } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({ ...shell, quantityProduced: 0 } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue(flaggedOrder as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue(flaggedOrder as never);
+    });
+
+    it('records kiosk output with actual packaging under the system actor and the PIN operator', async () => {
+        await ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator });
+
+        expect(tx.$queryRaw).toHaveBeenCalled();
+        expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({
+            data: expect.objectContaining({
+                clientRequestId: packagedOutput.clientRequestId,
+                requestHash: expect.any(String),
+                operatorId: 'op-1',
+            }),
+        }));
+        // A single brand group always carries the resolved base output.
+        const validated = vi.mocked(validatePackagedOutput).mock.calls[0];
+        expect(validated[2].groups[0].quantity).toBe(50);
+        expect(validated[3]).toBe(50);
+        expect(postPackagedOutput).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'exec-new', expect.anything(), undefined);
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'system',
+            action: 'RECORD_PACKAGED_OUTPUT',
+            entityId: 'exec-new',
+            details: expect.stringContaining('OP-01'),
+        }));
+    });
+
+    it('replays the same kiosk submission without posting twice', async () => {
+        await ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator });
+        const { requestHash } = vi.mocked(tx.productionExecution.create).mock.calls[0][0].data as { requestHash: string };
+        vi.clearAllMocks();
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue(shell as never);
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({ requestHash, status: 'COMPLETED' } as never);
+
+        await ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator });
+
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(postPackagedOutput).not.toHaveBeenCalled();
+    });
+
+    it('rejects a reused request id carrying different data', async () => {
+        vi.mocked(tx.productionExecution.findUnique).mockResolvedValue({ requestHash: 'other', status: 'COMPLETED' } as never);
+
+        await expect(
+            ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator }),
+        ).rejects.toThrow('Permintaan sudah dipakai');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('does not let the kiosk switch an SPK into actual-packaging mode', async () => {
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({ ...flaggedOrder, actualPackagingEnabled: false } as never);
+
+        await expect(
+            ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput, kioskOperator }),
+        ).rejects.toThrow('belum memakai pencatatan kemasan');
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('requires an accountable actor for actual packaging', async () => {
+        await expect(
+            ProductionExecutionService.logRunningOutput({ ...logInput, packagedOutput }),
+        ).rejects.toThrow('Aktor pencatatan wajib tersedia');
+        expect(tx.productionExecution.create).not.toHaveBeenCalled();
+    });
+
+    it('still refuses plain kiosk output on a flagged SPK', async () => {
+        await expect(
+            ProductionExecutionService.logRunningOutput({ ...logInput, kioskOperator }),
+        ).rejects.toThrow('SPK ini memakai kemasan aktual');
+    });
+
+    it('stops a flagged SPK with zero output without posting anything', async () => {
+        await expect(ProductionExecutionService.stopExecution({
+            executionId: 'exec-shell',
+            quantityProduced: 0,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            completed: false,
+        } as never)).resolves.toBeTruthy();
+
+        expect(backflushMaterials).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses final output in the stop dialog for a flagged SPK', async () => {
+        await expect(ProductionExecutionService.stopExecution({
+            executionId: 'exec-shell',
+            quantityProduced: 10,
+            scrapQuantity: 0,
+            scrapProngkolQty: 0,
+            scrapDaunQty: 0,
+            notes: '',
+            completed: true,
+        } as never)).rejects.toThrow('Catat hasil dan affal terakhir lewat Catat Hasil');
+        expect(tx.productionExecution.update).not.toHaveBeenCalled();
+    });
+
+    it('lets the admin form switch an SPK on before any output exists', async () => {
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({ ...flaggedOrder, actualPackagingEnabled: false } as never);
+        vi.mocked(tx.productionExecution.count).mockResolvedValue(0 as never);
+
+        await ProductionExecutionService.addProductionOutput({
+            productionOrderId: 'po-1',
+            quantityProduced: 50,
+            scrapQuantity: 0,
+            startTime: new Date(),
+            endTime: new Date(),
+            userId: 'user-1',
+            packagedOutput,
+        } as never);
+
+        expect(tx.productionOrder.update).toHaveBeenCalledWith({ where: { id: 'po-1' }, data: { actualPackagingEnabled: true } });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', action: 'RECORD_PACKAGED_OUTPUT' }));
+    });
+});
+

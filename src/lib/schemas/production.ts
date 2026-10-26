@@ -486,6 +486,9 @@ export const logRunningOutputSchema = z.object({
     // QC measurements dari step kiosk (kosong kalau varian belum punya
     // parameter terdefinisi — step di-skip otomatis di client).
     qcMeasurements: z.array(qcMeasurementInputSchema).optional(),
+    // Etiket/karung/plastik yang benar-benar terpakai; wajib untuk SPK
+    // yang memakai kemasan aktual.
+    packagedOutput: packagedOutputSchema.optional(),
 });
 
 export type LogRunningOutputValues = z.infer<typeof logRunningOutputSchema>;

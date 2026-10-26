@@ -326,6 +326,60 @@ async function processOutputAndBackflush(params: {
     return order;
 }
 
+/**
+ * Reserved non-login user (migration 20260725) that records kiosk postings.
+ * The PIN-verified operator is kept on the execution and in the audit text.
+ */
+const KIOSK_AUDIT_ACTOR_USER_ID = 'system';
+
+export interface KioskOperatorActor {
+    employeeId: string;
+    code: string;
+}
+
+/**
+ * Locks the order and checks replay for an actual-packaging submission.
+ * Returns false when the identical request was already posted.
+ * Only the admin form may switch an SPK into actual packaging, and only
+ * before any execution exists; the kiosk follows the flag Planning set.
+ */
+async function preparePackagedSubmission(
+    tx: Prisma.TransactionClient,
+    params: {
+        productionOrderId: string;
+        clientRequestId: string;
+        requestHash: string;
+        allowEnable: boolean;
+    },
+): Promise<boolean> {
+    const { productionOrderId, clientRequestId, requestHash } = params;
+    await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+    const replay = await tx.productionExecution.findUnique({ where: { clientRequestId } });
+    if (replay) {
+        if (replay.requestHash !== requestHash || replay.status === 'VOIDED') {
+            throw new ProductionRuleViolationError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.');
+        }
+        return false;
+    }
+    const state = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
+    if (!state.actualPackagingEnabled) {
+        if (!params.allowEnable) {
+            throw new ProductionRuleViolationError('SPK ini belum memakai pencatatan kemasan. Minta Planning menyalakannya sebelum ada hasil.');
+        }
+        const prior = await tx.productionExecution.count({ where: { productionOrderId } });
+        if (prior > 0) throw new ProductionRuleViolationError('Gunakan SPK baru untuk beralih ke kemasan aktual; hasil lama tidak boleh dicampur.');
+        await tx.productionOrder.update({ where: { id: productionOrderId }, data: { actualPackagingEnabled: true } });
+    }
+    if (['CANCELLED', 'CLOSED', 'COMPLETED'].includes(state.status)) throw new ProductionRuleViolationError('SPK tidak dapat menerima hasil baru.');
+    return true;
+}
+
+/** A single brand group always carries the resolved base output, so display-unit rounding cannot break the group total. */
+function withResolvedGroupQuantity(packagedOutput: PackagedOutputValues, baseQty: number): PackagedOutputValues {
+    if (packagedOutput.groups.length !== 1 || baseQty <= 0) return packagedOutput;
+    return { ...packagedOutput, groups: [{ ...packagedOutput.groups[0], quantity: baseQty }] };
+}
+
 export class ProductionExecutionService {
     /**
      * Start Execution
@@ -474,6 +528,18 @@ export class ProductionExecutionService {
                     where: { id: executionId },
                 });
             const productionOrderId = existingExecution.productionOrderId;
+            const orderState = await tx.productionOrder.findUniqueOrThrow({
+                where: { id: productionOrderId },
+                select: { actualPackagingEnabled: true, isMaklon: true, productionRunId: true },
+            });
+            const stopScrap = Number(scrapQuantity) + Number(scrapProngkolQty) + Number(scrapDaunQty);
+            // Packaging is recorded per output in Catat Hasil; the stop dialog
+            // has no packaging step, so it may only close the shell.
+            if (orderState.actualPackagingEnabled && (Number(quantityProduced) > 0 || stopScrap > 0)) {
+                throw new ProductionRuleViolationError(
+                    'SPK ini mencatat kemasan aktual. Catat hasil dan affal terakhir lewat Catat Hasil, lalu hentikan dengan jumlah 0.',
+                );
+            }
             const resolved = await resolveOutputQuantity({
                 productionOrderId,
                 quantityProduced: Number(quantityProduced),
@@ -562,27 +628,31 @@ export class ProductionExecutionService {
                 });
             }
 
-            const order = await processOutputAndBackflush({
-                tx,
-                productionOrderId,
-                resolvedBaseQty,
-                scrapQuantity,
-                userId,
-                resolved,
-                referencePrefix: 'Backflush (Stop)',
-                scrapProngkolQty,
-                scrapDaunQty,
-            });
+            const order = orderState.actualPackagingEnabled
+                ? orderState
+                : await processOutputAndBackflush({
+                      tx,
+                      productionOrderId,
+                      resolvedBaseQty,
+                      scrapQuantity,
+                      userId,
+                      resolved,
+                      referencePrefix: 'Backflush (Stop)',
+                      scrapProngkolQty,
+                      scrapDaunQty,
+                  });
 
-            await recordExecutionScrap({
-                tx,
-                productionOrderId,
-                executionId,
-                scrapQuantity: Number(scrapQuantity),
-                scrapProngkolQty: Number(scrapProngkolQty),
-                scrapDaunQty: Number(scrapDaunQty),
-                userId,
-            });
+            if (!orderState.actualPackagingEnabled) {
+                await recordExecutionScrap({
+                    tx,
+                    productionOrderId,
+                    executionId,
+                    scrapQuantity: Number(scrapQuantity),
+                    scrapProngkolQty: Number(scrapProngkolQty),
+                    scrapDaunQty: Number(scrapDaunQty),
+                    userId,
+                });
+            }
 
             if (data.completed && order.isMaklon) {
                 await AccountingService.recordMaklonCosts(
@@ -615,7 +685,10 @@ export class ProductionExecutionService {
      * The running execution stays active (not modified).
      */
     static async logRunningOutput(
-        data: LogRunningOutputValues & { userId?: string },
+        data: LogRunningOutputValues & {
+            userId?: string;
+            kioskOperator?: KioskOperatorActor;
+        },
     ) {
         const {
             executionId,
@@ -634,7 +707,22 @@ export class ProductionExecutionService {
             userId,
             shiftId: explicitShiftId,
             qcMeasurements = [],
+            packagedOutput,
+            kioskOperator,
         } = data;
+
+        const actorUserId =
+            userId ?? (kioskOperator ? KIOSK_AUDIT_ACTOR_USER_ID : undefined);
+        if (packagedOutput && !actorUserId) {
+            throw new ProductionRuleViolationError('Aktor pencatatan wajib tersedia.');
+        }
+        const requestHash = packagedOutput
+            ? createHash('sha256').update(JSON.stringify({
+                  executionId, operatorId: requestOperatorId, shiftId: explicitShiftId, helperIds,
+                  quantityProduced, enteredQuantity, enteredUnit, baseQuantityProduced, conversionFactorSnapshot,
+                  scrapQuantity, scrapProngkolQty, scrapDaunQty, notes, photoUrl, qcMeasurements, packagedOutput,
+              })).digest('hex')
+            : undefined;
 
         await prisma.$transaction(async (tx) => {
             // 1. Running shell = machine context; operator/shift prefer kiosk login
@@ -645,6 +733,19 @@ export class ProductionExecutionService {
 
             const productionOrderId = runningExecution.productionOrderId;
             const operatorId = requestOperatorId || runningExecution.operatorId;
+
+            if (packagedOutput) {
+                if (!packagedOutput.groups.length && Number(quantityProduced) > 0) {
+                    throw new ProductionRuleViolationError('Kelompok hasil wajib diisi.');
+                }
+                const fresh = await preparePackagedSubmission(tx, {
+                    productionOrderId,
+                    clientRequestId: packagedOutput.clientRequestId,
+                    requestHash: requestHash!,
+                    allowEnable: false,
+                });
+                if (!fresh) return;
+            }
 
             // Priority: explicit shiftId from kiosk wizard > auto-detect > running shell
             let shiftId: string | null = runningExecution.shiftId;
@@ -768,6 +869,8 @@ export class ProductionExecutionService {
                     pieceRateSnapshot: pieceSnap.pieceRateSnapshot,
                     pieceEarnings: pieceSnap.pieceEarnings,
                     pieceMachineType: pieceSnap.pieceMachineType,
+                    clientRequestId: packagedOutput?.clientRequestId,
+                    requestHash,
                     helpers:
                         helperIds && helperIds.length > 0
                             ? { connect: helperIds.map((id) => ({ id })) }
@@ -784,6 +887,10 @@ export class ProductionExecutionService {
                 userId,
                 resolved,
                 referencePrefix: 'Backflush (Partial)',
+                packagedOutput: packagedOutput
+                    ? withResolvedGroupQuantity(packagedOutput, resolved.baseQty)
+                    : undefined,
+                executionId: packagedOutput ? newExecution.id : undefined,
                 scrapProngkolQty,
                 scrapDaunQty,
             });
@@ -797,6 +904,7 @@ export class ProductionExecutionService {
                 scrapProngkolQty: Number(scrapProngkolQty),
                 scrapDaunQty: Number(scrapDaunQty),
                 userId,
+                linkMovements: Boolean(packagedOutput),
             });
 
             // 5b. Record QC measurements for this log (no-op kalau varian
@@ -808,6 +916,19 @@ export class ProductionExecutionService {
                 measurements: qcMeasurements,
                 userId,
             });
+
+            if (packagedOutput) {
+                await logActivity({
+                    userId: actorUserId!,
+                    action: 'RECORD_PACKAGED_OUTPUT',
+                    entityType: 'ProductionExecution',
+                    entityId: newExecution.id,
+                    details: kioskOperator
+                        ? `Hasil dan pemakaian kemasan aktual dicatat dari kiosk oleh operator ${kioskOperator.code} (${kioskOperator.employeeId}).`
+                        : 'Hasil dan pemakaian kemasan aktual dicatat.',
+                    tx,
+                });
+            }
 
             // B3: sync run
             const runOrder = await tx.productionOrder.findUnique({
@@ -863,19 +984,13 @@ export class ProductionExecutionService {
             if (data.packagedOutput) {
                 if (!data.packagedOutput.groups.length && quantityProduced > 0) throw new ProductionRuleViolationError('Kelompok hasil wajib diisi.');
                 if (!userId) throw new ProductionRuleViolationError('Aktor pencatatan wajib tersedia.');
-                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
-                const replay = await tx.productionExecution.findUnique({ where: { clientRequestId: data.packagedOutput.clientRequestId } });
-                if (replay) {
-                    if (replay.requestHash !== requestHash || replay.status === 'VOIDED') throw new ProductionRuleViolationError('Permintaan sudah dipakai dengan data berbeda atau dibatalkan.');
-                    return;
-                }
-                const state = await tx.productionOrder.findUniqueOrThrow({ where: { id: productionOrderId } });
-                if (!state.actualPackagingEnabled) {
-                    const prior = await tx.productionExecution.count({ where: { productionOrderId } });
-                    if (prior > 0) throw new ProductionRuleViolationError('Gunakan SPK baru untuk beralih ke kemasan aktual; hasil lama tidak boleh dicampur.');
-                    await tx.productionOrder.update({ where: { id: productionOrderId }, data: { actualPackagingEnabled: true } });
-                }
-                if (['CANCELLED', 'CLOSED', 'COMPLETED'].includes(state.status)) throw new ProductionRuleViolationError('SPK tidak dapat menerima hasil baru.');
+                const fresh = await preparePackagedSubmission(tx, {
+                    productionOrderId,
+                    clientRequestId: data.packagedOutput.clientRequestId,
+                    requestHash: requestHash!,
+                    allowEnable: true,
+                });
+                if (!fresh) return;
             }
             const resolved = await resolveOutputQuantity({
                 productionOrderId,
