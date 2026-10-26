@@ -140,28 +140,13 @@ export function KioskHubMenu({
                     description={kioskLabels.tileAbsensiDesc}
                 />
                 {hasProsesKhusus && (
-                    <div className={cn(TILE, 'flex-wrap')}>
-                        <TileHead
-                            tone="neutral"
-                            icon={<Wrench />}
-                            title={kioskLabels.tileProsesKhusus}
-                            description={kioskLabels.tileProsesKhususDesc}
-                        />
-                        <span className="grid w-full grid-cols-2 gap-2">
-                            <Link
-                                href="/kiosk/production/hd"
-                                className={kioskButton()}
-                            >
-                                HD
-                            </Link>
-                            <Link
-                                href="/kiosk/production/potongplong"
-                                className={kioskButton()}
-                            >
-                                Potong/Plong
-                            </Link>
-                        </span>
-                    </div>
+                    <HubTile
+                        href="/kiosk/production/hd"
+                        tone="neutral"
+                        icon={<Wrench />}
+                        title={kioskLabels.tileProsesKhusus}
+                        description={kioskLabels.tileProsesKhususDesc}
+                    />
                 )}
                 <HubTile
                     href="/my"

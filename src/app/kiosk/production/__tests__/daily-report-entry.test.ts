@@ -25,7 +25,7 @@ describe('toDailyReportPayload', () => {
         });
         expect(hd).toEqual(before);
     });
-    it('keeps Potong/Plong scrap separate from the converted netto', () => {
+    it('keeps scrapQuantity separate from the converted netto', () => {
         expect(toDailyReportPayload({ ...report, scrapQuantity: 4 }, [order({ conversionFactor: '10' })]))
             .toMatchObject({ quantityProduced: 25, scrapQuantity: 4, clientRequestId: report.clientRequestId });
     });

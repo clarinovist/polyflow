@@ -21,16 +21,16 @@ describe('KioskHubMenu', () => {
         expect(screen.getByText('Mesin 2')).toBeTruthy();
         expect(screen.getByRole('link', { name: /SPK saya/ }).getAttribute('href')).toBe('/kiosk/jobs');
         expect(screen.getByRole('link', { name: /Absensi/ }).getAttribute('href')).toBe('/kiosk/attendance');
-        expect(screen.getByRole('link', { name: 'HD' }).getAttribute('href')).toBe('/kiosk/production/hd');
-        expect(screen.getByRole('link', { name: 'Potong/Plong' }).getAttribute('href')).toBe('/kiosk/production/potongplong');
+        expect(screen.getByRole('link', { name: /Laporan HD/ }).getAttribute('href')).toBe('/kiosk/production/hd');
+        expect(screen.queryByText(/Potong/)).toBeNull();
         expect(screen.getByRole('link', { name: /Status saya/ }).getAttribute('href')).toBe('/my');
     });
 
-    it('counts running SPKs on the SPK tile and hides Proses khusus when it is off', () => {
+    it('counts running SPKs on the SPK tile and hides Laporan HD when it is off', () => {
         render(<KioskHubMenu {...base} activeJobs={2} hasProsesKhusus={false} />);
 
         expect(screen.getByRole('link', { name: /SPK saya.*2 berjalan/ })).toBeTruthy();
-        expect(screen.queryByText('Proses khusus')).toBeNull();
+        expect(screen.queryByRole('link', { name: /Laporan HD/ })).toBeNull();
     });
 
     it('asks to change the operator', () => {

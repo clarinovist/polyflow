@@ -80,12 +80,7 @@ describe('Feature Registry', () => {
         expect(resolveFeatureFromPath('/kiosk/production/hd')).toEqual({
             featureKey: 'kiosk.production_form',
             moduleKey: 'kiosk',
-            label: 'Input Produksi Kiosk (HD/Potong-Plong)',
-        });
-        expect(resolveFeatureFromPath('/kiosk/production/potongplong')).toEqual({
-            featureKey: 'kiosk.production_form',
-            moduleKey: 'kiosk',
-            label: 'Input Produksi Kiosk (HD/Potong-Plong)',
+            label: 'Input Produksi Kiosk (HD)',
         });
 
         expect(resolveFeatureFromPath('/kiosk/attendance')).toEqual({

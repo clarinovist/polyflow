@@ -651,7 +651,7 @@ const FEATURE_REGISTRY: FeatureDefinition[] = [
     {
         featureKey: 'kiosk.production_form',
         moduleKey: 'kiosk',
-        label: 'Input Produksi Kiosk (HD/Potong-Plong)',
+        label: 'Input Produksi Kiosk (HD)',
         pattern: /^\/kiosk\/production(?:\/.*)?$/,
         priority: 90,
     },
