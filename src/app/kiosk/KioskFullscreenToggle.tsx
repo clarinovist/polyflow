@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
 import { Maximize, Minimize } from 'lucide-react';
+import { kioskLabels } from '@/lib/labels';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
 
 export function KioskFullscreenToggle() {
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -23,18 +24,23 @@ export function KioskFullscreenToggle() {
         }
     }, []);
 
+    const label = isFullscreen
+        ? kioskLabels.fullscreenExit
+        : kioskLabels.fullscreenEnter;
+
     return (
-        <Button
-            variant="ghost"
-            size="icon"
+        <button
+            type="button"
             onClick={toggle}
-            title={isFullscreen ? 'Keluar layar penuh' : 'Layar penuh'}
+            aria-label={label}
+            className={kioskButton({ tone: 'ghost' })}
         >
             {isFullscreen ? (
-                <Minimize className="h-4 w-4" />
+                <Minimize aria-hidden="true" />
             ) : (
-                <Maximize className="h-4 w-4" />
+                <Maximize aria-hidden="true" />
             )}
-        </Button>
+            <span className="hidden lg:inline">{label}</span>
+        </button>
     );
 }

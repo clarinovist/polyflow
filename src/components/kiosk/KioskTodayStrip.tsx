@@ -1,9 +1,5 @@
-'use client';
-
-import Link from 'next/link';
 import { formatQuantitySummary } from '@/lib/production/quantity-summary';
-import { Card, CardContent } from '@/components/ui/card';
-import { ArrowRight, Activity } from 'lucide-react';
+import { kioskLabels } from '@/lib/labels';
 import type { OperatorTodaySummary } from '@/actions/production/production-execution';
 
 interface KioskTodayStripProps {
@@ -12,6 +8,16 @@ interface KioskTodayStripProps {
     isLoading?: boolean;
 }
 
+function Stat({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="grid gap-1 rounded-xl bg-muted/60 p-3">
+            <dt className="text-sm text-muted-foreground">{label}</dt>
+            <dd className="text-xl font-bold tabular-nums">{value}</dd>
+        </div>
+    );
+}
+
+/** Today's figures for the operator, each with the unit it was recorded in. */
 export function KioskTodayStrip({
     operatorName,
     summary,
@@ -26,59 +32,46 @@ export function KioskTodayStrip({
             summary.activeJobsCount > 0);
 
     return (
-        <Card className="border border-border/80 bg-card/60 shadow-sm overflow-hidden">
-            <CardContent className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium mb-0.5">
-                        <Activity className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                        <span className="truncate">
-                            Hari ini · {operatorName}
-                        </span>
-                    </div>
-                    {isLoading ? (
-                        <p className="text-sm text-muted-foreground animate-pulse">
-                            Memuat ringkasan shift...
-                        </p>
-                    ) : hasOutput && summary ? (
-                        <p className="text-sm font-semibold text-foreground flex items-center flex-wrap gap-x-2 gap-y-1">
-                            <span>{summary.jobCount} job</span>
-                            <span className="text-muted-foreground">•</span>
-                            <span className="text-emerald-700 dark:text-emerald-400">
-                                {formatQuantitySummary(summary.goodByUnit)}{' '}
-                                bagus
-                            </span>
-                            <span className="text-muted-foreground">•</span>
-                            <span
-                                className={
-                                    summary.scrapKg > 0 || summary.scrapUnverifiedEntries > 0
-                                        ? 'text-amber-700 dark:text-amber-400'
-                                        : 'text-muted-foreground'
-                                }
-                            >
-                                {summary.scrapKg.toLocaleString('id-ID')} kg scrap
-                                {summary.scrapUnverifiedEntries > 0 && ` · ${summary.scrapUnverifiedEntries} entri scrap belum terverifikasi satuannya`}
-                            </span>
-                            {summary.activeJobsCount > 0 && (
-                                <span className="text-xs bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold">
-                                    {summary.activeJobsCount} aktif
-                                </span>
-                            )}
-                        </p>
-                    ) : (
-                        <p className="text-sm text-muted-foreground">
-                            Belum ada output hari ini
+        <section className="grid gap-3 rounded-2xl border-2 border-border bg-card p-4">
+            <h2 className="text-base font-semibold text-muted-foreground">
+                {kioskLabels.todayTitle} {operatorName}
+            </h2>
+            {isLoading ? (
+                <p className="text-base text-muted-foreground">
+                    {kioskLabels.todayLoading}
+                </p>
+            ) : hasOutput && summary ? (
+                <>
+                    <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <Stat
+                            label={kioskLabels.todayGood}
+                            value={formatQuantitySummary(summary.goodByUnit)}
+                        />
+                        <Stat
+                            label={kioskLabels.todayScrap}
+                            value={`${summary.scrapKg.toLocaleString('id-ID')} KG`}
+                        />
+                        <Stat
+                            label={kioskLabels.todayJobs}
+                            value={String(summary.jobCount)}
+                        />
+                        <Stat
+                            label={kioskLabels.todayActive}
+                            value={String(summary.activeJobsCount)}
+                        />
+                    </dl>
+                    {summary.scrapUnverifiedEntries > 0 && (
+                        <p className="rounded-xl bg-kiosk-warn-soft p-3 text-base text-kiosk-warn-ink">
+                            {summary.scrapUnverifiedEntries} entri affal belum
+                            terverifikasi satuannya.
                         </p>
                     )}
-                </div>
-
-                <Link
-                    href="/my"
-                    className="inline-flex items-center justify-center sm:justify-start min-h-10 sm:min-h-0 px-3 sm:px-0 rounded-lg sm:rounded-none border sm:border-0 bg-muted/40 sm:bg-transparent text-xs font-semibold text-primary hover:underline shrink-0 gap-1"
-                >
-                    Lihat di Status Saya
-                    <ArrowRight className="h-3 w-3" />
-                </Link>
-            </CardContent>
-        </Card>
+                </>
+            ) : (
+                <p className="text-base text-muted-foreground">
+                    {kioskLabels.todayEmpty}
+                </p>
+            )}
+        </section>
     );
 }

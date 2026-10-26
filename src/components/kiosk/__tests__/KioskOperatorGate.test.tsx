@@ -71,4 +71,24 @@ describe('KioskOperatorGate', () => {
 
         expect(screen.getByText(/Belum ada operator terdaftar/)).toBeTruthy();
     });
+
+    it('filters operators by name and by who is running an SPK', () => {
+        render(<KioskOperatorGate employees={employees} machines={machines} runningOperatorIds={['emp-2']} onSelect={vi.fn()} />);
+
+        const search = screen.getByRole('searchbox', { name: 'Cari nama operator' });
+        fireEvent.change(search, { target: { value: 'or 2' } });
+        expect(screen.queryByRole('button', { name: /Operator 1/ })).toBeNull();
+        expect(screen.getByRole('button', { name: /Operator 2/ })).toBeTruthy();
+
+        fireEvent.change(search, { target: { value: '' } });
+        fireEvent.click(screen.getByRole('button', { name: /Sedang jalan/ }));
+        expect(screen.queryByRole('button', { name: /Operator 1/ })).toBeNull();
+        expect(screen.getByRole('button', { name: /Operator 2.*Jalan SPK/ })).toBeTruthy();
+    });
+
+    it('opens attendance without choosing an operator', () => {
+        render(<KioskOperatorGate employees={employees} machines={machines} onSelect={vi.fn()} />);
+
+        expect(screen.getByRole('link', { name: /Absensi masuk \/ pulang/ }).getAttribute('href')).toBe('/kiosk/attendance');
+    });
 });

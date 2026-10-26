@@ -59,7 +59,23 @@ const getData = withTenantPage(async function getData() {
         }
     }
 
-    return { employees, machines, machinesByOperator, hasProsesKhusus };
+    // Operators with a running shell, for the gate's "Sedang jalan" filter.
+    const running = await prisma.productionExecution.findMany({
+        where: { endTime: null, operatorId: { not: null } },
+        select: { operatorId: true },
+        distinct: ['operatorId'],
+    });
+    const runningOperatorIds = running
+        .map((execution) => execution.operatorId)
+        .filter((id): id is string => !!id);
+
+    return {
+        employees,
+        machines,
+        machinesByOperator,
+        runningOperatorIds,
+        hasProsesKhusus,
+    };
 });
 
 export default async function KioskPage({
@@ -69,8 +85,13 @@ export default async function KioskPage({
 }) {
     const orderId = (await searchParams)?.orderId;
     if (orderId) redirect(`/kiosk/jobs/${orderId}`);
-    const { employees, machines, machinesByOperator, hasProsesKhusus } =
-        await getData();
+    const {
+        employees,
+        machines,
+        machinesByOperator,
+        runningOperatorIds,
+        hasProsesKhusus,
+    } = await getData();
 
     return (
         <KioskHub
@@ -84,6 +105,7 @@ export default async function KioskPage({
                 machineNames: [],
             }))}
             machines={machines}
+            runningOperatorIds={runningOperatorIds}
             hasProsesKhusus={hasProsesKhusus}
         />
     );

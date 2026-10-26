@@ -1,17 +1,33 @@
 /** Kiosk Operator */
 export const kioskLabels = {
+    // Shell
+    shellPlace: 'Kiosk · Lantai produksi',
+    fullscreenEnter: 'Layar penuh',
+    fullscreenExit: 'Keluar layar penuh',
+    loadingKiosk: 'Memuat kiosk…',
+    idleTitle: 'Sesi hampir habis',
+    idleDesc: 'Tidak ada sentuhan. Sesi operator berakhir dalam',
+    idleSeconds: 'detik',
+    idleContinue: 'Ketuk untuk lanjut',
+
     // Hub
-    hubTitle: 'Pilih Mode Kerja',
-    hubSubtitle: 'Mulai dari sini',
-    tileProduksi: 'Produksi / SPK',
+    hubGreeting: 'Halo,',
+    tileProduksi: 'SPK saya',
     tileProduksiDesc: 'Daftar SPK, mulai & catat hasil',
-    tileProduksiActive: 'aktif',
+    tileProduksiActive: 'berjalan',
     tileAbsensi: 'Absensi',
     tileAbsensiDesc: 'Masuk / pulang shift',
-    tileProsesKhusus: 'Proses Khusus',
-    tileProsesKhususDesc: 'HD, Potong-Plong',
-    tileStatusSaya: 'Status Saya',
-    tileStatusSayaDesc: 'Ringkas produksi & gaji',
+    tileProsesKhusus: 'Proses khusus',
+    tileProsesKhususDesc: 'Laporan mesin HD dan Potong/Plong',
+    tileStatusSaya: 'Status saya',
+    tileStatusSayaDesc: 'Hasil & gaji. Buka /my di HP Anda.',
+    todayTitle: 'Hari ini,',
+    todayGood: 'Hasil bagus',
+    todayScrap: 'Affal',
+    todayJobs: 'SPK dikerjakan',
+    todayActive: 'SPK berjalan',
+    todayEmpty: 'Belum ada hasil hari ini.',
+    todayLoading: 'Memuat ringkasan hari ini…',
 
     // Job list
     jobList: 'Daftar SPK',
@@ -114,10 +130,18 @@ export const kioskLabels = {
     wizardSuccessDesc: 'Hasil produksi berhasil dicatat.',
 
     // Operator gate
-    operatorGateTitle: 'Siapa yang beroperasi?',
+    operatorGateTitle: 'Siapa yang bertugas?',
     operatorGateDesc: 'Ketuk nama Anda, lalu masukkan PIN absensi.',
     operatorGateHint:
         'Sesi berakhir saat ganti operator atau 15 menit tanpa aktivitas.',
+    gateAttendance: 'Absensi masuk / pulang',
+    gateSearch: 'Cari nama operator',
+    gateFilterLabel: 'Saring operator',
+    gateFilterAll: 'Semua',
+    gateFilterRunning: 'Sedang jalan',
+    gateRunning: 'Jalan SPK',
+    gateNoMatch: 'Tidak ada operator yang cocok.',
+    gateNoMachine: 'Tanpa mesin tetap',
     operatorGateEmpty:
         'Belum ada operator terdaftar. Minta kepala regu menambahkan Anda sebagai operator di Data Karyawan.',
     pinTitle: 'Masukkan PIN absensi',
@@ -129,7 +153,12 @@ export const kioskLabels = {
         'Sesi operator berakhir. Pilih nama Anda dan masukkan PIN lagi.',
 
     // Session
-    sessionLogout: 'Keluar',
+    sessionLogout: 'Ganti operator',
+    sessionLogoutTitle: 'Ganti operator?',
+    sessionLogoutConfirm: 'Ganti operator',
+    sessionLogoutCancel: 'Batal',
+    sessionLogoutHint:
+        'Pastikan hasil sudah tercatat sebelum tablet dipakai operator berikutnya.',
     sessionActive: 'Operator Aktif',
     sessionCopyId: 'Salin ID',
 

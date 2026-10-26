@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { kioskLabels } from '@/lib/labels';
+import { kioskButton } from './ui/kiosk-button';
 
 interface UseKioskIdleSessionOptions {
     timeoutMs?: number;
@@ -53,6 +54,8 @@ export function useKioskIdleSession({
             if (remaining <= 0) {
                 clearInterval(interval);
                 onIdleRef.current?.();
+                // Start over so the warning does not stay stuck at 1 second.
+                resetTimer();
                 return;
             }
 
@@ -63,7 +66,7 @@ export function useKioskIdleSession({
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [lastActivity, timeoutMs, warningMs]);
+    }, [lastActivity, timeoutMs, warningMs, resetTimer]);
 
     return {
         showWarning,
@@ -85,24 +88,28 @@ export function KioskIdleWarning({
     onDismiss,
 }: KioskIdleWarningProps) {
     return (
-        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-            <div className="bg-card border-2 border-amber-500 rounded-2xl p-8 max-w-md w-full text-center space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="h-16 w-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto">
-                    <span className="text-3xl font-black text-amber-600">
-                        {timeLeft}
-                    </span>
-                </div>
-                <h2 className="text-2xl font-black">Session Hampir Habis</h2>
-                <p className="text-muted-foreground">
-                    Session akan berakhir dalam {timeLeft} detik karena tidak
-                    ada aktivitas.
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4">
+            <div
+                role="alertdialog"
+                aria-labelledby="kiosk-idle-title"
+                className="grid w-full max-w-md gap-4 rounded-2xl border-2 border-kiosk-warn bg-card p-8 text-center shadow-2xl"
+            >
+                <span className="mx-auto flex size-20 items-center justify-center rounded-full bg-kiosk-warn-soft text-4xl font-extrabold tabular-nums text-kiosk-warn-ink">
+                    {timeLeft}
+                </span>
+                <h2 id="kiosk-idle-title" className="text-2xl font-extrabold">
+                    {kioskLabels.idleTitle}
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                    {kioskLabels.idleDesc} {timeLeft} {kioskLabels.idleSeconds}.
                 </p>
-                <Button
-                    className="w-full h-14 text-lg font-bold"
+                <button
+                    type="button"
+                    className={kioskButton({ size: 'xl', tone: 'go' })}
                     onClick={onDismiss}
                 >
-                    Ketuk untuk Lanjut
-                </Button>
+                    {kioskLabels.idleContinue}
+                </button>
             </div>
         </div>
     );

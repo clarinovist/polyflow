@@ -45,6 +45,23 @@
     --radius-3xl: calc(var(--radius) + 12px);
     --radius-4xl: calc(var(--radius) + 16px);
 
+    /* Kiosk status colors: go = running/ok, tag = etiket, warn, stop, info */
+    --color-kiosk-go: var(--kiosk-go);
+    --color-kiosk-go-ink: var(--kiosk-go-ink);
+    --color-kiosk-go-fg: var(--kiosk-go-fg);
+    --color-kiosk-go-soft: var(--kiosk-go-soft);
+    --color-kiosk-tag: var(--kiosk-tag);
+    --color-kiosk-tag-ink: var(--kiosk-tag-ink);
+    --color-kiosk-tag-soft: var(--kiosk-tag-soft);
+    --color-kiosk-warn: var(--kiosk-warn);
+    --color-kiosk-warn-ink: var(--kiosk-warn-ink);
+    --color-kiosk-warn-soft: var(--kiosk-warn-soft);
+    --color-kiosk-stop: var(--kiosk-stop);
+    --color-kiosk-stop-ink: var(--kiosk-stop-ink);
+    --color-kiosk-stop-soft: var(--kiosk-stop-soft);
+    --color-kiosk-info: var(--kiosk-info);
+    --color-kiosk-info-soft: var(--kiosk-info-soft);
+
     /* Brand Design System: Industrial Glassmorphism */
     --color-brand-glass: var(--brand-glass);
     --color-brand-glass-heavy: var(--brand-glass-heavy);
@@ -98,6 +115,22 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+
+    --kiosk-go: oklch(0.55 0.13 160);
+    --kiosk-go-ink: oklch(0.42 0.11 160);
+    --kiosk-go-fg: oklch(0.99 0.01 160);
+    --kiosk-go-soft: oklch(0.93 0.045 160);
+    --kiosk-tag: oklch(0.82 0.15 86);
+    --kiosk-tag-ink: oklch(0.43 0.09 70);
+    --kiosk-tag-soft: oklch(0.95 0.055 92);
+    --kiosk-warn: oklch(0.74 0.15 65);
+    --kiosk-warn-ink: oklch(0.46 0.11 55);
+    --kiosk-warn-soft: oklch(0.95 0.05 75);
+    --kiosk-stop: oklch(0.56 0.19 27);
+    --kiosk-stop-ink: oklch(0.48 0.17 27);
+    --kiosk-stop-soft: oklch(0.95 0.035 27);
+    --kiosk-info: oklch(0.55 0.12 245);
+    --kiosk-info-soft: oklch(0.94 0.035 245);
 }
 
 .dark {
@@ -137,6 +170,22 @@
     --brand-glass-heavy: oklch(1 0 0 / 12%);
     --brand-border: oklch(1 0 0 / 15%);
     --brand-border-heavy: oklch(1 0 0 / 25%);
+
+    --kiosk-go: oklch(0.7 0.15 160);
+    --kiosk-go-ink: oklch(0.8 0.13 160);
+    --kiosk-go-fg: oklch(0.17 0.03 160);
+    --kiosk-go-soft: oklch(0.31 0.06 160);
+    --kiosk-tag: oklch(0.83 0.15 86);
+    --kiosk-tag-ink: oklch(0.87 0.12 88);
+    --kiosk-tag-soft: oklch(0.31 0.055 85);
+    --kiosk-warn: oklch(0.78 0.15 68);
+    --kiosk-warn-ink: oklch(0.86 0.12 72);
+    --kiosk-warn-soft: oklch(0.32 0.06 65);
+    --kiosk-stop: oklch(0.66 0.18 27);
+    --kiosk-stop-ink: oklch(0.78 0.13 27);
+    --kiosk-stop-soft: oklch(0.31 0.07 27);
+    --kiosk-info: oklch(0.72 0.12 245);
+    --kiosk-info-soft: oklch(0.3 0.05 245);
 }
 
 @layer base {

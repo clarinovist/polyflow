@@ -7,12 +7,16 @@ const {
     mockGetActiveExecutions,
     mockHasWorkspaceEntitlement,
     mockBanner,
+    mockAuth,
 } = vi.hoisted(() => ({
     mockRedirect: vi.fn(),
     mockGetActiveExecutions: vi.fn(),
     mockHasWorkspaceEntitlement: vi.fn(),
     mockBanner: vi.fn(),
+    mockAuth: vi.fn(),
 }));
+
+vi.mock('@/auth', () => ({ auth: () => mockAuth() }));
 
 vi.mock('next/navigation', () => ({
     redirect: (...args: unknown[]) => mockRedirect(...args),
@@ -37,7 +41,7 @@ vi.mock('@/components/production/kiosk/ActiveExecutionBanner', () => ({
 }));
 vi.mock('@/components/auth/polyflow-logo', () => ({ default: () => null }));
 vi.mock('@/components/layout/admin-back-button', () => ({
-    AdminBackButton: () => null,
+    AdminBackButton: () => 'DASHBOARD-LINK',
 }));
 vi.mock('../ClockDisplay', () => ({ ClockDisplay: () => null }));
 vi.mock('../KioskFullscreenToggle', () => ({
@@ -55,6 +59,26 @@ describe('KioskLayout guard', () => {
         vi.clearAllMocks();
         mockGetActiveExecutions.mockResolvedValue({ success: true, data: [] });
         mockHasWorkspaceEntitlement.mockReturnValue(true);
+        mockAuth.mockResolvedValue(null);
+    });
+
+    it('hides the Dashboard link on the public kiosk unless someone is signed in', async () => {
+        expect(
+            renderToStaticMarkup(await KioskLayout({ children: null })),
+        ).not.toContain('DASHBOARD-LINK');
+
+        mockAuth.mockResolvedValue({ user: { id: 'leader-1' } });
+        expect(
+            renderToStaticMarkup(await KioskLayout({ children: null })),
+        ).toContain('DASHBOARD-LINK');
+    });
+
+    it('still renders the kiosk when the auth lookup fails', async () => {
+        mockAuth.mockRejectedValue(new Error('auth backend down'));
+
+        expect(
+            renderToStaticMarkup(await KioskLayout({ children: null })),
+        ).not.toContain('DASHBOARD-LINK');
     });
 
     it('renders without a NextAuth session — production operators only have code + PIN', async () => {

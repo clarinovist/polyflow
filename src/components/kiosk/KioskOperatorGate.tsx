@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Users, LogIn } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { CalendarCheck, Search } from 'lucide-react';
 import { kioskLabels } from '@/lib/labels';
+import { cn } from '@/lib/utils/utils';
 import { startKioskOperatorSession } from '@/actions/production/kiosk-operator-session';
 import { KioskOperatorPin, PIN_MIN_LENGTH } from './KioskOperatorPin';
+import { KioskPill } from './ui/KioskPill';
+import { KioskSegmented } from './ui/KioskSegmented';
+import { kioskButton } from './ui/kiosk-button';
+import { operatorInitials } from './ui/operator-initials';
 
 interface Employee {
     id: string;
@@ -17,19 +22,45 @@ interface Employee {
 interface KioskOperatorGateProps {
     employees: Employee[];
     machines: Array<{ id: string; name: string }>;
+    /** Operators with an SPK running right now. */
+    runningOperatorIds?: readonly string[];
     /** Called only after the server accepted the operator's PIN. */
     onSelect: (operatorId: string, operatorName: string) => void;
 }
 
+type GateFilter = 'all' | 'running';
+
 export function KioskOperatorGate({
     employees,
     machines,
+    runningOperatorIds = [],
     onSelect,
 }: KioskOperatorGateProps) {
     const [selected, setSelected] = useState<Employee | null>(null);
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [query, setQuery] = useState('');
+    const [filter, setFilter] = useState<GateFilter>('all');
+
+    const running = useMemo(
+        () => new Set(runningOperatorIds),
+        [runningOperatorIds],
+    );
+    const machineLabel = (employee: Employee) =>
+        (employee.machineIds ?? [])
+            .map((id) => machines.find((machine) => machine.id === id)?.name)
+            .filter(Boolean)
+            .join(' · ') || kioskLabels.gateNoMachine;
+    const needle = query.trim().toLowerCase();
+    const visible = employees.filter(
+        (employee) =>
+            (filter === 'all' || running.has(employee.id)) &&
+            employee.name.toLowerCase().includes(needle),
+    );
+    const runningCount = employees.filter((employee) =>
+        running.has(employee.id),
+    ).length;
 
     const choose = (employee: Employee | null) => {
         setSelected(employee);
@@ -60,6 +91,7 @@ export function KioskOperatorGate({
         return (
             <KioskOperatorPin
                 operatorName={selected.name}
+                operatorDetail={machineLabel(selected)}
                 pin={pin}
                 error={error}
                 isSubmitting={isSubmitting}
@@ -71,54 +103,118 @@ export function KioskOperatorGate({
     }
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 animate-in fade-in zoom-in duration-300">
-            <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
-                <Users className="h-10 w-10 text-primary" />
+        <div className="mx-auto grid w-full max-w-6xl gap-5 p-4 md:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-extrabold tracking-tight">
+                        {kioskLabels.operatorGateTitle}
+                    </h1>
+                    <p className="mt-1 text-lg text-muted-foreground">
+                        {kioskLabels.operatorGateDesc}
+                    </p>
+                </div>
+                <Link
+                    href="/kiosk/attendance"
+                    className={kioskButton({ tone: 'info' })}
+                >
+                    <CalendarCheck aria-hidden="true" />
+                    {kioskLabels.gateAttendance} →
+                </Link>
             </div>
-            <h2 className="text-3xl font-black tracking-tighter mb-2 uppercase">
-                {kioskLabels.operatorGateTitle}
-            </h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-md mx-auto">
-                {kioskLabels.operatorGateDesc}
-            </p>
 
-            {employees.length === 0 && (
-                <p className="max-w-md rounded-xl border border-dashed p-6 text-muted-foreground">
+            {employees.length === 0 ? (
+                <p className="rounded-2xl border-2 border-dashed p-6 text-lg text-muted-foreground">
                     {kioskLabels.operatorGateEmpty}
                 </p>
+            ) : (
+                <>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <label className="flex min-h-14 flex-1 basis-64 items-center gap-3 rounded-xl border-2 border-border bg-card px-4 focus-within:ring-[3px] focus-within:ring-ring/50">
+                            <Search
+                                aria-hidden="true"
+                                className="size-5 shrink-0 text-muted-foreground"
+                            />
+                            <input
+                                type="search"
+                                aria-label={kioskLabels.gateSearch}
+                                placeholder={kioskLabels.gateSearch}
+                                value={query}
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
+                                className="h-12 w-full min-w-0 bg-transparent text-lg outline-none placeholder:text-muted-foreground"
+                            />
+                        </label>
+                        <KioskSegmented
+                            label={kioskLabels.gateFilterLabel}
+                            options={[
+                                {
+                                    value: 'all',
+                                    label: `${kioskLabels.gateFilterAll} (${employees.length})`,
+                                },
+                                {
+                                    value: 'running',
+                                    label: `${kioskLabels.gateFilterRunning} (${runningCount})`,
+                                },
+                            ]}
+                            value={filter}
+                            onChange={setFilter}
+                        />
+                    </div>
+
+                    {visible.length === 0 ? (
+                        <p className="rounded-2xl border-2 border-dashed p-6 text-center text-lg text-muted-foreground">
+                            {kioskLabels.gateNoMatch}
+                        </p>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {visible.map((employee) => {
+                                const isRunning = running.has(employee.id);
+                                return (
+                                    <button
+                                        key={employee.id}
+                                        type="button"
+                                        onClick={() => choose(employee)}
+                                        className={cn(
+                                            'flex min-h-20 items-center gap-4 rounded-2xl border-2 bg-card p-4 text-left transition-colors hover:border-primary active:scale-[0.99]',
+                                            isRunning
+                                                ? 'border-kiosk-go'
+                                                : 'border-border',
+                                        )}
+                                    >
+                                        <span
+                                            aria-hidden="true"
+                                            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-lg font-bold"
+                                        >
+                                            {operatorInitials(employee.name)}
+                                        </span>
+                                        <span className="grid min-w-0 gap-1">
+                                            <span className="truncate text-lg font-bold">
+                                                {employee.name}
+                                            </span>
+                                            <span className="truncate text-base text-muted-foreground">
+                                                {machineLabel(employee)}
+                                            </span>
+                                            {isRunning && (
+                                                <KioskPill
+                                                    tone="go"
+                                                    live
+                                                    className="w-fit"
+                                                >
+                                                    {kioskLabels.gateRunning}
+                                                </KioskPill>
+                                            )}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 w-full max-w-4xl">
-                {employees.map((emp) => (
-                    <Button
-                        key={emp.id}
-                        variant="outline"
-                        size="lg"
-                        className="h-24 text-xl font-bold border-2 hover:border-primary hover:bg-primary/5 active:scale-95 transition-all text-left justify-start px-6 gap-4"
-                        onClick={() => choose(emp)}
-                    >
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm">
-                            {emp.name.charAt(0)}
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="truncate">{emp.name}</span>
-                            {emp.machineIds && emp.machineIds.length > 0 && (
-                                <span className="text-xs text-muted-foreground font-normal">
-                                    {emp.machineIds.length === 1
-                                        ? machines.find(
-                                              (m) =>
-                                                  m.id === emp.machineIds![0],
-                                          )?.name || 'Mesin ditugaskan'
-                                        : `${emp.machineIds.length} mesin`}
-                                </span>
-                            )}
-                        </div>
-                    </Button>
-                ))}
-            </div>
-
-            <p className="mt-12 text-sm text-muted-foreground flex items-center gap-2">
-                <LogIn className="h-4 w-4" /> {kioskLabels.operatorGateHint}
+            <p className="text-base text-muted-foreground">
+                {kioskLabels.operatorGateHint}
             </p>
         </div>
     );
