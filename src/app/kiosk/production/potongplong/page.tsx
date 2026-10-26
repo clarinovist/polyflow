@@ -8,7 +8,7 @@ import { withTenantPage } from '@/lib/core/tenant';
 import { readKioskFeatureSettings } from '@/services/settings/kiosk-feature-service';
 import PotongPlongProductionForm from './PotongPlongProductionForm';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
 import { ArrowLeft } from 'lucide-react';
 
 export const metadata = {
@@ -41,9 +41,24 @@ const getData = withTenantPage(async function getData() {
     const employees = allEmployees.filter((e) => e.status === 'ACTIVE');
 
     return {
-        orders: serializeData(orders),
-        machines: serializeData(machines),
-        employees: serializeData(employees),
+        // Public client props: never serialize whole employee, machine or product records.
+        orders: serializeData(
+            orders.map((order) => ({
+                id: order.id,
+                orderNumber: order.orderNumber,
+                bom: {
+                    productVariant: {
+                        name: order.bom.productVariant.name,
+                        primaryUnit: order.bom.productVariant.primaryUnit,
+                        salesUnit: order.bom.productVariant.salesUnit,
+                        conversionFactor:
+                            order.bom.productVariant.conversionFactor,
+                    },
+                },
+            })),
+        ),
+        machines: machines.map(({ id, name }) => ({ id, name })),
+        employees: employees.map(({ id, name }) => ({ id, name })),
     };
 });
 
@@ -52,15 +67,8 @@ export default async function PotongPlongKioskPage() {
 
     return (
         <div className="bg-background p-4 md:p-6 max-w-7xl mx-auto space-y-4">
-            <Link href="/kiosk">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10"
-                    title="Kembali ke Hub"
-                >
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
+            <Link href="/kiosk" className={kioskButton({ tone: 'ghost' })}>
+                <ArrowLeft aria-hidden="true" /> Kembali ke hub
             </Link>
             <div className="bg-card border-2 rounded-2xl p-4 md:p-6">
                 <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter mb-6">
