@@ -15,6 +15,7 @@ vi.mock('@/components/ui/camera-capture', () => ({ CameraCapture: () => null }))
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: mocks.toastError } }));
 
 import { KioskLogOutputDialog } from '../KioskLogOutputDialog';
+import { logRunningOutputSchema } from '@/lib/schemas/production';
 
 const context: KioskPackagingContext = {
     enabled: true,
@@ -205,5 +206,37 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         expect(mocks.logRunningOutput.mock.calls[0][0].packagedOutput).toBeUndefined();
         expect(randomUUID).not.toHaveBeenCalled();
         randomUUID.mockRestore();
+    });
+
+    it('sends an affal-only entry on a sales-unit SPK without zero unit fields the schema rejects', async () => {
+        render(
+            <KioskLogOutputDialog
+                open
+                onOpenChange={() => {}}
+                executionId="exec-1"
+                productVariantId="base"
+                productName="Tali Rafia 1 kg"
+                primaryUnit="KG"
+                salesUnit="BAL"
+                conversionFactor={25}
+                operatorId="op-1"
+                shifts={[activeShift]}
+            />,
+        );
+        next();
+        fireEvent.change(screen.getByLabelText(/Scrap Prongkol/), { target: { value: '1' } });
+        next();
+        fireEvent.click(screen.getByRole('button', { name: /Ya, Catat Scrap Saja/ }));
+        next();
+        fireEvent.click(screen.getByRole('button', { name: /Kirim Hasil/ }));
+
+        await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(1));
+        const sent = mocks.logRunningOutput.mock.calls[0][0];
+        expect(sent).toMatchObject({ quantityProduced: 0, scrapProngkolQty: 1 });
+        expect(sent.enteredQuantity).toBeUndefined();
+        expect(sent.enteredUnit).toBeUndefined();
+        expect(sent.baseQuantityProduced).toBeUndefined();
+        expect(sent.conversionFactorSnapshot).toBeUndefined();
+        expect(logRunningOutputSchema.safeParse(sent).success).toBe(true);
     });
 });
