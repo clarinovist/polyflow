@@ -10,11 +10,17 @@ export interface ScrapReconciliationRequest {
     reason: string;
     expectedFingerprint?: string;
     backupReference?: string;
+    valuationAuditId?: string;
 }
 const action = 'RECONCILE_PRODUCTION_SCRAP';
 function fail(message: string): never { throw new Error(message); }
 const zero = () => new Prisma.Decimal(0);
-const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+function hash(value: unknown): string {
+    // JSONB reorders object keys; fingerprint values, not serialization order.
+    const canonical = (v: unknown): unknown => Array.isArray(v) ? v.map(canonical)
+        : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => [k, canonical(x)])) : v;
+    return createHash('sha256').update(JSON.stringify(canonical(JSON.parse(JSON.stringify(value))))).digest('hex');
+}
 type Journal = Prisma.JournalEntryGetPayload<{ include: { lines: { include: { account: true } } } }>;
 
 function validateJournal(journal: Journal, movementId: string) {
@@ -28,6 +34,77 @@ function validateJournal(journal: Journal, movementId: string) {
     const debit = journal.lines.reduce((sum, line) => sum.plus(line.debit), zero());
     if (!debit.gt(0) || !debit.eq(journal.lines.reduce((sum, line) => sum.plus(line.credit), zero()))) fail('Jurnal tidak seimbang.');
     return debit;
+}
+
+function object(value: Prisma.JsonValue | undefined): Prisma.JsonObject {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) fail('Bukti audit valuasi tidak lengkap.');
+    return value as Prisma.JsonObject;
+}
+function decimal(value: Prisma.JsonValue | undefined): Prisma.Decimal {
+    if (typeof value !== 'string' || !new Prisma.Decimal(value).isFinite()) fail('Nilai audit valuasi tidak valid.');
+    return new Prisma.Decimal(value);
+}
+
+/** Verify a prior correction's post-state and the original source it observed.
+ * Only this explicit anchor can prove a pre-correction WAC; current WAC cannot.
+ */
+async function anchoredValuation(tx: Prisma.TransactionClient, input: ScrapReconciliationRequest,
+    movement: Prisma.StockMovementGetPayload<object>, inventory: Prisma.InventoryGetPayload<object>,
+    audits: Prisma.AuditLogGetPayload<object>[]) {
+    const related = audits.filter(a => {
+        const states = object(a.changes).inventoryStates;
+        if (!Array.isArray(states)) fail('Bukti audit valuasi tidak lengkap.');
+        return states.some(s => object(object(s).inventory).id === inventory.id);
+    });
+    if (!related.length) {
+        if (input.valuationAuditId) fail('Anchor valuasi bukan untuk persediaan ini.');
+        return { historicalAverage: inventory.averageCost!, correctionMovementIds: [] as string[], anchor: null };
+    }
+    if (!input.valuationAuditId || related.length !== 1 || related[0].id !== input.valuationAuditId) fail('Nilai persediaan telah dikoreksi; anchor audit tunggal wajib direview.');
+    const audit = related[0], saved = object(audit.changes);
+    if (audit.entityType !== 'ProductionExecution' || audit.action !== action || saved.database !== input.database ||
+        saved.orderNumber === input.orderNumber || saved.netPhysicalQuantityChange !== 0 ||
+        typeof saved.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(saved.fingerprint) || audit.createdAt <= movement.createdAt) fail('Identitas anchor valuasi tidak cocok.');
+    const states = saved.inventoryStates as Prisma.JsonArray;
+    const state = object(states.find(s => object(object(s).inventory).id === inventory.id));
+    const before = object(state.inventory);
+    if (before.productVariantId !== movement.productVariantId || before.locationId !== movement.toLocationId ||
+        !decimal(before.quantity).eq(inventory.quantity) || !decimal(state.newAverage).eq(inventory.averageCost!)) fail('Persediaan berubah sejak anchor valuasi.');
+    if (!Array.isArray(state.later) || !state.later.some(s => object(s).id === movement.id && hash(s) === hash(movement))) fail('Sumber tidak tercakup snapshot anchor valuasi.');
+    const historicalAverage = state.historicalAverage === undefined ? decimal(before.averageCost) : decimal(state.historicalAverage);
+    if (historicalAverage.lt(0) || !Array.isArray(saved.originalMovements)) fail('Nilai historis anchor tidak valid.');
+    const priorSource = saved.originalMovements.find(s => object(s).id === state.movementId);
+    if (!priorSource || !decimal(object(priorSource).quantity).mul(historicalAverage).eq(decimal(state.removedInflation)) ||
+        !decimal(before.quantity).mul(decimal(before.averageCost)).minus(decimal(state.removedInflation))
+            .div(decimal(before.quantity)).toDecimalPlaces(4).eq(decimal(state.newAverage))) fail('Perhitungan anchor valuasi tidak sesuai.');
+    if (await tx.stockMovement.count({ where: { productVariantId: movement.productVariantId,
+        OR: [{ toLocationId: movement.toLocationId }, { fromLocationId: movement.toLocationId }],
+        createdAt: { gt: audit.createdAt } } })) fail('Ada mutasi setelah anchor valuasi.');
+    if (!Array.isArray(saved.originalMovements) || typeof saved.reversalId !== 'string' || typeof saved.replacementId !== 'string') fail('Sumber anchor valuasi tidak lengkap.');
+    const originalJournal = object(saved.originalJournal);
+    const originalId = originalJournal.referenceId;
+    const old = saved.originalMovements.find(s => object(s).id === originalId);
+    if (!old) fail('Sumber jurnal anchor hilang.');
+    const original = object(old);
+    const pair = await tx.stockMovement.findMany({ where: { id: { in: [saved.reversalId, saved.replacementId] } } });
+    const reversal = pair.find(m => m.id === saved.reversalId), replacement = pair.find(m => m.id === saved.replacementId);
+    if (!reversal || !replacement || reversal.type !== 'OUT' || replacement.type !== 'IN' ||
+        reversal.reversalOfId !== originalId || replacement.reversalOfId || !replacement.cost?.isZero() ||
+        reversal.productVariantId !== original.productVariantId || replacement.productVariantId !== original.productVariantId ||
+        !reversal.quantity.eq(decimal(original.quantity)) || !replacement.quantity.eq(reversal.quantity) ||
+        reversal.fromLocationId !== original.toLocationId || replacement.toLocationId !== original.toLocationId ||
+        reversal.productionOrderId !== original.productionOrderId || replacement.productionOrderId !== original.productionOrderId ||
+        replacement.productionExecutionId !== audit.entityId || replacement.companyOwned !== true) fail('Pasangan koreksi anchor tidak valid.');
+    const sourceJournals = await tx.journalEntry.findMany({ where: { referenceId: { in: [String(originalId), reversal.id] } },
+        include: { lines: { include: { account: true } } } });
+    const source = sourceJournals.filter(j => j.referenceId === originalId), inverse = sourceJournals.filter(j => j.referenceId === reversal.id);
+    if (source.length !== 1 || inverse.length !== 1 || source[0].id !== originalJournal.id || inverse[0].id !== saved.reversalJournalId) fail('Jurnal anchor tidak lengkap.');
+    validateJournal(source[0], String(originalId)); validateJournal(inverse[0], reversal.id);
+    const vector = (j: Journal, invert: boolean) => j.lines.map(l => [l.accountId, l.currency, l.exchangeRate.toString(),
+        (invert ? l.credit : l.debit).toString(), (invert ? l.debit : l.credit).toString()].join('|')).sort().join(';');
+    if (vector(source[0], true) !== vector(inverse[0], false)) fail('Jurnal pembalik anchor tidak sesuai sumber.');
+    return { historicalAverage, correctionMovementIds: pair.filter(m => m.productVariantId === movement.productVariantId).map(m => m.id),
+        anchor: { id: audit.id, changes: saved, createdAt: audit.createdAt } };
 }
 
 /** Explicit operator-only repair of a proven first-output legacy scrap defect.
@@ -111,8 +188,11 @@ export async function reconcileProductionScrap(db: PrismaClient, input: ScrapRec
             if (execute) await tx.$queryRaw`SELECT id FROM "Inventory" WHERE "locationId"=${m.toLocationId} AND "productVariantId"=${m.productVariantId} FOR UPDATE`;
             const inventory = await tx.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: m.toLocationId!, productVariantId: m.productVariantId } } });
             if (!inventory.averageCost?.isFinite() || inventory.averageCost.lt(0) || inventory.quantity.lt(m.quantity)) fail('Snapshot persediaan tidak valid.');
+            const valuationCorrections = await tx.auditLog.findMany({ where: { action, createdAt: { gte: m.createdAt } }, take: 101 });
+            if (valuationCorrections.length > 100) fail('Riwayat koreksi melebihi batas review.');
+            const valuation = await anchoredValuation(tx, input, m, inventory, valuationCorrections);
             const later = await tx.stockMovement.findMany({ where: { productVariantId: m.productVariantId,
-                OR: [{ toLocationId: m.toLocationId }, { fromLocationId: m.toLocationId }], createdAt: { gte: m.createdAt }, id: { not: m.id } },
+                OR: [{ toLocationId: m.toLocationId }, { fromLocationId: m.toLocationId }], createdAt: { gte: m.createdAt }, id: { notIn: [m.id, ...valuation.correctionMovementIds] } },
                 orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 101 });
             if (later.length > 100) fail('Riwayat lanjutan melebihi batas review.');
             for (const next of later) {
@@ -124,17 +204,14 @@ export async function reconcileProductionScrap(db: PrismaClient, input: ScrapRec
                 if (!sourceRecord.some(s => s.productionExecution?.status === 'COMPLETED' &&
                     Math.abs(s.recordedAt.getTime() - next.createdAt.getTime()) < 30000)) fail('Bukti penerimaan affal lanjutan tidak lengkap.');
             }
-            const valuationCorrections = await tx.auditLog.findMany({ where: { action, createdAt: { gte: m.createdAt } }, take: 101 });
-            if (valuationCorrections.length > 100 || valuationCorrections.some(a => {
-                const states = (a.changes as Prisma.JsonObject | null)?.inventoryStates;
-                return !Array.isArray(states) || states.some(s => (s as Prisma.JsonObject | null)?.inventory &&
-                    ((s as Prisma.JsonObject).inventory as Prisma.JsonObject).id === inventory.id);
-            })) fail('Nilai persediaan telah dikoreksi setelah sumber; review historis terpisah diperlukan.');
             const historicalQty = inventory.quantity.minus(later.reduce((sum, next) => sum.plus(next.quantity), zero()));
             if (historicalQty.lt(m.quantity)) fail('Kuantitas historis tidak dapat direkonstruksi.');
-            const removedInflation = m.quantity.mul(inventory.averageCost);
-            const newAverage = inventory.quantity.isZero() ? zero() : inventory.quantity.mul(inventory.averageCost).minus(removedInflation).div(inventory.quantity).toDecimalPlaces(4);
-            inventoryStates.push({ movementId: m.id, inventory, later, historicalQty, removedInflation, newAverage });
+            const removedInflation = m.quantity.mul(valuation.historicalAverage);
+            const remainingValue = inventory.quantity.mul(inventory.averageCost).minus(removedInflation);
+            if (remainingValue.lt(0)) fail('Nilai persediaan tidak cukup untuk koreksi sumber.');
+            const newAverage = inventory.quantity.isZero() ? zero() : remainingValue.div(inventory.quantity).toDecimalPlaces(4);
+            inventoryStates.push({ movementId: m.id, inventory, later, historicalQty, removedInflation, newAverage,
+                historicalAverage: valuation.historicalAverage, valuationAnchor: valuation.anchor });
         }
         const now = new Date();
         const period = await tx.fiscalPeriod.findFirst({ where: { startDate: { lte: now }, endDate: { gte: new Date(now.toISOString().slice(0, 10)) }, status: 'OPEN' }, orderBy: { startDate: 'desc' } });

@@ -34,11 +34,11 @@ function fixture() {
         auditLog: { findUnique: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]), create: vi.fn().mockResolvedValue({ id: 'audit' }) },
         productionOrder: { findUniqueOrThrow: vi.fn(async () => order) },
         productionExecution: { findUniqueOrThrow: vi.fn(async () => execution), count: vi.fn().mockResolvedValue(1) },
-        stockMovement: { findMany: vi.fn(async ({ where }) => where.productionOrderId ? movements : []), count: vi.fn().mockResolvedValue(0),
+        stockMovement: { findMany: vi.fn(async ({ where }) => where.productionOrderId ? movements : []), count: vi.fn(async (_args: { where: { createdAt?: unknown } }) => 0),
             create: vi.fn(async ({ data }) => ({ ...data, id: `created-${data.type}` })), update: vi.fn() },
         scrapRecord: { findMany: vi.fn(async (_args: { where: { productionOrderId: string } }) => records) },
         productVariant: { findUniqueOrThrow: vi.fn().mockResolvedValue({ primaryUnit: 'KG', product: { productType: 'SCRAP' } }) },
-        journalEntry: { findMany: vi.fn(async () => journals), count: vi.fn().mockResolvedValue(0), create: vi.fn().mockResolvedValue({ id: 'reverse-journal' }) },
+        journalEntry: { findMany: vi.fn(async (_args: { where: { referenceId: { in: string[] } } }) => journals), count: vi.fn().mockResolvedValue(0), create: vi.fn().mockResolvedValue({ id: 'reverse-journal' }) },
         inventory: { findUniqueOrThrow: vi.fn(async ({ where }) => inventories.find(i => i.productVariantId === where.locationId_productVariantId.productVariantId)), update: vi.fn() },
         fiscalPeriod: { findFirst: vi.fn().mockResolvedValue({ id: 'period', status: 'OPEN' }) },
         journalLine: { aggregate: vi.fn().mockResolvedValue({ _sum: { debit: d(1000), credit: d(0) } }) },
@@ -107,6 +107,37 @@ describe('bounded historical scrap reconciliation', () => {
         const { db, tx } = fixture();
         tx.auditLog.findMany.mockResolvedValue([{ changes: { inventoryStates: [{ inventory: { id: 'inventory-leaf' } }] } }]);
         await expect(reconcileProductionScrap(db, input)).rejects.toThrow('telah dikoreksi');
+    });
+    it.each(['valid', 'stock-drift', 'unseen-source', 'wrong-audit', 'later-write', 'bad-vector', 'bad-arithmetic'])('requires an exact verified valuation audit anchor: %s', async kind => {
+        const { db, tx, movements, inventories, journals } = fixture();
+        const priorSources = movements.slice(2).map(m => ({ ...m, id: `prior-${m.id}`, productionOrderId: 'prior-wo' }));
+        const priorJ = { ...journals[2], id: 'prior-journal', referenceId: priorSources[0].id };
+        const inverseJ = { ...priorJ, id: 'inverse-journal', referenceId: 'inverse-move', lines: priorJ.lines.map(l => ({ ...l, debit: l.credit, credit: l.debit })) };
+        const pair = [{ ...priorSources[0], id: 'inverse-move', type: 'OUT', fromLocationId: 'scrap-store', toLocationId: null, reversalOfId: priorSources[0].id },
+            { ...priorSources[0], id: 'replacement', type: 'IN', cost: d(0), companyOwned: true, productionExecutionId: 'prior-execution' }];
+        const state = inventories.map(i => ({ inventory: { ...i }, movementId: priorSources.find(m => m.productVariantId === i.productVariantId)!.id,
+            later: movements.filter(m => m.productVariantId === i.productVariantId), removedInflation: '100', newAverage: '41.6667' }));
+        const audit = JSON.parse(JSON.stringify({ id: 'prior-audit', action: 'RECONCILE_PRODUCTION_SCRAP', entityType: 'ProductionExecution', entityId: 'prior-execution',
+            changes: { database: input.database, orderNumber: 'PRIOR', fingerprint: 'f'.repeat(64), netPhysicalQuantityChange: 0,
+                inventoryStates: state, originalMovements: priorSources, originalJournal: priorJ,
+                reversalId: 'inverse-move', replacementId: 'replacement', reversalJournalId: 'inverse-journal' } }));
+        audit.createdAt = new Date(at.getTime() + 1000);
+        inventories.forEach(i => { i.averageCost = d(41.6667); });
+        tx.auditLog.findMany.mockResolvedValue([audit]);
+        tx.stockMovement.findMany.mockImplementation(async ({ where }) => where.productionOrderId ? movements : where.id?.in ? pair as never : []);
+        tx.journalEntry.findMany.mockImplementation(async ({ where }: { where: { referenceId: { in: string[] } } }) => where.referenceId.in.includes('inverse-move') ? [priorJ, inverseJ] : journals);
+        if (kind === 'stock-drift') inventories[0].averageCost = d(42);
+        if (kind === 'unseen-source') audit.changes.inventoryStates[0].later = [];
+        if (kind === 'later-write') tx.stockMovement.count.mockImplementation(async ({ where }: { where: { createdAt?: unknown } }) => where.createdAt ? 1 : 0);
+        if (kind === 'bad-vector') inverseJ.lines[0].accountId = 'wrong';
+        if (kind === 'bad-arithmetic') audit.changes.inventoryStates[0].removedInflation = '10';
+        const run = reconcileProductionScrap(db, { ...input, valuationAuditId: kind === 'wrong-audit' ? 'wrong' : 'prior-audit' });
+        if (kind === 'valid') {
+            const result = await run;
+            expect('inventory' in result && result.inventory[0].removedInflation).toBe('100');
+            expect('inventory' in result && result.inventory[0].newAverage).toBe('33.3334');
+        } else await expect(run).rejects.toThrow();
+        expect(tx.stockMovement.create).not.toHaveBeenCalled();
     });
     it('refuses apply without evidence and rejects fingerprint drift', async () => {
         const { db, tx, inventories } = fixture();

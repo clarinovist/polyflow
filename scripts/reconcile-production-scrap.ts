@@ -12,6 +12,7 @@ export function parseScrapReconciliationArgs(args: string[]) {
     const request: ScrapReconciliationRequest = {
         database: value('database'), orderId: value('order-id'), orderNumber: value('order-number'),
         executionId: value('execution-id'), actorId: value('actor-id'), reason: value('reason'),
+        ...(args.some(arg => arg.startsWith('--valuation-audit=')) ? { valuationAuditId: value('valuation-audit') } : {}),
         ...(execute ? { expectedFingerprint: value('fingerprint'), backupReference: value('backup') } : {}),
     };
     return { tenant: value('tenant'), request, execute };
