@@ -95,16 +95,22 @@ export async function voidProductionExecutionInTransaction(
     : new Date(createdAt.getTime() + 30000);
   const range = nextExecution ? { gte: startTime, lt: endTime } : { gte: startTime, lte: endTime };
 
-  const movements = execution.clientRequestId
+  // Generic kiosk outputs also carry idempotency keys; a request ID does not
+  // identify the packaging accounting pipeline.
+  const isPackaged = execution.productionOrder.actualPackagingEnabled;
+  const movements = isPackaged
     ? await reversePackagedExecution(tx, executionId, productionOrderId)
-    : await tx.stockMovement.findMany({ where: { productionOrderId, createdAt: range, productionExecutionId: null } });
+    : await tx.stockMovement.findMany({ where: { productionOrderId, OR: [
+        { createdAt: range, productionExecutionId: null },
+        { productionExecutionId: executionId, reversalOfId: null },
+      ] } });
 
   // Restore output WIP before crediting it back to raw inventory. The original
   // posting order is usually the opposite, and would falsely fail a zero WIP pool.
   const orderedMovements = [...movements].sort((a, b) =>
     (a.type === 'IN' ? 0 : 1) - (b.type === 'IN' ? 0 : 1) || a.id.localeCompare(b.id),
   );
-  for (const move of execution.clientRequestId ? [] : orderedMovements) {
+  for (const move of isPackaged ? [] : orderedMovements) {
     if (move.reference?.startsWith('VOID:') || move.reversalOfId) continue;
 
     // The durable edge covers manual void and force-cancel; retain legacy markers
@@ -122,7 +128,30 @@ export async function voidProductionExecutionInTransaction(
 
     const marker = options.sourceMarker ? ` ${sourceMarker(move.id)}` : '';
     if (move.type === MovementType.IN) {
-      await InventoryCoreService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
+      if (move.productionExecutionId && move.cost?.isZero()) {
+        // Automatic scrap entered at zero allocated cost. Removing it must
+        // restore the pre-receipt stock value, not expense the current WAC.
+        await InventoryCoreService.validateAndLockStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
+        const downstream = await tx.stockMovement.findFirst({ where: {
+          productVariantId: move.productVariantId, fromLocationId: move.toLocationId,
+          createdAt: { gte: move.createdAt }, type: { in: ['OUT', 'TRANSFER'] },
+          OR: [{ productionExecutionId: null }, { productionExecutionId: { not: executionId } }],
+        } });
+        if (downstream) throw new ProductionRuleViolationError('Affal sudah dipindahkan/digunakan. Balik transaksi lanjutan terlebih dahulu.');
+        const stock = await tx.inventory.findUniqueOrThrow({ where: {
+          locationId_productVariantId: { locationId: move.toLocationId!, productVariantId: move.productVariantId },
+        } });
+        const remainingQty = stock.quantity.minus(move.quantity);
+        const value = stock.quantity.mul(stock.averageCost ?? 0);
+        if (value.lt(0) || (remainingQty.isZero() && value.abs().gt(0.01))) {
+          throw new ProductionRuleViolationError('Nilai stok affal sudah berubah. Rekonsiliasi diperlukan sebelum pembatalan.');
+        }
+        await tx.inventory.update({ where: { id: stock.id }, data: {
+          quantity: remainingQty, averageCost: remainingQty.gt(0) ? value.div(remainingQty).toDecimalPlaces(4) : 0,
+        } });
+      } else {
+        await InventoryCoreService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
+      }
       const reversal = await tx.stockMovement.create({
         data: {
           type: MovementType.OUT,
@@ -132,6 +161,8 @@ export async function voidProductionExecutionInTransaction(
           cost: move.cost,
           reference: `VOID: ${move.reference ?? move.id}${marker}`,
           productionOrderId, reversalOfId: move.id,
+          productionExecutionId: move.productionExecutionId,
+          companyOwned: move.companyOwned,
         },
       });
       await reverseProductionMovementJournal(tx, move, reversal, userId);
@@ -157,7 +188,7 @@ export async function voidProductionExecutionInTransaction(
     }
   }
 
-  if (!execution.clientRequestId) await tx.materialIssue.updateMany({
+  if (!isPackaged) await tx.materialIssue.updateMany({
     where: { productionOrderId, issuedAt: range, productionExecutionId: null },
     data: { status: 'VOIDED' },
   });
@@ -199,7 +230,7 @@ export async function voidProductionExecutionInTransaction(
   const hasLinkedReservation = movements.some(
     (m) => m.type === MovementType.IN && m.reference?.includes('| RESERVE:'),
   );
-  if (!execution.clientRequestId && !hasLinkedReservation && execution.productionOrder.salesOrderId) {
+  if (!isPackaged && !hasLinkedReservation && execution.productionOrder.salesOrderId) {
     await adjustReservationsForVoidOutput(
       execution.productionOrder.salesOrderId,
       execution.productionOrder.bom.productVariantId,

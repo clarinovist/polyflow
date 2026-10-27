@@ -8,6 +8,8 @@ import { reverseProductionMovementJournal } from '../production-movement-reversa
 import { ProductionCostService } from '../../production/cost-service';
 import { recordFinishedGoodsOutput } from '../../production/execution-output-posting';
 import type { ProductionExecutionOrder } from '../../production/execution-types';
+import { recordExecutionScrap } from '../../production/execution-scrap-recording';
+import { voidProductionExecutionInTransaction } from '../../production/execution-void-helper';
 
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const db = connection ? returnTestClient(connection) : null;
@@ -137,6 +139,61 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
             });
             expect(await balance(db!, ids.get(db!)!.legacy)).toBe(0);
         }
+    });
+    it('posts successive outputs with automatic scrap without extra WIP value and reverses its exact zero-cost stock', async () => {
+        const a = ids.get(db!)!;
+        await db!.location.create({ data: { id: 'scrap-loc', name: 'Synthetic scrap', slug: 'scrap_warehouse', locationPurpose: 'SCRAP' } });
+        await db!.product.create({ data: { id: 'scrap-product', name: 'Synthetic scrap', productType: 'SCRAP' } });
+        for (const [id, skuCode, standardCost] of [['leaf', 'SCRAP-DAUN', 0], ['lump', 'SCRAP-PRONGKOL', null]] as const) {
+            await db!.productVariant.create({ data: { id, productId: 'scrap-product', name: id, skuCode, primaryUnit: 'KG', standardCost, price: 7000 } });
+            await db!.inventory.create({ data: { locationId: 'scrap-loc', productVariantId: id, quantity: 10, averageCost: 60 } });
+        }
+        async function postBatch(tx: Prisma.TransactionClient, executionId: string) {
+            const batchTime = new Date(at.getTime() + (executionId === 'first' ? 0 : 120000));
+            await tx.productionExecution.create({ data: { id: executionId, productionOrderId: 'wo', quantityProduced: 10,
+                scrapProngkolQty: 2, scrapDaunQty: 2, startTime: batchTime, endTime: batchTime, createdAt: batchTime, clientRequestId: executionId } });
+            const material = await tx.stockMovement.create({ data: {
+                type: 'OUT', productVariantId: 'raw', productionOrderId: 'wo', fromLocationId: 'loc',
+                quantity: 14, cost: 10, createdAt: batchTime,
+            } });
+            await recordInventoryMovement(material, tx);
+            const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 10 } }, include: { bom: true } });
+            await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                quantityProduced: 10, reference: `Synthetic output ${executionId}` });
+            // Production timestamps are adjacent in real transactions; fix the
+            // fixture clock rather than relying on wall-clock execution speed.
+            await tx.stockMovement.updateMany({ where: { reference: `Synthetic output ${executionId}` }, data: { createdAt: batchTime } });
+            await recordExecutionScrap({ tx, productionOrderId: 'wo', executionId, scrapQuantity: 0, scrapProngkolQty: 2, scrapDaunQty: 2, userId: 'actor' });
+        }
+        await run(db!, tx => postBatch(tx, 'first'));
+        const stock = () => db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'scrap-loc', productVariantId: 'leaf' } } });
+        expect((await stock()).quantity.toNumber()).toBe(12);
+        expect((await stock()).averageCost?.toNumber()).toBe(50);
+        await expect(run(db!, async tx => { await postBatch(tx, 'rollback'); throw new Error('forced rollback'); })).rejects.toThrow('forced rollback');
+        expect(await db!.productionExecution.count({ where: { id: 'rollback' } })).toBe(0);
+        expect((await stock()).quantity.toNumber()).toBe(12);
+        await run(db!, tx => postBatch(tx, 'second'));
+        const scraps = await db!.stockMovement.findMany({ where: { productVariantId: { in: ['leaf', 'lump'] } } });
+        expect(scraps).toHaveLength(4);
+        expect(scraps.every(m => m.cost?.isZero() && m.companyOwned && m.productionExecutionId)).toBe(true);
+        expect(await db!.journalEntry.count({ where: { referenceId: { in: scraps.map(m => m.id) } } })).toBe(0);
+        expect(await db!.scrapRecord.count({ where: { productionExecutionId: 'first' } })).toBe(2);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        expect(await balance(db!, a.output)).toBe(280);
+        await expect(run(db!, async tx => {
+            await voidProductionExecutionInTransaction(tx, 'first', { userId: 'actor' });
+            throw new Error('forced void rollback');
+        })).rejects.toThrow('forced void rollback');
+        expect(await db!.auditLog.count({ where: { action: 'VOID_PRODUCTION_EXECUTION', entityId: 'first' } })).toBe(0);
+        expect((await stock()).quantity.toNumber()).toBe(14);
+        await run(db!, tx => voidProductionExecutionInTransaction(tx, 'first', { userId: 'actor' }));
+        expect(await balance(db!, a.output)).toBe(140);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        expect((await db!.productionOrder.findUniqueOrThrow({ where: { id: 'wo' } })).actualQuantity?.toNumber()).toBe(10);
+        expect((await stock()).quantity.toNumber()).toBe(12);
+        expect((await stock()).quantity.mul((await stock()).averageCost ?? 0).toNumber()).toBeCloseTo(600, 2);
+        expect(await db!.stockMovement.count({ where: { reversalOfId: { in: scraps.filter(m => m.productionExecutionId === 'first').map(m => m.id) } } })).toBe(2);
+        expect(await db!.auditLog.count({ where: { action: 'VOID_PRODUCTION_EXECUTION', entityId: 'first' } })).toBe(1);
     });
     it('does not borrow another WO funds and rolls back a rejected movement', async () => {
         await run(db!, tx => issue(tx, 100, 'other-wo'));

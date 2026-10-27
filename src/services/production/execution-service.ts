@@ -933,7 +933,6 @@ export class ProductionExecutionService {
                 scrapProngkolQty: Number(scrapProngkolQty),
                 scrapDaunQty: Number(scrapDaunQty),
                 userId,
-                linkMovements: Boolean(packagedOutput),
             });
 
             // 5b. Record QC measurements for this log (no-op kalau varian
@@ -1200,7 +1199,6 @@ export class ProductionExecutionService {
                 scrapProngkolQty: Number(scrapProngkolQty ?? 0),
                 scrapDaunQty: Number(scrapDaunQty ?? 0),
                 userId,
-                linkMovements: Boolean(data.packagedOutput),
             });
 
             if (data.packagedOutput) await logActivity({

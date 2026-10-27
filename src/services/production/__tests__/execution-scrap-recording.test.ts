@@ -68,6 +68,7 @@ describe('recordExecutionScrap', () => {
                 locationId: 'loc-scrap',
                 quantity: 4.4,
                 reason: 'Production Process Waste (Lumps)',
+                productionExecutionId: 'exec-1',
                 userId: 'user-1',
             }),
             tx,
@@ -80,28 +81,13 @@ describe('recordExecutionScrap', () => {
                 locationId: 'loc-scrap',
                 quantity: 4.6,
                 reason: 'Production Process Waste (Trim)',
+                productionExecutionId: 'exec-1',
                 userId: 'user-1',
             }),
             tx,
         );
-        expect(tx.scrapRecord.updateMany).toHaveBeenCalledWith({
-            where: {
-                productionOrderId: 'po-1',
-                productVariantId: 'variant-prongkol',
-                locationId: 'loc-scrap',
-                quantity: 4.4,
-            },
-            data: { productionExecutionId: 'exec-1' },
-        });
-        expect(tx.scrapRecord.updateMany).toHaveBeenCalledWith({
-            where: {
-                productionOrderId: 'po-1',
-                productVariantId: 'variant-daun',
-                locationId: 'loc-scrap',
-                quantity: 4.6,
-            },
-            data: { productionExecutionId: 'exec-1' },
-        });
+        // Equal quantities on another execution must never be relinked.
+        expect(tx.scrapRecord.updateMany).not.toHaveBeenCalled();
     });
 
     it('falls back to legacy scrap SKUs when tenant affal SKUs are absent', async () => {

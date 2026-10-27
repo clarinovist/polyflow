@@ -68,7 +68,6 @@ export async function recordExecutionScrap(params: {
     scrapProngkolQty?: number;
     scrapDaunQty?: number;
     userId?: string;
-    linkMovements?: boolean;
 }) {
     const {
         tx,
@@ -107,21 +106,11 @@ export async function recordExecutionScrap(params: {
                     locationId: scrapLocation.id,
                     quantity: scrapProngkolQty,
                     reason: SCRAP_VARIANT_LOOKUP.prongkol.reason,
-                    productionExecutionId: params.linkMovements ? executionId : undefined,
+                    productionExecutionId: executionId,
                     userId,
                 },
                 tx,
             );
-            await tx.scrapRecord.updateMany({
-                where: {
-                    productionOrderId,
-                    productVariantId: variant.id,
-                    locationId: scrapLocation.id,
-                    quantity: scrapProngkolQty,
-                    ...(params.linkMovements ? { productionExecutionId: executionId } : {}),
-                },
-                data: { productionExecutionId: executionId },
-            });
         } else {
             console.warn(
                 'Scrap variant for prongkol not found. Scrap tracking for this run will be recorded as execution data only.',
@@ -139,21 +128,11 @@ export async function recordExecutionScrap(params: {
                     locationId: scrapLocation.id,
                     quantity: scrapDaunQty,
                     reason: SCRAP_VARIANT_LOOKUP.daun.reason,
-                    productionExecutionId: params.linkMovements ? executionId : undefined,
+                    productionExecutionId: executionId,
                     userId,
                 },
                 tx,
             );
-            await tx.scrapRecord.updateMany({
-                where: {
-                    productionOrderId,
-                    productVariantId: variant.id,
-                    locationId: scrapLocation.id,
-                    quantity: scrapDaunQty,
-                    ...(params.linkMovements ? { productionExecutionId: executionId } : {}),
-                },
-                data: { productionExecutionId: executionId },
-            });
         } else {
             console.warn(
                 'Scrap variant for daun not found. Scrap tracking for this run will be recorded as execution data only.',

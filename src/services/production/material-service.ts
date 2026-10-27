@@ -1111,18 +1111,30 @@ export class ProductionMaterialService {
         } = data;
 
         const recordLogic = async (tx: Prisma.TransactionClient) => {
-            await InventoryCoreService.incrementStock(
-                tx,
-                locationId,
-                productVariantId,
-                quantity,
-            );
-
-            // Fetch orderNumber for tracking
+            if (data.productionExecutionId) {
+                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+                const execution = await tx.productionExecution.findUnique({
+                    where: { id: data.productionExecutionId },
+                    select: { productionOrderId: true, status: true },
+                });
+                if (!execution || execution.productionOrderId !== productionOrderId || execution.status === 'VOIDED') {
+                    throw new ProductionRuleViolationError('Sumber eksekusi affal tidak valid.');
+                }
+            }
             const order = await tx.productionOrder.findUnique({
                 where: { id: productionOrderId },
-                select: { orderNumber: true },
+                select: { orderNumber: true, isMaklon: true },
             });
+            if (!order) throw new NotFoundError('ProductionOrder', productionOrderId);
+
+            if (data.productionExecutionId) {
+                // Full-absorption COGM already assigns the consumed material to
+                // good output. Automatic scrap has zero allocated cost, not the
+                // SKU's sale price, and must not inflate existing stock value.
+                await InventoryCoreService.incrementStockWithCost(tx, locationId, productVariantId, quantity, 0);
+            } else {
+                await InventoryCoreService.incrementStock(tx, locationId, productVariantId, quantity);
+            }
 
             const movement = await tx.stockMovement.create({
                 data: {
@@ -1133,7 +1145,7 @@ export class ProductionMaterialService {
                     reference: `Production Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
                     productionExecutionId: data.productionExecutionId,
                     cost: data.productionExecutionId ? 0 : undefined,
-                    companyOwned: data.productionExecutionId ? false : undefined,
+                    companyOwned: data.productionExecutionId ? !order.isMaklon : undefined,
                     createdById: userId,
                     productionOrderId: productionOrderId, // Add structured relation
                 },
@@ -1174,6 +1186,12 @@ export class ProductionMaterialService {
             });
 
             if (!scrap) throw new NotFoundError('ScrapRecord', scrapId);
+            if (scrap.productionOrderId !== productionOrderId) {
+                throw new ProductionRuleViolationError('Affal bukan milik SPK ini.');
+            }
+            if (scrap.productionExecutionId) {
+                throw new ProductionRuleViolationError('Affal hasil eksekusi harus dibatalkan bersama eksekusinya.');
+            }
 
             // ROBUST: Use saved locationId
             let locationId = scrap.locationId;

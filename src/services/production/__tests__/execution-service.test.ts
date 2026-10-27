@@ -323,11 +323,13 @@ describe('ProductionExecutionService.voidExecution', () => {
         expect(tx.stockMovement.findMany).toHaveBeenCalledWith({
             where: {
                 productionOrderId: 'po-1',
-                productionExecutionId: null,
-                createdAt: {
-                    gte: new Date(executionCreatedAt.getTime() - 30000),
-                    lt: midpoint,
-                }
+                OR: [
+                    { productionExecutionId: null, createdAt: {
+                        gte: new Date(executionCreatedAt.getTime() - 30000),
+                        lt: midpoint,
+                    } },
+                    { productionExecutionId: 'exec-1', reversalOfId: null },
+                ],
             }
         });
         expect(tx.materialIssue.updateMany).toHaveBeenCalledWith({
