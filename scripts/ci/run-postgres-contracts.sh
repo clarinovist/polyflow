@@ -46,4 +46,5 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/finance/__tests__/inventory-economic-diagnosis-postgres.test.ts \
   src/lib/bot/__tests__/help-guides-postgres.test.ts \
   src/lib/bot/__tests__/document-tools-postgres.test.ts \
-  src/lib/core/__tests__/prisma-proxy-postgres.test.ts
+  src/lib/core/__tests__/prisma-proxy-postgres.test.ts \
+  src/lib/ops/__tests__/absorbed-scrap-normalization-postgres.test.ts

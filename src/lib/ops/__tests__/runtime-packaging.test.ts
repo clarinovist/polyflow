@@ -25,6 +25,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/correct-sales-invoice-date.js',
             '/app/ops-dist/scripts/recover-return-credit.js',
             '/app/ops-dist/scripts/reconcile-production-scrap.js',
+            '/app/ops-dist/scripts/normalize-absorbed-scrap.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',
             '/app/scripts/run-product-learning.mjs',
@@ -47,6 +48,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/src/lib/ops/performance-metrics-cleanup.js',
             '/app/ops-dist/src/lib/ops/return-credit-recovery.js',
             '/app/ops-dist/src/lib/ops/production-scrap-reconciliation.js',
+            '/app/ops-dist/src/lib/ops/absorbed-scrap-normalization.js',
         ]);
         expect(dockerfile).toContain('--rootDir . --outDir /app/ops-dist');
     });
