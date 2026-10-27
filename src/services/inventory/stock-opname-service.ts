@@ -7,6 +7,8 @@ import {
     toBusinessDateString,
 } from '@/lib/utils/timezone';
 import { AccountingService } from '@/services/accounting/accounting-service';
+import { InventoryCoreService } from './core-service';
+import { requireOperationalInboundCost } from './operational-stock-cost';
 import { MovementType, OpnameStatus, Prisma } from '@prisma/client';
 
 type QuantityRow = { quantity: string };
@@ -415,6 +417,16 @@ export class StockOpnameService {
                 }
 
                 const isIncrement = variance.isPositive();
+                // Operational supplies (ATK) found in a count still need a real
+                // value; a cost-less gain would leave stock no journal funds.
+                const operationalCost = isIncrement
+                    ? await requireOperationalInboundCost(tx, item.productVariantId, opname.locationId)
+                    : null;
+                const averageCost = operationalCost === null ? {} : {
+                    averageCost: await InventoryCoreService.calculateWAC(
+                        item.productVariantId, opname.locationId, variance.toNumber(), operationalCost, tx,
+                    ),
+                };
                 try {
                     await tx.inventory.upsert({
                         where: {
@@ -427,11 +439,13 @@ export class StockOpnameService {
                             quantity: isIncrement
                                 ? { increment: variance }
                                 : { decrement: variance.abs() },
+                            ...averageCost,
                         },
                         create: {
                             locationId: opname.locationId,
                             productVariantId: item.productVariantId,
                             quantity: resultingLiveQuantity,
+                            ...averageCost,
                         },
                     });
                 } catch (error: unknown) {
@@ -456,6 +470,7 @@ export class StockOpnameService {
                             quantity: isIncrement
                                 ? { increment: variance }
                                 : { decrement: variance.abs() },
+                            ...averageCost,
                         },
                     });
                 }
@@ -471,6 +486,7 @@ export class StockOpnameService {
                             ? opname.locationId
                             : null,
                         quantity: variance.abs(),
+                        ...(operationalCost === null ? {} : { cost: operationalCost }),
                         reference:
                             opname.opnameNumber ||
                             `Stock Opname #${opname.id.slice(0, 8)}`,

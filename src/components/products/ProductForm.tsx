@@ -102,6 +102,20 @@ export function ProductForm({
         control: form.control,
         name: 'assetCategory',
     }) as AssetCategory | undefined;
+    const inventoryAccountId = (
+        useWatch as unknown as (opts: unknown) => unknown
+    )({
+        control: form.control,
+        name: 'inventoryAccountId',
+    }) as string | null | undefined;
+    // The server requires a reason when a stocked product's accounting changes.
+    const isAccountingChange =
+        mode === 'edit' &&
+        !!initialData &&
+        (productType !== initialData.productType ||
+            (productType === ProductType.FIXED_ASSET &&
+                (inventoryAccountId || null) !==
+                    (initialData.inventoryAccountId || null)));
 
     useEffect(() => {
         const variants = form.getValues('variants');
@@ -254,6 +268,41 @@ export function ProductForm({
                         <p className="text-xs text-blue-600 mt-2">
                             {productFormLabels.smartModeInfo}
                         </p>
+                    )}
+                    {isAccountingChange && (
+                        <FormField
+                            control={form.control}
+                            name={'accountingChangeReason' as never}
+                            render={({ field }) => (
+                                <FormItem className="mt-3">
+                                    <FormLabel>
+                                        {
+                                            productFormLabels.accountingChangeReason
+                                        }
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            {...field}
+                                            value={
+                                                (field.value as
+                                                    | string
+                                                    | null
+                                                    | undefined) ?? ''
+                                            }
+                                            placeholder={
+                                                productFormLabels.accountingChangeReasonPlaceholder
+                                            }
+                                        />
+                                    </FormControl>
+                                    <p className="text-xs text-muted-foreground">
+                                        {
+                                            productFormLabels.accountingChangeReasonHelp
+                                        }
+                                    </p>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     )}
                     {productType === ProductType.FIXED_ASSET && (
                         <>

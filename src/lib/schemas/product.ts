@@ -123,6 +123,13 @@ export const updateProductSchema = z
         id: z.string(),
         name: z.string().min(1, 'Product name is required'),
         productType: z.nativeEnum(ProductType),
+        // Required by the server only when a stocked product's type/account changes.
+        accountingChangeReason: z
+            .string()
+            .trim()
+            .max(500)
+            .optional()
+            .nullable(),
         assetCategory: z.nativeEnum(AssetCategory).optional().nullable(),
         usefulLifeMonths: z.coerce
             .number()

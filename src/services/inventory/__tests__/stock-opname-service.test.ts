@@ -7,6 +7,10 @@ const { mockPrisma, mockTx } = vi.hoisted(() => {
         inventory: {
             upsert: vi.fn(),
             update: vi.fn(),
+            findUnique: vi.fn(),
+        },
+        productVariant: {
+            findUnique: vi.fn(),
         },
         stockMovement: {
             create: vi.fn(),
@@ -39,11 +43,15 @@ vi.mock('@/services/accounting/accounting-service', () => ({
     AccountingService: { recordInventoryMovement: vi.fn() },
 }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
+vi.mock('../core-service', () => ({
+    InventoryCoreService: { calculateWAC: vi.fn() },
+}));
 
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { logActivity } from '@/lib/tools/audit';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { StockOpnameService } from '../stock-opname-service';
+import { InventoryCoreService } from '../core-service';
 
 const FINALIZED_AT = new Date('2026-10-02T03:00:00.000Z');
 const EFFECTIVE_AT = new Date('2026-09-30T16:59:59.999Z');
@@ -237,6 +245,43 @@ describe('StockOpnameService.completeOpname', () => {
                 },
             }),
         );
+    });
+
+    it('values an operational (ATK) count gain from its real cost, never leaving it cost-less', async () => {
+        mockTx.$queryRaw.mockReset();
+        mockRawQueries({ live: '130', cutoff: '90', ledger: '130' });
+        mockTx.productVariant.findUnique.mockResolvedValue({
+            skuCode: 'ATK-1', standardCost: null, buyPrice: new Prisma.Decimal(4000),
+            product: { productType: 'OPERATIONAL' },
+        });
+        mockTx.inventory.findUnique.mockResolvedValue({ averageCost: null });
+        vi.mocked(InventoryCoreService.calculateWAC).mockResolvedValue(3200);
+
+        await StockOpnameService.completeOpname('opname-1', '2026-09-30', 'user-1');
+
+        expect(InventoryCoreService.calculateWAC).toHaveBeenCalledWith('variant-1', 'loc-1', 10, 4000, mockTx);
+        expect(mockTx.inventory.upsert).toHaveBeenCalledWith(expect.objectContaining({
+            update: { quantity: { increment: new Prisma.Decimal(10) }, averageCost: 3200 },
+        }));
+        expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({ toLocationId: 'loc-1', cost: 4000 }),
+        });
+    });
+
+    it('rejects an operational (ATK) count gain with no cost before changing stock', async () => {
+        mockTx.$queryRaw.mockReset();
+        mockRawQueries({ live: '130', cutoff: '90', ledger: '130' });
+        mockTx.productVariant.findUnique.mockResolvedValue({
+            skuCode: 'ATK-1', standardCost: null, buyPrice: null,
+            product: { productType: 'OPERATIONAL' },
+        });
+        mockTx.inventory.findUnique.mockResolvedValue({ averageCost: new Prisma.Decimal(0) });
+
+        await expect(
+            StockOpnameService.completeOpname('opname-1', '2026-09-30', 'user-1'),
+        ).rejects.toMatchObject({ code: 'OPERATIONAL_STOCK_COST_REQUIRED' });
+        expect(mockTx.inventory.upsert).not.toHaveBeenCalled();
+        expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
     });
 
     it('completes without a movement when the count matches the cutoff balance', async () => {

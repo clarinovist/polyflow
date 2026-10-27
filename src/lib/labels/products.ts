@@ -51,6 +51,10 @@ export const productFormLabels = {
     productType: 'Tipe Produk',
     selectProductType: 'Pilih tipe produk',
     productNamePlaceholder: 'contoh: Plastik HDPE',
+    accountingChangeReason: 'Alasan perubahan jenis barang',
+    accountingChangeReasonPlaceholder: 'Contoh: koreksi klasifikasi ATK sesuai keputusan Finance',
+    accountingChangeReasonHelp:
+        'Wajib untuk produk yang sudah punya stok atau riwayat, dan hanya dapat disimpan oleh Finance/Admin. Nilai lama tetap di akun asal.',
     smartModeInfo:
         'Mode cerah aktif: Varian akan menggunakan konversi satuan 1:1',
     productVariants: 'Varian Produk',

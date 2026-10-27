@@ -16,6 +16,7 @@ import {
 } from '@/lib/schemas/inventory';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from './core-service';
+import { requireOperationalInboundCost } from './operational-stock-cost';
 import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryMovementService {
@@ -413,10 +414,14 @@ export class InventoryMovementService {
             }
 
             // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-            let movementCost = unitCost;
+            // Operational supplies (ATK) must enter with a real cost on the movement itself.
+            const operationalCost = isIncrement
+                ? await requireOperationalInboundCost(tx, productVariantId, locationId, unitCost)
+                : null;
+            let movementCost = operationalCost ?? unitCost;
 
             if (isIncrement) {
-                let cost = unitCost;
+                let cost = operationalCost ?? unitCost;
                 if (!cost) {
                     const variant = await tx.productVariant.findUnique({
                         where: { id: productVariantId },
@@ -584,10 +589,14 @@ export class InventoryMovementService {
                 }
 
                 // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-                let movementCost = unitCost;
+                // Operational supplies (ATK) must enter with a real cost on the movement itself.
+                const operationalCost = isIncrement
+                    ? await requireOperationalInboundCost(tx, productVariantId, locationId, unitCost)
+                    : null;
+                let movementCost = operationalCost ?? unitCost;
 
                 if (isIncrement) {
-                    let cost = unitCost;
+                    let cost = operationalCost ?? unitCost;
                     if (!cost) {
                         const variant = await tx.productVariant.findUnique({
                             where: { id: productVariantId },

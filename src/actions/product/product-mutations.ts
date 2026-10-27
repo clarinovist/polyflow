@@ -14,6 +14,7 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { logActivity } from '@/lib/tools/audit';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import { guardProductAccountingChange } from '@/services/inventory/product-accounting-change-guard';
 
 export const createProduct = withTenant(async function createProduct(
     data: CreateProductValues,
@@ -151,6 +152,7 @@ export const updateProduct = withTenant(async function updateProduct(
             assetCategory,
             usefulLifeMonths,
             inventoryAccountId,
+            accountingChangeReason,
         } = result.data as typeof result.data & {
             assetCategory?: unknown;
             usefulLifeMonths?: number | null;
@@ -194,6 +196,18 @@ export const updateProduct = withTenant(async function updateProduct(
             }
 
             await prisma.$transaction(async (tx) => {
+                await guardProductAccountingChange(tx, {
+                    productId: id,
+                    fromType: currentProduct.productType,
+                    toType: productType,
+                    fromAccountId: currentProduct.inventoryAccountId,
+                    toAccountId: productType === 'FIXED_ASSET'
+                        ? inventoryAccountId || null
+                        : currentProduct.inventoryAccountId,
+                    userId: session.user.id,
+                    role: session.user.role,
+                    reason: accountingChangeReason,
+                });
                 await tx.product.update({
                     where: { id },
                     data: {
