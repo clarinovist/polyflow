@@ -283,7 +283,8 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
         await reconcileProductionScrap(db!, { ...secondRequest, expectedFingerprint: secondPreview.fingerprint }, true);
         for (const stock of await db!.inventory.findMany()) {
             expect(stock.quantity.toNumber()).toBe(14);
-            expect(stock.averageCost?.toNumber()).toBe(35.7143);
+            // The first persisted 4dp WAC is 42.8571, not an unrounded 600/14.
+            expect(stock.averageCost?.toNumber()).toBe(d('42.8571').mul(14).minus(100).div(14).toDecimalPlaces(4).toNumber());
         }
         expect(await db!.auditLog.count({ where: { action: 'RECONCILE_PRODUCTION_SCRAP' } })).toBe(2);
         expect(await balance(db!, 'scrap-account')).toBe(0);
