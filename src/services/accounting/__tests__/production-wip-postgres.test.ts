@@ -12,6 +12,7 @@ import { recordExecutionScrap } from '../../production/execution-scrap-recording
 import { voidProductionExecutionInTransaction } from '../../production/execution-void-helper';
 import { reconcileProductionScrap } from '@/lib/ops/production-scrap-reconciliation';
 import { ProductionMaterialService } from '../../production/material-service';
+import { checkProductionCostHealth } from '../../production/production-cost-health-service';
 
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const db = connection ? returnTestClient(connection) : null;
@@ -270,6 +271,16 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
         await run(db!, async tx => { await issue(tx, 50); await produce(tx, 5, 'Synthetic output after deletion'); });
         expect(await balance(db!, a.output)).toBe(150);
         expect(await balance(db!, a.legacy)).toBe(0);
+    });
+    it('runs the daily cost health check inside a read-only transaction and names a blocked WO', async () => {
+        await run(db!, tx => issue(tx));
+        expect(await tenantContext.run(db!, () => checkProductionCostHealth())).toMatchObject({ blockedOrders: [], findings: 0 });
+        await db!.stockMovement.create({ data: { type: 'OUT', productVariantId: 'raw', productionOrderId: 'wo',
+            fromLocationId: 'loc', quantity: 1, cost: null, reference: 'Legacy uncosted issue' } });
+        const health = await tenantContext.run(db!, () => checkProductionCostHealth());
+        expect(health.blockedOrders).toEqual([{ orderNumber: 'wo', reason: 'jumlah jurnal sumber bukan satu' }]);
+        expect(health.uncostedMovements).toEqual([{ type: 'OUT', count: 1 }]);
+        expect(await db!.auditLog.count()).toBe(0);
     });
     async function legacyScrapFixture() {
         const a = ids.get(db!)!;

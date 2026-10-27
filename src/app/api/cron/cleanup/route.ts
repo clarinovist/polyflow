@@ -205,12 +205,40 @@ export async function GET(req: Request) {
                     );
                 }
 
+                // Read-only costing detection. A "check failed" line is picked
+                // up by the existing error-log monitor, so a new problem reaches
+                // ops within a day instead of when an operator is blocked.
+                let productionCostFindings: number | undefined;
+                try {
+                    if (inventoryEntitled) {
+                        const {
+                            checkProductionCostHealth,
+                            summarizeProductionCostHealth,
+                        } =
+                            await import('@/services/production/production-cost-health-service');
+                        const health = await checkProductionCostHealth();
+                        productionCostFindings = health.findings;
+                        const line = summarizeProductionCostHealth(
+                            tenant.subdomain,
+                            health,
+                        );
+                        if (health.findings > 0) console.error(line);
+                        else console.log(line);
+                    }
+                } catch (healthErr) {
+                    console.error(
+                        `[Cron] Production cost health check failed for ${tenant.subdomain}:`,
+                        healthErr,
+                    );
+                }
+
                 return {
                     auditLogs,
                     notifications,
                     expiredQuotations,
                     expiredReservations,
                     autoClosedSchedules,
+                    productionCostFindings,
                     subsystemError,
                 };
             },

@@ -78,6 +78,14 @@ vi.mock('@/lib/hrd/employment-reminder', () => ({
 vi.mock('@/services/sales/quotation-service', () => ({
     autoExpireQuotations: vi.fn().mockResolvedValue(0),
 }));
+const productionCostHealth = vi.hoisted(() => ({
+    checkProductionCostHealth: vi.fn(),
+    summarizeProductionCostHealth: vi.fn(),
+}));
+vi.mock(
+    '@/services/production/production-cost-health-service',
+    () => productionCostHealth,
+);
 vi.mock('@/services/sales/delivery-schedule-auto-close', () => ({
     autoCloseExpiredDeliverySchedules: vi.fn().mockResolvedValue({
         scanned: 0,
@@ -103,6 +111,56 @@ describe('Cleanup Cron Route', () => {
         vi.mocked(autoExpireQuotations).mockClear();
         vi.mocked(autoCloseExpiredDeliverySchedules).mockClear();
         vi.mocked(autoExpireReservations).mockClear();
+        productionCostHealth.checkProductionCostHealth
+            .mockReset()
+            .mockResolvedValue({ findings: 0 });
+        productionCostHealth.summarizeProductionCostHealth
+            .mockReset()
+            .mockReturnValue('[ProductionCostHealth] acme: ok');
+    });
+
+    it('logs production cost findings as a failed check so the error monitor alerts ops', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) => [
+                { tenant: 'acme', result: await fn({ id: 'tenant-1', subdomain: 'acme' }) },
+            ],
+        );
+        productionCostHealth.checkProductionCostHealth.mockResolvedValue({ findings: 2 });
+        productionCostHealth.summarizeProductionCostHealth.mockReturnValue(
+            '[ProductionCostHealth] check failed for acme: 2 temuan',
+        );
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const response = await GET(new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET', headers: { authorization: 'Bearer test-secret' },
+        }));
+        const data = await response.json();
+
+        expect(data.perTenant[0].result.productionCostFindings).toBe(2);
+        expect(errors).toHaveBeenCalledWith('[ProductionCostHealth] check failed for acme: 2 temuan');
+        errors.mockRestore();
+    });
+
+    it('skips the production cost check when INVENTORY is not entitled and survives its failure', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) => [
+                { tenant: 'acme', result: await fn({ id: 'tenant-1', subdomain: 'acme' }) },
+            ],
+        );
+        vi.mocked(hasTenantModule).mockImplementation(async (moduleKey: string) => moduleKey !== 'INVENTORY');
+        const request = () => GET(new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET', headers: { authorization: 'Bearer test-secret' },
+        }));
+        await request();
+        expect(productionCostHealth.checkProductionCostHealth).not.toHaveBeenCalled();
+
+        vi.mocked(hasTenantModule).mockResolvedValue(true);
+        productionCostHealth.checkProductionCostHealth.mockRejectedValue(new Error('read-only check failed'));
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const response = await request();
+        expect(response.status).toBe(200);
+        expect((await response.json()).perTenant[0].result.auditLogs).toBe(5);
+        errors.mockRestore();
     });
 
     it('should return 401 if authorization header is missing', async () => {

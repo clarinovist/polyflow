@@ -9,7 +9,7 @@ const zero = () => new Prisma.Decimal(0);
 function unresolved(reason: string): never {
     throw new BusinessRuleError(
         `Hasil belum disimpan. Nilai WIP WO belum cocok: ${reason}. Minta admin memeriksa perhitungan biaya dan jurnal SPK; jangan mengubah jumlah hasil, stok, atau saldo untuk melewati pemeriksaan ini.`,
-        {}, 'PRODUCTION_WIP_UNRESOLVED',
+        { reason }, 'PRODUCTION_WIP_UNRESOLVED',
     );
 }
 
@@ -44,6 +44,7 @@ async function readProductionWipBalances(
     tx: Prisma.TransactionClient,
     productionOrderId: string,
     excludeMovementId?: string,
+    lock = true,
 ): Promise<Map<string, Prisma.Decimal>> {
     const movements = await tx.stockMovement.findMany({
         where: {
@@ -54,7 +55,7 @@ async function readProductionWipBalances(
     });
     // Lock source rows before deriving their vector. This is not a substitute for
     // the separate Finance reversal guard; already-linked reversals reject below.
-    if (movements.length) {
+    if (movements.length && lock) {
         await tx.$queryRaw(Prisma.sql`SELECT id FROM "JournalEntry"
             WHERE "referenceId" IN (${Prisma.join(movements.map(m => m.id))}) ORDER BY id FOR UPDATE`);
     }
@@ -118,9 +119,16 @@ async function readProductionWipBalances(
 const total = (balances: Map<string, Prisma.Decimal>) =>
     [...balances.values()].reduce((sum, value) => sum.plus(value), zero());
 
-/** Posted material value this WO has not yet relieved into output, in cents. */
-export async function availableProductionWip(tx: Prisma.TransactionClient, productionOrderId: string) {
-    return total(await readProductionWipBalances(tx, productionOrderId));
+/**
+ * Posted material value this WO has not yet relieved into output, in cents.
+ * `lock: false` is for read-only inspection only; posting must keep the lock.
+ */
+export async function availableProductionWip(
+    tx: Prisma.TransactionClient,
+    productionOrderId: string,
+    { lock = true }: { lock?: boolean } = {},
+) {
+    return total(await readProductionWipBalances(tx, productionOrderId, undefined, lock));
 }
 
 /**
