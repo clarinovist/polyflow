@@ -82,6 +82,12 @@ describe('inventory account follows the SKU capitalization source', () => {
         m.basis.mockResolvedValue([{ accountId: 'stale', value: d(-1200) }]);
         await expect(select()).rejects.toMatchObject({ code: CODE.MISSING_SOURCE_BASIS });
     });
+    it('reports a single short account as a basis gap, not a split', async () => {
+        for (const accountId of ['inv', 'packaging']) {
+            m.basis.mockResolvedValue([{ accountId, value: d(3000) }, { accountId: 'stale', value: d(-1200) }]);
+            await expect(select()).rejects.toMatchObject({ code: CODE.MISSING_SOURCE_BASIS, message: expect.stringContaining('belum mencukupi') });
+        }
+    });
     it('rejects split or ambiguous basis instead of choosing by balance', async () => {
         m.basis.mockResolvedValue([{ accountId: 'inv', value: d(3000) }, { accountId: 'packaging', value: d(3000) }]);
         await expect(select()).rejects.toMatchObject({ code: CODE.SOURCE_ACCOUNT_MISMATCH, message: expect.stringContaining('akun persediaan') });

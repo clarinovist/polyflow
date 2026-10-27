@@ -111,10 +111,18 @@ export async function selectInternalUsageInventory(
         ([id, value]) => id !== resolvedInventoryId && value.gte(amount),
     );
     if (sources.length === 1) return sources[0][0];
-    if (![...basis.values()].some((value) => value.gt(0))) {
+    const funded = [...basis.values()].filter((value) => value.gt(0)).length;
+    if (funded === 0) {
         notReady(
             INTERNAL_USAGE_READINESS.MISSING_SOURCE_BASIS,
             'Penerimaan barang ini belum tertaut ke jurnal persediaan, jadi nilainya belum bisa dibebankan. Minta Finance memeriksa penerimaan atau saldo awal barang ini.',
+        );
+    }
+    // One funded account that is simply short is a basis gap, not a split.
+    if (funded === 1) {
+        notReady(
+            INTERNAL_USAGE_READINESS.MISSING_SOURCE_BASIS,
+            'Nilai barang ini yang tertaut ke jurnal penerimaan belum mencukupi untuk jumlah ini. Minta Finance mencocokkan penerimaan dan saldo awal; jangan gunakan penyesuaian hanya untuk melewati pemeriksaan ini.',
         );
     }
     notReady(
