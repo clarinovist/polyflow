@@ -5,6 +5,11 @@ import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
 import { allocateProductionWip } from './production-wip-provenance';
+import {
+    allocateOperationalLossCredit,
+    isOperationalLoss,
+    withOperationalLossCost,
+} from './operational-adjustment-accounting';
 import { assertProductionOutputAmount } from './production-output-amount';
 
 type StockMovementWithProduct = Prisma.StockMovementGetPayload<{
@@ -265,6 +270,13 @@ export async function recordInventoryMovement(
         return;
     }
 
+    // Operational stock losses are valued at location WAC, never a master price.
+    const operationalLoss = isOperationalLoss(
+        movement,
+        productVariant.product.productType,
+    );
+    if (operationalLoss) movement = await withOperationalLossCost(db, movement);
+
     const date = movement.createdAt || new Date();
     // Priority: Persisted movement cost -> Standard Cost -> Buy Price -> Sell Price
     const currentCost = Number(
@@ -401,7 +413,7 @@ export async function recordInventoryMovement(
     }
     const totalAmount =
         options?.journalTotal ??
-        ((options?.productionOutput || (movement.productionOrderId && movement.type === 'OUT')) && movement.cost != null
+        ((options?.productionOutput || operationalLoss || (movement.productionOrderId && movement.type === 'OUT')) && movement.cost != null
             ? new Prisma.Decimal(movement.quantity).mul(movement.cost).toDecimalPlaces(2).toNumber()
             : movement.goodsReceiptId && goodsReceipt && movement.cost != null
             ? toPersistedDecimal(movement.quantity, 'movement.quantity', {
@@ -545,6 +557,24 @@ export async function recordInventoryMovement(
                 },
             );
         } else {
+            const resolvedInventoryId = await getAccountId(invAccount, db);
+            // Operational losses credit the accounts that capitalized this SKU;
+            // an explicit product override stays a strict Finance choice.
+            const credits =
+                operationalLoss && !productVariant.product.inventoryAccountId
+                    ? (
+                          await allocateOperationalLossCredit(
+                              db,
+                              movement.productVariantId,
+                              resolvedInventoryId,
+                              new Prisma.Decimal(absAmt),
+                              productVariant.name,
+                          )
+                      ).map((line) => ({
+                          accountId: line.accountId,
+                          credit: line.credit.toNumber(),
+                      }))
+                    : [{ accountId: resolvedInventoryId, credit: absAmt }];
             lines.push(
                 {
                     accountId: await getAccountId(
@@ -560,12 +590,12 @@ export async function recordInventoryMovement(
                     credit: 0,
                     description: `Adj Loss`,
                 },
-                {
-                    accountId: await getAccountId(invAccount, db),
+                ...credits.map((line) => ({
+                    accountId: line.accountId,
                     debit: 0,
-                    credit: absAmt,
+                    credit: line.credit,
                     description: `Stock Adj (Out)`,
-                },
+                })),
             );
         }
     }

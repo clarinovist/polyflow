@@ -9,6 +9,7 @@ import { createInternalUsage } from '../internal-usage-service';
 import { getInternalUsageHistory } from '../internal-usage-query-service';
 import { getStockBalance } from '../stock-balance-service';
 import { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
+import { recordInventoryMovement } from '@/services/accounting/inventory-link-service';
 
 // Only MAIN mapping lookup is supplied; stock, GL proof, source, journal, sequence,
 // period and audit execute on real isolated PostgreSQL (no domain mocks).
@@ -35,6 +36,9 @@ async function seed(client: PrismaClient) {
         { id: 'usage-expense', code: '61970', name: 'Synthetic office expense', type: 'EXPENSE', category: 'OPERATING_EXPENSE' },
         { id: 'usage-clearing', code: '21170', name: 'Synthetic GR clearing', type: 'LIABILITY', category: 'CURRENT_LIABILITY' },
         { id: 'usage-raw', code: '11310', name: 'Synthetic raw material', type: 'ASSET', category: 'CURRENT_ASSET' },
+        // Pattern targets for the real resolver used by stock adjustments.
+        { id: 'usage-generic', code: '11300', name: 'Synthetic generic stock', type: 'ASSET', category: 'CURRENT_ASSET' },
+        { id: 'usage-loss', code: '91100', name: 'Synthetic adjustment loss', type: 'EXPENSE', category: 'OPERATING_EXPENSE' },
     ] });
     await client.product.create({ data: { id: 'usage-product', name: 'Synthetic pen', productType: 'OPERATIONAL', inventoryAccountId: 'usage-inventory' } });
     await client.productVariant.create({ data: { id: 'usage-pen', productId: 'usage-product', name: 'Synthetic black pen', skuCode: 'USAGE-PEN', primaryUnit: 'PCS' } });
@@ -120,6 +124,25 @@ describe.skipIf(!db)('internal usage real PostgreSQL contract', () => {
         ] } } });
         await expect(run(db!, () => createInternalUsage({ ...payload(), quantity: 24 }, actor))).rejects.toMatchObject({ code: 'INTERNAL_USAGE_SOURCE_ACCOUNT_MISMATCH' });
         expect(await stock()).toBe(24); expect(await db!.internalUsage.count()).toBe(0); expect(await db!.journalEntry.count()).toBe(2);
+    });
+    it('values operational stock-count losses at WAC and credits the SKU source account', async () => {
+        await db!.product.update({ where: { id: 'usage-product' }, data: { inventoryAccountId: null } });
+        await db!.productVariant.create({ data: { id: 'usage-note', productId: 'usage-product', name: 'Synthetic note', skuCode: 'USAGE-NOTE', primaryUnit: 'PCS' } });
+        await db!.inventory.create({ data: { locationId: 'usage-office', productVariantId: 'usage-note', quantity: 5, averageCost: 7050 } });
+        // Same shape as stock-opname finalisation: an uncosted loss posted inside the caller's transaction.
+        const loss = (id: string, productVariantId: string, quantity: number) => run(db!, () => db!.$transaction(async (tx) => {
+            const movement = await tx.stockMovement.create({ data: { id, type: 'ADJUSTMENT', productVariantId, fromLocationId: 'usage-office', toLocationId: null, quantity, reference: 'OPN-SYNTHETIC' } });
+            await recordInventoryMovement(movement, tx);
+        }));
+        await loss('usage-opname-pen', 'usage-pen', 2);
+        expect((await db!.stockMovement.findUniqueOrThrow({ where: { id: 'usage-opname-pen' } })).cost?.toString()).toBe('2000');
+        const journal = await db!.journalEntry.findFirstOrThrow({ where: { referenceId: 'usage-opname-pen' }, include: { lines: true } });
+        expect(journal.referenceType).toBe('STOCK_ADJUSTMENT');
+        expect(journal.lines.map((line) => [line.accountId, Number(line.debit), Number(line.credit)])).toEqual(expect.arrayContaining([['usage-loss', 4000, 0], ['usage-inventory', 0, 4000]]));
+        expect(journal.lines.some((line) => line.accountId === 'usage-generic')).toBe(false);
+        await expect(loss('usage-opname-note', 'usage-note', 1)).rejects.toMatchObject({ code: 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS' });
+        expect(await db!.stockMovement.count({ where: { id: 'usage-opname-note' } })).toBe(0);
+        expect(await db!.journalEntry.count({ where: { referenceId: 'usage-opname-note' } })).toBe(0);
     });
     it('isolates identical keys and identifiers across tenant databases', async () => {
         await seed(other!); const input = payload();
