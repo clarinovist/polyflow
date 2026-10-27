@@ -383,4 +383,28 @@ describe('WO output production date', () => {
         expect(ids[1]).toBe(ids[0]);
         expect(ids[2]).not.toBe(ids[0]);
     });
+
+    it('reminds about the voided affal without blocking a save that omits it', async () => {
+        const voided = {
+            id: 'voided', status: 'VOIDED', createdAt: '2026-09-01T16:50:00Z', updatedAt: '2026-09-01T17:00:00Z',
+            scrapQuantity: 9, scrapProngkolQty: 0, scrapDaunQty: 9,
+        };
+        const order = { ...props.order, executions: [voided] } as unknown as Props['order'];
+        render(<AddOutputDialog {...props} order={order} />);
+        openDialog();
+        addGoodOutput();
+        expect(screen.getByRole('status').textContent).toContain('mencatat affal 9 kg');
+
+        fireEvent.change(screen.getByLabelText('Daun (KG)'), { target: { value: '9' } });
+        expect(screen.queryByRole('status')).toBeNull();
+        fireEvent.change(screen.getByLabelText('Daun (KG)'), { target: { value: '' } });
+        expect(screen.getByRole('status')).toBeTruthy();
+
+        fireEvent.submit(form());
+        fireEvent.click(screen.getByRole('button', { name: 'Ya, Tidak Ada Scrap' }));
+        await waitFor(() => expect(addProductionOutput).toHaveBeenCalledTimes(1));
+        expect(addProductionOutput).toHaveBeenCalledWith(
+            expect.objectContaining({ quantityProduced: 50, scrapDaunQty: 0, scrapProngkolQty: 0 }),
+        );
+    });
 });

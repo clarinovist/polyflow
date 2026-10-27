@@ -30,8 +30,10 @@ import { formatQuantity } from '@/lib/utils/utils';
 import { productionOutputDateSchema } from '@/lib/schemas/production-output-date';
 import type { ExtendedProductionOrder } from './types';
 import { PackagingOutputFields } from './PackagingOutputFields';
+import { VoidedAffalNotice } from './VoidedAffalNotice';
 import { packagedOutputSchema, type PackagedOutputValues } from '@/lib/schemas/production-packaging';
 import { newClientRequestId } from '@/lib/production/kiosk-packaging';
+import { voidedAffalAwaitingReentry } from '@/lib/production/voided-entry-affal';
 
 interface OutputFormData {
     locations: Location[];
@@ -66,6 +68,7 @@ export function AddOutputDialog({
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [packagedOutput, setPackagedOutput] = useState<PackagedOutputValues | undefined>();
+    const voidedAffal = useMemo(() => voidedAffalAwaitingReentry(order.executions ?? []), [order.executions]);
 
     function handleOpenChange(nextOpen: boolean) {
         if (submitting.current) return;
@@ -601,6 +604,11 @@ export function AddOutputDialog({
                                             />
                                         </div>
                                     </div>
+                                    <VoidedAffalNotice
+                                        reference={voidedAffal}
+                                        prongkol={Number(scrapProngkol || 0)}
+                                        daun={Number(scrapDaun || 0)}
+                                    />
                                     {showScrapWarning && (
                                         <div
                                             role="alert"

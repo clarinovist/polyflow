@@ -9,6 +9,10 @@ const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 // Sub-rupiah residue is cent rounding from the legacy average rule, not a defect.
 const VALUE_TOLERANCE = new Prisma.Decimal('1');
 const HEALTH_TX_TIMEOUT_MS = 60_000;
+// Voids are usually re-entered within minutes; an older void still pairs with today's re-entry.
+const VOID_LOOKBACK_MS = 7 * RECENT_WINDOW_MS;
+// Differences below this are input rounding, not a missing quantity.
+const QUANTITY_TOLERANCE = new Prisma.Decimal('0.0001');
 
 export interface ProductionCostHealth {
     /** Active WOs whose next output the WIP guard rejects. */
@@ -23,6 +27,8 @@ export interface ProductionCostHealth {
     zeroCostOutputs: Array<{ orderNumber: string; skuCode: string; quantity: string }>;
     /** Stocked ATK whose stock value no SKU-linked journal funds. */
     operationalWithoutBasis: Array<{ skuCode: string; stockValue: string; basis: string }>;
+    /** Re-entries of a voided output in the last 24h with no less output but less affal or material. */
+    revisionShortfalls: Array<{ orderNumber: string; changes: string[] }>;
     findings: number;
 }
 
@@ -112,6 +118,64 @@ async function findOperationalWithoutBasis(tx: Tx) {
     return gaps;
 }
 
+type RevisionRow = {
+    orderNumber: string;
+    affal: Prisma.Decimal;
+    revisedAffal: Prisma.Decimal;
+    materials: Array<{ skuCode: string; before: number; after: number }> | null;
+};
+const qty = (value: Prisma.Decimal.Value) => new Prisma.Decimal(value).toString();
+
+async function findRevisionShortfalls(tx: Tx, now: Date) {
+    // Each void pairs with the next entry on its WO; a dropped affal leaves its material in stock.
+    // Affal total is max(generic, prongkol + daun), as in executionScrapTotal. Only packaged
+    // entries link their material movements, so other entries compare affal alone.
+    const rows = await tx.$queryRaw<RevisionRow[]>`
+        WITH voided AS (
+            SELECT e.id, e."productionOrderId" AS oid, e."updatedAt" AS voided_at, e."quantityProduced" AS qty,
+                GREATEST(e."scrapQuantity", e."scrapProngkolQty" + e."scrapDaunQty") AS affal
+            FROM "ProductionExecution" e
+            WHERE e.status = 'VOIDED' AND e."updatedAt" >= ${new Date(now.getTime() - VOID_LOOKBACK_MS)}
+        ), pairs AS (
+            SELECT v.*, r.id AS rid, GREATEST(r."scrapQuantity", r."scrapProngkolQty" + r."scrapDaunQty") AS revised_affal
+            FROM voided v CROSS JOIN LATERAL (
+                SELECT x.* FROM "ProductionExecution" x
+                WHERE x."productionOrderId" = v.oid AND x.id <> v.id AND x."createdAt" >= v.voided_at
+                ORDER BY x."createdAt", x.id LIMIT 1
+            ) r
+            WHERE r.status <> 'VOIDED' AND r."createdAt" >= ${new Date(now.getTime() - RECENT_WINDOW_MS)}
+              AND r."quantityProduced" >= v.qty
+        ), used AS (
+            SELECT m."productionExecutionId" AS eid, m."productVariantId" AS vid, SUM(m.quantity) AS qty
+            FROM "StockMovement" m
+            WHERE m.type = 'OUT' AND m."reversalOfId" IS NULL
+              AND m."productionExecutionId" IN (SELECT id FROM pairs UNION SELECT rid FROM pairs)
+            GROUP BY 1, 2
+        ), drops AS (
+            SELECT p.id, json_agg(json_build_object('skuCode', v."skuCode", 'before', b.qty, 'after', COALESCE(a.qty, 0))
+                ORDER BY v."skuCode") AS materials
+            FROM pairs p JOIN used b ON b.eid = p.id
+            LEFT JOIN used a ON a.eid = p.rid AND a.vid = b.vid
+            JOIN "ProductVariant" v ON v.id = b.vid
+            WHERE COALESCE(a.qty, 0) < b.qty - ${QUANTITY_TOLERANCE}::numeric
+            GROUP BY p.id
+        )
+        SELECT o."orderNumber", p.affal, p.revised_affal AS "revisedAffal", d.materials
+        FROM pairs p JOIN "ProductionOrder" o ON o.id = p.oid LEFT JOIN drops d ON d.id = p.id
+        WHERE p.revised_affal < p.affal - ${QUANTITY_TOLERANCE}::numeric OR d.materials IS NOT NULL
+        ORDER BY o."orderNumber", p.voided_at`;
+    return rows.map((row) => {
+        const droppedAffal = new Prisma.Decimal(row.revisedAffal).lt(new Prisma.Decimal(row.affal).minus(QUANTITY_TOLERANCE));
+        return {
+            orderNumber: row.orderNumber,
+            changes: [
+                ...(droppedAffal ? [`affal ${qty(row.affal)} → ${qty(row.revisedAffal)} kg`] : []),
+                ...(row.materials ?? []).map((m) => `${m.skuCode} ${qty(m.before)} → ${qty(m.after)}`),
+            ],
+        };
+    });
+}
+
 /**
  * Read-only daily detection for the current tenant: surfaces costing problems
  * within a day instead of when an operator is blocked. One READ ONLY
@@ -125,9 +189,11 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const uncostedMovements = await countUncostedMovements(tx, now);
         const zeroCostOutputs = await findZeroCostOutputs(tx, now);
         const operationalWithoutBasis = await findOperationalWithoutBasis(tx);
+        const revisionShortfalls = await findRevisionShortfalls(tx, now);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
-            uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length;
-        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis, findings };
+            uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length +
+            revisionShortfalls.length;
+        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis, revisionShortfalls, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
 
@@ -141,6 +207,7 @@ export function summarizeProductionCostHealth(tenant: string, health: Production
         health.uncostedMovements.length && `movement produksi tanpa biaya 24 jam: ${health.uncostedMovements.map((m) => `${m.type} ${m.count}`).join(', ')}`,
         health.zeroCostOutputs.length && `hasil bernilai Rp0 24 jam (${health.zeroCostOutputs.map((o) => `${o.orderNumber} ${o.skuCode} ${o.quantity}`).join('; ')})`,
         health.operationalWithoutBasis.length && `${health.operationalWithoutBasis.length} SKU ATK tanpa basis (${health.operationalWithoutBasis.map((s) => s.skuCode).join(', ')})`,
+        health.revisionShortfalls.length && `${health.revisionShortfalls.length} revisi SPK mengurangi affal/bahan dari isian yang di-void (${health.revisionShortfalls.map((r) => `${r.orderNumber}: ${r.changes.join(', ')}`).join('; ')})`,
     ].filter(Boolean);
     return `[ProductionCostHealth] check failed for ${tenant}: ${health.findings} temuan — ${parts.join(' | ')}`;
 }

@@ -87,6 +87,33 @@ describe('checkProductionCostHealth', () => {
         expect(line).toContain('ATK-1, ATK-2');
     });
 
+    it('flags a revision that records less affal or material than the voided entry', async () => {
+        tx.$queryRaw
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                { orderNumber: 'WO-P', affal: d('9.0000'), revisedAffal: d('0.0000'), materials: [{ skuCode: 'RHK0000', before: 769, after: 760 }] },
+                { orderNumber: 'WO-Q', affal: d('0.5'), revisedAffal: d('0.5'), materials: [{ skuCode: 'ETK', before: 760, after: 76 }] },
+                // Non-packaged entries link no material movements: affal alone is compared.
+                { orderNumber: 'WO-R', affal: d('0.32'), revisedAffal: d('0'), materials: null },
+            ]);
+
+        const health = await checkProductionCostHealth(NOW);
+
+        expect(health.revisionShortfalls).toEqual([
+            { orderNumber: 'WO-P', changes: ['affal 9 → 0 kg', 'RHK0000 769 → 760'] },
+            { orderNumber: 'WO-Q', changes: ['ETK 760 → 76'] },
+            { orderNumber: 'WO-R', changes: ['affal 0.32 → 0 kg'] },
+        ]);
+        expect(health.findings).toBe(3);
+        const values = tx.$queryRaw.mock.calls[3].slice(1);
+        expect(values).toEqual(expect.arrayContaining([new Date('2026-10-21T20:30:00Z'), new Date('2026-10-27T20:30:00Z')]));
+        expect(summarizeProductionCostHealth('acme', health)).toContain(
+            '3 revisi SPK mengurangi affal/bahan dari isian yang di-void (WO-P: affal 9 → 0 kg, RHK0000 769 → 760; WO-Q: ETK 760 → 76; WO-R: affal 0.32 → 0 kg)',
+        );
+    });
+
     it('does not hide an unexpected failure as a finding', async () => {
         tx.productionOrder.findMany.mockResolvedValue([{ id: 'a', orderNumber: 'WO-A', status: 'IN_PROGRESS' }]);
         available.mockRejectedValue(new Error('connection lost'));
