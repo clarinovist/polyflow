@@ -16,7 +16,7 @@ import {
 } from '@/lib/schemas/inventory';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from './core-service';
-import { requireOperationalInboundCost } from './operational-stock-cost';
+import { resolveInboundAdjustmentCost } from './operational-stock-cost';
 import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryMovementService {
@@ -414,22 +414,14 @@ export class InventoryMovementService {
             }
 
             // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-            // Operational supplies (ATK) must enter with a real cost on the movement itself.
-            const operationalCost = isIncrement
-                ? await requireOperationalInboundCost(tx, productVariantId, locationId, unitCost)
+            // Inbound stock carries one cost for WAC, movement and journal (see resolveInboundAdjustmentCost).
+            const inboundCost = isIncrement
+                ? await resolveInboundAdjustmentCost(tx, productVariantId, locationId, unitCost)
                 : null;
-            let movementCost = operationalCost ?? unitCost;
+            let movementCost = inboundCost ?? unitCost;
 
-            if (isIncrement) {
-                let cost = operationalCost ?? unitCost;
-                if (!cost) {
-                    const variant = await tx.productVariant.findUnique({
-                        where: { id: productVariantId },
-                        select: { buyPrice: true },
-                    });
-                    cost = variant?.buyPrice?.toNumber() || 0;
-                }
-
+            if (inboundCost !== null) {
+                const cost = inboundCost;
                 const newAvgCost = await InventoryCoreService.calculateWAC(
                     productVariantId,
                     locationId,
@@ -501,8 +493,9 @@ export class InventoryMovementService {
                     fromLocationId: isIncrement ? null : locationId,
                     toLocationId: isIncrement ? locationId : null,
                     quantity,
-                    cost: movementCost
-                        ? new Prisma.Decimal(movementCost)
+                    // An inbound cost is persisted even at 0; a NULL cost would be journaled at a fallback price.
+                    cost: inboundCost !== null || movementCost
+                        ? new Prisma.Decimal(movementCost ?? 0)
                         : undefined,
                     reference: reason,
                     batchId,
@@ -589,22 +582,14 @@ export class InventoryMovementService {
                 }
 
                 // Track cost for the movement record (may be resolved from inventory for ADJUSTMENT_OUT)
-                // Operational supplies (ATK) must enter with a real cost on the movement itself.
-                const operationalCost = isIncrement
-                    ? await requireOperationalInboundCost(tx, productVariantId, locationId, unitCost)
+                // Inbound stock carries one cost for WAC, movement and journal (see resolveInboundAdjustmentCost).
+                const inboundCost = isIncrement
+                    ? await resolveInboundAdjustmentCost(tx, productVariantId, locationId, unitCost)
                     : null;
-                let movementCost = operationalCost ?? unitCost;
+                let movementCost = inboundCost ?? unitCost;
 
-                if (isIncrement) {
-                    let cost = operationalCost ?? unitCost;
-                    if (!cost) {
-                        const variant = await tx.productVariant.findUnique({
-                            where: { id: productVariantId },
-                            select: { buyPrice: true },
-                        });
-                        cost = variant?.buyPrice?.toNumber() || 0;
-                    }
-
+                if (inboundCost !== null) {
+                    const cost = inboundCost;
                     const newAvgCost = await InventoryCoreService.calculateWAC(
                         productVariantId,
                         locationId,
@@ -668,8 +653,9 @@ export class InventoryMovementService {
                         fromLocationId: isIncrement ? null : locationId,
                         toLocationId: isIncrement ? locationId : null,
                         quantity,
-                        cost: movementCost
-                            ? new Prisma.Decimal(movementCost)
+                        // An inbound cost is persisted even at 0; a NULL cost would be journaled at a fallback price.
+                        cost: inboundCost !== null || movementCost
+                            ? new Prisma.Decimal(movementCost ?? 0)
                             : undefined,
                         reference: reason,
                         createdById: userId,

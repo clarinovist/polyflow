@@ -114,6 +114,22 @@ describe('checkProductionCostHealth', () => {
         );
     });
 
+    it('lists stock that entered through an adjustment at Rp0 for lack of any cost source', async () => {
+        tx.$queryRaw
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ skuCode: 'FG-9', quantity: d('12.5') }]);
+
+        const health = await checkProductionCostHealth(NOW);
+
+        expect(health.zeroCostAdjustments).toEqual([{ skuCode: 'FG-9', quantity: '12.5' }]);
+        expect(health.findings).toBe(1);
+        expect(tx.$queryRaw.mock.calls[4].slice(1)).toEqual(expect.arrayContaining([new Date('2026-10-27T20:30:00Z')]));
+        expect(summarizeProductionCostHealth('acme', health)).toContain('penyesuaian masuk Rp0 tanpa sumber harga 24 jam (FG-9 12.5)');
+    });
+
     it('does not hide an unexpected failure as a finding', async () => {
         tx.productionOrder.findMany.mockResolvedValue([{ id: 'a', orderNumber: 'WO-A', status: 'IN_PROGRESS' }]);
         available.mockRejectedValue(new Error('connection lost'));

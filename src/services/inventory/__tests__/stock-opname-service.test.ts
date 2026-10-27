@@ -268,6 +268,40 @@ describe('StockOpnameService.completeOpname', () => {
         });
     });
 
+    it('values any other count gain at the location average for WAC, movement and journal alike', async () => {
+        mockTx.$queryRaw.mockReset();
+        mockRawQueries({ live: '130', cutoff: '90', ledger: '130' });
+        mockTx.productVariant.findUnique.mockResolvedValue({
+            skuCode: 'RAW-1', standardCost: new Prisma.Decimal(3000), buyPrice: null, price: new Prisma.Decimal(9000),
+            product: { productType: 'RAW_MATERIAL' },
+        });
+        mockTx.inventory.findUnique.mockResolvedValue({ averageCost: new Prisma.Decimal(4000) });
+        vi.mocked(InventoryCoreService.calculateWAC).mockResolvedValue(4000);
+
+        await StockOpnameService.completeOpname('opname-1', '2026-09-30', 'user-1');
+
+        expect(InventoryCoreService.calculateWAC).toHaveBeenCalledWith('variant-1', 'loc-1', 10, 4000, mockTx);
+        expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({ toLocationId: 'loc-1', cost: 4000 }),
+        });
+    });
+
+    it('records a count gain without any cost source at an explicit zero, never the sale price', async () => {
+        mockTx.$queryRaw.mockReset();
+        mockRawQueries({ live: '130', cutoff: '90', ledger: '130' });
+        mockTx.productVariant.findUnique.mockResolvedValue({
+            skuCode: 'FG-1', standardCost: null, buyPrice: null, price: new Prisma.Decimal(9000),
+            product: { productType: 'FINISHED_GOOD' },
+        });
+        mockTx.inventory.findUnique.mockResolvedValue({ averageCost: null });
+
+        await StockOpnameService.completeOpname('opname-1', '2026-09-30', 'user-1');
+
+        expect(mockTx.stockMovement.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({ toLocationId: 'loc-1', cost: 0 }),
+        });
+    });
+
     it('rejects an operational (ATK) count gain with no cost before changing stock', async () => {
         mockTx.$queryRaw.mockReset();
         mockRawQueries({ live: '130', cutoff: '90', ledger: '130' });

@@ -10,6 +10,7 @@ import { getInternalUsageHistory } from '../internal-usage-query-service';
 import { getStockBalance } from '../stock-balance-service';
 import { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
 import { recordInventoryMovement } from '@/services/accounting/inventory-link-service';
+import { InventoryMovementService } from '../movement-service';
 
 // Only MAIN mapping lookup is supplied; stock, GL proof, source, journal, sequence,
 // period and audit execute on real isolated PostgreSQL (no domain mocks).
@@ -143,6 +144,53 @@ describe.skipIf(!db)('internal usage real PostgreSQL contract', () => {
         await expect(loss('usage-opname-note', 'usage-note', 1)).rejects.toMatchObject({ code: 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS' });
         expect(await db!.stockMovement.count({ where: { id: 'usage-opname-note' } })).toBe(0);
         expect(await db!.journalEntry.count({ where: { referenceId: 'usage-opname-note' } })).toBe(0);
+    });
+    it('values every inbound adjustment once: location average, explicit zero, never a sale price', async () => {
+        await db!.account.createMany({ data: [
+            { id: 'usage-gain', code: '81100', name: 'Synthetic adjustment gain', type: 'REVENUE', category: 'OTHER_REVENUE' },
+            { id: 'usage-scrap', code: '11350', name: 'Synthetic scrap stock', type: 'ASSET', category: 'CURRENT_ASSET' },
+        ] });
+        await db!.product.createMany({ data: [
+            { id: 'adj-raw-product', name: 'Synthetic raw', productType: 'RAW_MATERIAL' },
+            { id: 'adj-fg-product', name: 'Synthetic finished good', productType: 'FINISHED_GOOD' },
+            { id: 'adj-scrap-product', name: 'Synthetic affal', productType: 'SCRAP' },
+        ] });
+        await db!.productVariant.createMany({ data: [
+            { id: 'adj-raw', productId: 'adj-raw-product', name: 'Synthetic raw', skuCode: 'ADJ-RAW', primaryUnit: 'KG', standardCost: 3000, price: 9000 },
+            { id: 'adj-fg', productId: 'adj-fg-product', name: 'Synthetic FG', skuCode: 'ADJ-FG', primaryUnit: 'PCS', price: 15000 },
+            { id: 'adj-scrap', productId: 'adj-scrap-product', name: 'Synthetic affal', skuCode: 'ADJ-SCRAP', primaryUnit: 'KG', price: 2000 },
+        ] });
+        await db!.inventory.createMany({ data: [
+            { locationId: 'usage-office', productVariantId: 'adj-raw', quantity: 10, averageCost: 4000 },
+            { locationId: 'usage-office', productVariantId: 'adj-scrap', quantity: 5, averageCost: 0 },
+        ] });
+        const adjustIn = async (productVariantId: string, quantity: number) => {
+            await run(db!, () => InventoryMovementService.adjustStock(
+                { locationId: 'usage-office', productVariantId, type: 'ADJUSTMENT_IN', quantity, reason: 'Synthetic count gain' }, actor));
+            return db!.stockMovement.findFirstOrThrow({ where: { productVariantId, type: 'ADJUSTMENT' } });
+        };
+        const lines = async (movementId: string) => (await db!.journalLine.findMany({ where: { journalEntry: { referenceId: movementId } } }))
+            .map((line) => [line.accountId, Number(line.debit), Number(line.credit)]);
+
+        // Found raw stock enters at the location average, not the standard cost: GL gain = added SKU basis.
+        const raw = await adjustIn('adj-raw', 2);
+        expect(raw.cost?.toString()).toBe('4000');
+        expect(await lines(raw.id)).toEqual(expect.arrayContaining([['usage-raw', 8000, 0], ['usage-gain', 0, 8000]]));
+        const rawStock = await db!.inventory.findFirstOrThrow({ where: { productVariantId: 'adj-raw' } });
+        expect([Number(rawStock.quantity), Number(rawStock.averageCost)]).toEqual([12, 4000]);
+
+        // Without any cost source the stock enters at an explicit zero: no gain priced from the sale price.
+        const fg = await adjustIn('adj-fg', 3);
+        expect(fg.cost?.toString()).toBe('0');
+        expect(await lines(fg.id)).toEqual([]);
+        const scrap = await run(db!, async () => {
+            await InventoryMovementService.adjustStockBulk({ locationId: 'usage-office', items: [
+                { productVariantId: 'adj-scrap', type: 'ADJUSTMENT_IN', quantity: 1, reason: 'Synthetic affal count' },
+            ] }, actor);
+            return db!.stockMovement.findFirstOrThrow({ where: { productVariantId: 'adj-scrap' } });
+        });
+        expect(scrap.cost?.toString()).toBe('0');
+        expect(await lines(scrap.id)).toEqual([]);
     });
     it('isolates identical keys and identifiers across tenant databases', async () => {
         await seed(other!); const input = payload();

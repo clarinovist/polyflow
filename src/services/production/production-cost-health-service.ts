@@ -29,6 +29,8 @@ export interface ProductionCostHealth {
     operationalWithoutBasis: Array<{ skuCode: string; stockValue: string; basis: string }>;
     /** Re-entries of a voided output in the last 24h with no less output but less affal or material. */
     revisionShortfalls: Array<{ orderNumber: string; changes: string[] }>;
+    /** Non-affal stock adjusted in during the last 24h at Rp0: no entered, average, standard or buy cost. */
+    zeroCostAdjustments: Array<{ skuCode: string; quantity: string }>;
     findings: number;
 }
 
@@ -176,6 +178,17 @@ async function findRevisionShortfalls(tx: Tx, now: Date) {
     });
 }
 
+async function findZeroCostAdjustments(tx: Tx, now: Date) {
+    // Affal enters at Rp0 by policy (full absorption); anything else needs a price from Finance.
+    const rows = await tx.$queryRaw<Array<{ skuCode: string; quantity: Prisma.Decimal }>>`
+        SELECT v."skuCode", SUM(m.quantity) AS quantity
+        FROM "StockMovement" m JOIN "ProductVariant" v ON v.id = m."productVariantId" JOIN "Product" p ON p.id = v."productId"
+        WHERE m.type = 'ADJUSTMENT' AND m."toLocationId" IS NOT NULL AND m.cost = 0 AND p."productType" <> 'SCRAP'
+          AND m."createdAt" >= ${new Date(now.getTime() - RECENT_WINDOW_MS)}
+        GROUP BY v."skuCode" ORDER BY v."skuCode"`;
+    return rows.map((row) => ({ skuCode: row.skuCode, quantity: qty(row.quantity) }));
+}
+
 /**
  * Read-only daily detection for the current tenant: surfaces costing problems
  * within a day instead of when an operator is blocked. One READ ONLY
@@ -190,10 +203,12 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const zeroCostOutputs = await findZeroCostOutputs(tx, now);
         const operationalWithoutBasis = await findOperationalWithoutBasis(tx);
         const revisionShortfalls = await findRevisionShortfalls(tx, now);
+        const zeroCostAdjustments = await findZeroCostAdjustments(tx, now);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
             uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length +
-            revisionShortfalls.length;
-        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis, revisionShortfalls, findings };
+            revisionShortfalls.length + zeroCostAdjustments.length;
+        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis,
+            revisionShortfalls, zeroCostAdjustments, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
 
@@ -208,6 +223,7 @@ export function summarizeProductionCostHealth(tenant: string, health: Production
         health.zeroCostOutputs.length && `hasil bernilai Rp0 24 jam (${health.zeroCostOutputs.map((o) => `${o.orderNumber} ${o.skuCode} ${o.quantity}`).join('; ')})`,
         health.operationalWithoutBasis.length && `${health.operationalWithoutBasis.length} SKU ATK tanpa basis (${health.operationalWithoutBasis.map((s) => s.skuCode).join(', ')})`,
         health.revisionShortfalls.length && `${health.revisionShortfalls.length} revisi SPK mengurangi affal/bahan dari isian yang di-void (${health.revisionShortfalls.map((r) => `${r.orderNumber}: ${r.changes.join(', ')}`).join('; ')})`,
+        health.zeroCostAdjustments.length && `penyesuaian masuk Rp0 tanpa sumber harga 24 jam (${health.zeroCostAdjustments.map((a) => `${a.skuCode} ${a.quantity}`).join('; ')})`,
     ].filter(Boolean);
     return `[ProductionCostHealth] check failed for ${tenant}: ${health.findings} temuan — ${parts.join(' | ')}`;
 }

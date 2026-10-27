@@ -8,7 +8,7 @@ import {
 } from '@/lib/utils/timezone';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from './core-service';
-import { requireOperationalInboundCost } from './operational-stock-cost';
+import { resolveInboundAdjustmentCost } from './operational-stock-cost';
 import { MovementType, OpnameStatus, Prisma } from '@prisma/client';
 
 type QuantityRow = { quantity: string };
@@ -417,14 +417,14 @@ export class StockOpnameService {
                 }
 
                 const isIncrement = variance.isPositive();
-                // Operational supplies (ATK) found in a count still need a real
-                // value; a cost-less gain would leave stock no journal funds.
-                const operationalCost = isIncrement
-                    ? await requireOperationalInboundCost(tx, item.productVariantId, opname.locationId)
+                // A count gain carries one cost for WAC, movement and journal; a
+                // cost-less gain would be journaled at a fallback (even sale) price.
+                const inboundCost = isIncrement
+                    ? await resolveInboundAdjustmentCost(tx, item.productVariantId, opname.locationId)
                     : null;
-                const averageCost = operationalCost === null ? {} : {
+                const averageCost = inboundCost === null ? {} : {
                     averageCost: await InventoryCoreService.calculateWAC(
-                        item.productVariantId, opname.locationId, variance.toNumber(), operationalCost, tx,
+                        item.productVariantId, opname.locationId, variance.toNumber(), inboundCost, tx,
                     ),
                 };
                 try {
@@ -486,7 +486,7 @@ export class StockOpnameService {
                             ? opname.locationId
                             : null,
                         quantity: variance.abs(),
-                        ...(operationalCost === null ? {} : { cost: operationalCost }),
+                        ...(inboundCost === null ? {} : { cost: inboundCost }),
                         reference:
                             opname.opnameNumber ||
                             `Stock Opname #${opname.id.slice(0, 8)}`,
