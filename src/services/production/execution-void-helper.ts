@@ -66,10 +66,14 @@ export async function voidProductionExecutionInTransaction(
     },
     select: { id: true },
   });
-  if (targetedCorrection) {
+  const scrapCorrection = await tx.auditLog.findFirst({
+    where: { action: 'RECONCILE_PRODUCTION_SCRAP', entityType: 'ProductionExecution', entityId: executionId },
+    select: { id: true },
+  });
+  if (targetedCorrection || scrapCorrection) {
     throw new ProductionRuleViolationError(
       'Eksekusi memiliki koreksi stok terverifikasi dan tidak dapat di-void otomatis. Hubungi admin untuk reversal koreksi terlebih dahulu.',
-      { executionId, correctionAuditId: targetedCorrection.id },
+      { executionId, correctionAuditId: (targetedCorrection ?? scrapCorrection)!.id },
     );
   }
 
