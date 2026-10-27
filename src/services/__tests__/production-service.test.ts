@@ -17,6 +17,7 @@ vi.mock("@/lib/core/prisma", () => {
       update: vi.fn(),
     },
     productionExecution: {
+      findUnique: vi.fn().mockResolvedValue({ productionOrderId: "po-1", status: "COMPLETED" }),
       create: vi.fn(),
       update: vi.fn(),
       findFirst: vi.fn(),
@@ -376,6 +377,12 @@ describe("ProductionService", () => {
         c[0].data.reference?.includes("Production Scrap"),
       );
       expect(scrapMovementCreated).toBeDefined();
+      expect(scrapMovementCreated[0].data).toMatchObject({
+        cost: 0,
+        companyOwned: true,
+        productionExecutionId: expect.any(String),
+      });
+      expect(prisma.scrapRecord.updateMany).not.toHaveBeenCalled();
     });
   });
 
