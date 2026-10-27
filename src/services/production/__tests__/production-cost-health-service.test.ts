@@ -58,6 +58,7 @@ describe('checkProductionCostHealth', () => {
         });
         tx.$queryRaw
             .mockResolvedValueOnce([{ orderNumber: 'WO-C' }])
+            .mockResolvedValueOnce([{ orderNumber: 'WO-F', skuCode: 'FG-1', quantity: d('12.5') }])
             .mockResolvedValueOnce([{ id: 'v1', skuCode: 'ATK-1', stockValue: d(40000) }, { id: 'v2', skuCode: 'ATK-2', stockValue: d(0) }]);
         tx.stockMovement.groupBy.mockResolvedValue([{ type: 'IN', _count: { _all: 2 } }]);
         basis.mockImplementation(async (_tx: unknown, id: string) => new Map(id === 'v1' ? [['acc', d(32000)]] : []));
@@ -69,16 +70,18 @@ describe('checkProductionCostHealth', () => {
             completedResidual: [{ orderNumber: 'WO-B', residual: '5308.22' }],
             nullCostScrapOrders: ['WO-C'],
             uncostedMovements: [{ type: 'IN', count: 2 }],
+            zeroCostOutputs: [{ orderNumber: 'WO-F', skuCode: 'FG-1', quantity: '12.5' }],
             operationalWithoutBasis: [
                 { skuCode: 'ATK-1', stockValue: '40000.00', basis: '32000.00' },
                 { skuCode: 'ATK-2', stockValue: '0.00', basis: '0.00' },
             ],
-            findings: 7,
+            findings: 8,
         });
         expect(tx.stockMovement.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
             type: { in: ['IN', 'OUT'] }, cost: null, createdAt: { gte: new Date('2026-10-27T20:30:00Z') } }) }));
         const line = summarizeProductionCostHealth('acme', health);
-        expect(line).toContain('[ProductionCostHealth] check failed for acme: 7 temuan');
+        expect(line).toContain('[ProductionCostHealth] check failed for acme: 8 temuan');
+        expect(line).toContain('hasil bernilai Rp0 24 jam (WO-F FG-1 12.5)');
         expect(line).toContain('WO-A: jumlah jurnal sumber bukan satu');
         expect(line).toContain('WO-B Rp5308.22');
         expect(line).toContain('ATK-1, ATK-2');

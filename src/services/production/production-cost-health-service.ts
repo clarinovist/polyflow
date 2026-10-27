@@ -19,6 +19,8 @@ export interface ProductionCostHealth {
     nullCostScrapOrders: string[];
     /** Production movements written in the last 24h without a cost (journal priced by fallback). */
     uncostedMovements: Array<{ type: string; count: number }>;
+    /** Company output posted at Rp0 in the last 24h: no remaining WO cost to relieve. */
+    zeroCostOutputs: Array<{ orderNumber: string; skuCode: string; quantity: string }>;
     /** Stocked ATK whose stock value no SKU-linked journal funds. */
     operationalWithoutBasis: Array<{ skuCode: string; stockValue: string; basis: string }>;
     findings: number;
@@ -81,6 +83,17 @@ async function countUncostedMovements(tx: Tx, now: Date) {
     return rows.map((row) => ({ type: row.type, count: row._count._all }));
 }
 
+async function findZeroCostOutputs(tx: Tx, now: Date) {
+    const rows = await tx.$queryRaw<Array<{ orderNumber: string; skuCode: string; quantity: Prisma.Decimal }>>`
+        SELECT o."orderNumber", v."skuCode", SUM(m.quantity) AS quantity
+        FROM "StockMovement" m JOIN "ProductionOrder" o ON o.id = m."productionOrderId"
+        JOIN "ProductVariant" v ON v.id = m."productVariantId" JOIN "Product" p ON p.id = v."productId"
+        WHERE m.type = 'IN' AND m.cost = 0 AND m."reversalOfId" IS NULL AND NOT o."isMaklon"
+          AND p."productType" <> 'SCRAP' AND m."createdAt" >= ${new Date(now.getTime() - RECENT_WINDOW_MS)}
+        GROUP BY o."orderNumber", v."skuCode" ORDER BY o."orderNumber", v."skuCode"`;
+    return rows.map((row) => ({ orderNumber: row.orderNumber, skuCode: row.skuCode, quantity: new Prisma.Decimal(row.quantity).toString() }));
+}
+
 async function findOperationalWithoutBasis(tx: Tx) {
     const stocked = await tx.$queryRaw<Array<{ id: string; skuCode: string; stockValue: Prisma.Decimal }>>`
         SELECT v.id, v."skuCode", COALESCE(SUM(i.quantity * COALESCE(i."averageCost", 0)), 0) AS "stockValue"
@@ -110,10 +123,11 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const { blockedOrders, completedResidual } = await inspectWipPools(tx, now);
         const nullCostScrapOrders = await findNullCostScrapOrders(tx);
         const uncostedMovements = await countUncostedMovements(tx, now);
+        const zeroCostOutputs = await findZeroCostOutputs(tx, now);
         const operationalWithoutBasis = await findOperationalWithoutBasis(tx);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
-            uncostedMovements.reduce((sum, row) => sum + row.count, 0) + operationalWithoutBasis.length;
-        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, operationalWithoutBasis, findings };
+            uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length;
+        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
 
@@ -125,6 +139,7 @@ export function summarizeProductionCostHealth(tenant: string, health: Production
         health.completedResidual.length && `${health.completedResidual.length} SPK selesai bersisa WIP (${health.completedResidual.map((o) => `${o.orderNumber} Rp${o.residual}`).join(', ')})`,
         health.nullCostScrapOrders.length && `${health.nullCostScrapOrders.length} SPK affal NULL (${health.nullCostScrapOrders.join(', ')})`,
         health.uncostedMovements.length && `movement produksi tanpa biaya 24 jam: ${health.uncostedMovements.map((m) => `${m.type} ${m.count}`).join(', ')}`,
+        health.zeroCostOutputs.length && `hasil bernilai Rp0 24 jam (${health.zeroCostOutputs.map((o) => `${o.orderNumber} ${o.skuCode} ${o.quantity}`).join('; ')})`,
         health.operationalWithoutBasis.length && `${health.operationalWithoutBasis.length} SKU ATK tanpa basis (${health.operationalWithoutBasis.map((s) => s.skuCode).join(', ')})`,
     ].filter(Boolean);
     return `[ProductionCostHealth] check failed for ${tenant}: ${health.findings} temuan — ${parts.join(' | ')}`;

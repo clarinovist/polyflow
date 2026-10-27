@@ -67,13 +67,10 @@ export class ProductionCostService {
             );
         }
         const total = await availableProductionWip(tx, productionOrderId);
-        if (!total.gt(0)) {
-            // A master/sale price would capitalize value no material funded.
-            throw new BusinessRuleError(
-                'Hasil belum disimpan. Tidak ada sisa biaya bahan SPK untuk hasil ini: bahan yang tercatat sudah dibebankan ke hasil sebelumnya. Laporkan ke admin; jangan mengubah jumlah hasil atau memakai penyesuaian stok.',
-                { productionOrderId }, 'PRODUCTION_OUTPUT_COST_UNAVAILABLE',
-            );
-        }
+        // Nothing left to relieve (materials without recorded value, or already
+        // absorbed by an earlier output): post at Rp0 with no journal, never a
+        // master/sale price. The daily cost health check flags these outputs.
+        if (total.isZero()) return { unitCost: 0, journalTotal: 0 };
         const persistedQuantity = new Prisma.Decimal(quantity).toDecimalPlaces(4);
         return {
             unitCost: total.div(persistedQuantity).toDecimalPlaces(4).toNumber(),

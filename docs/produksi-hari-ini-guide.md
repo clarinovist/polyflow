@@ -180,7 +180,7 @@ Ya. Semua accounting otomatis:
 - Backflush material → Dr. WIP / Cr. Inventori Bahan
 - Output produksi → Dr. Inventori Jadi / Cr. WIP
 - Affal/scrap (otomatis maupun "Catat Scrap Manual") → stok bertambah dengan biaya alokasi Rp0, tanpa jurnal; nilai bahannya sudah ikut ke hasil baik, bukan dinilai harga jual
-- Nilai tiap output = sisa biaya bahan SPK yang sudah diposting ke WIP dan belum dibebankan ke output sebelumnya; hasil tanpa sisa biaya ditolak, bukan dinilai harga master/jual
+- Nilai tiap output = sisa biaya bahan SPK yang sudah diposting ke WIP dan belum dibebankan ke output sebelumnya; hasil tanpa sisa biaya dicatat Rp0 tanpa jurnal (bukan dinilai harga master/jual) dan muncul di laporan cek biaya harian
 
 ### Bisa pakai untuk Maklon?
 

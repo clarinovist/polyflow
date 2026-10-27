@@ -270,27 +270,30 @@ describe('execution-output-posting', () => {
             expect(createStockReservation).not.toHaveBeenCalled();
         });
 
-        it('rejects company output without remaining WO cost instead of using a variant price', async () => {
+        it('posts company output without remaining WO cost at zero instead of using a variant price', async () => {
             const { ProductionCostService } = await import('../cost-service');
-            const rejection = Object.assign(new Error('Tidak ada sisa biaya bahan SPK'), { code: 'PRODUCTION_OUTPUT_COST_UNAVAILABLE' });
-            vi.mocked(ProductionCostService.calculateRemainingOutputValuation).mockRejectedValue(rejection);
+            vi.mocked(ProductionCostService.calculateRemainingOutputValuation).mockResolvedValue({ unitCost: 0, journalTotal: 0 });
             const mockTx = {
                 productVariant: { findUnique: vi.fn() },
                 bom: { findFirst: vi.fn() },
-                stockMovement: { create: vi.fn() },
+                stockMovement: { create: vi.fn().mockResolvedValue({ id: 'movement-1' }) },
             };
 
-            await expect(recordFinishedGoodsOutput({
+            await recordFinishedGoodsOutput({
                 tx: mockTx as any,
                 productionOrderId: 'po-1',
                 order: { id: 'po-1', locationId: 'loc-1', isMaklon: false, bom: { productVariantId: 'pv-1' } } as any,
                 quantityProduced: 100,
                 reference: 'Production Output',
-            })).rejects.toBe(rejection);
+            });
 
+            expect(mockTx.stockMovement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ cost: 0 }) });
+            const { AccountingService } = await import('@/services/accounting/accounting-service');
+            expect(AccountingService.recordInventoryMovement).toHaveBeenCalledWith(
+                { id: 'movement-1' }, mockTx, { productionOutput: true, journalTotal: 0 },
+            );
             expect(mockTx.productVariant.findUnique).not.toHaveBeenCalled();
             expect(mockTx.bom.findFirst).not.toHaveBeenCalled();
-            expect(mockTx.stockMovement.create).not.toHaveBeenCalled();
             expect(ProductionCostService.calculateBatchOutputValuation).not.toHaveBeenCalled();
         });
 

@@ -230,12 +230,17 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
         expect(await balance(db!, a.output)).toBe(370);
         expect(await balance(db!, a.legacy)).toBe(0);
         expect(await balance(db!, a.wip)).toBe(10);
-        await expect(run(db!, async tx => {
+        await run(db!, async tx => {
             const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 5 } }, include: { bom: true } });
             await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
                 quantityProduced: 5, reference: 'Synthetic unfunded output' });
-        })).rejects.toMatchObject({ code: 'PRODUCTION_OUTPUT_COST_UNAVAILABLE' });
-        expect(await db!.stockMovement.count({ where: { reference: 'Synthetic unfunded output' } })).toBe(0);
+        });
+        // Nothing left to relieve: Rp0 output without a journal, never the variant's standard cost.
+        const unfunded = await db!.stockMovement.findFirstOrThrow({ where: { reference: 'Synthetic unfunded output' } });
+        expect(unfunded.cost?.toString()).toBe('0');
+        expect(await db!.journalEntry.count({ where: { referenceId: unfunded.id } })).toBe(0);
+        expect(await balance(db!, a.output)).toBe(370);
+        expect(await balance(db!, a.wip)).toBe(10);
     });
     it('records manual SPK affal at zero cost without WIP effect and deletes it by its exact receipt', async () => {
         const a = ids.get(db!)!;
