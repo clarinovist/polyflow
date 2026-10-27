@@ -4,7 +4,8 @@ import {
     OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS,
     allocateOperationalLossCredit,
     isOperationalLoss,
-    withOperationalLossCost,
+    isStockLoss,
+    withStockLossCost,
 } from '../operational-adjustment-accounting';
 
 const m = vi.hoisted(() => ({ basis: vi.fn(), inventory: vi.fn(), update: vi.fn() }));
@@ -21,19 +22,24 @@ describe('operational stock adjustment losses', () => {
         expect(isOperationalLoss(loss, 'RAW_MATERIAL')).toBe(false);
         expect(isOperationalLoss({ ...loss, type: 'OUT' }, 'OPERATIONAL')).toBe(false);
     });
+    it('treats every company stock loss as a WAC-valued loss, whatever the product type', () => {
+        expect(isStockLoss(loss)).toBe(true);
+        expect(isStockLoss({ ...loss, toLocationId: 'office' })).toBe(false);
+        expect(isStockLoss({ ...loss, type: 'OUT' })).toBe(false);
+    });
     it('values an uncosted loss at the location WAC and persists it, never a master price', async () => {
-        const valued = await withOperationalLossCost(db, loss);
+        const valued = await withStockLossCost(db, loss);
         expect(valued.cost?.toString()).toBe('4000');
         expect(m.update).toHaveBeenCalledWith({ where: { id: 'adj' }, data: { cost: d(4000) } });
         m.inventory.mockResolvedValue({ averageCost: null });
-        expect((await withOperationalLossCost(db, loss)).cost?.toString()).toBe('0');
+        expect((await withStockLossCost(db, loss)).cost?.toString()).toBe('0');
         m.inventory.mockResolvedValue(null);
-        expect((await withOperationalLossCost(db, loss)).cost?.toString()).toBe('0');
+        expect((await withStockLossCost(db, loss)).cost?.toString()).toBe('0');
     });
     it('keeps a persisted positive cost and rejects a loss without a source location', async () => {
-        expect(await withOperationalLossCost(db, { ...loss, cost: d(3500) })).toMatchObject({ cost: d(3500) });
+        expect(await withStockLossCost(db, { ...loss, cost: d(3500) })).toMatchObject({ cost: d(3500) });
         expect(m.update).not.toHaveBeenCalled();
-        await expect(withOperationalLossCost(db, { ...loss, fromLocationId: null })).rejects.toThrow('lokasi');
+        await expect(withStockLossCost(db, { ...loss, fromLocationId: null })).rejects.toThrow('lokasi');
     });
     it('credits the resolved account first, then other accounts holding this SKU basis', async () => {
         m.basis.mockResolvedValue(new Map([['raw', d(3000)], ['packaging', d(40000)], ['stale', d(-500)]]));

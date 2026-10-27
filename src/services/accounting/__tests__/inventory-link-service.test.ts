@@ -402,6 +402,48 @@ describe("inventory-link-service", () => {
       expect(call.lines).toHaveLength(2);
     });
 
+    it("values an uncosted non-operational loss at the location WAC, not the standard cost", async () => {
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({ averageCost: dec("40") } as never);
+      const mv = {
+        ...baseMovement,
+        type: "ADJUSTMENT",
+        cost: null,
+        fromLocationId: "loc-1",
+        toLocationId: null,
+        productVariant: {
+          name: "Opname Item",
+          standardCost: dec("75"),
+          product: { ...baseProduct },
+        },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(prisma.stockMovement.update).toHaveBeenCalledWith({ where: { id: "mov-1" }, data: { cost: dec("40") } });
+      const call = mockCreateJournalEntry.mock.calls[0][0];
+      expect(call.lines.map((line: { debit: number; credit: number }) => line.debit + line.credit)).toEqual([4000, 4000]);
+    });
+
+    it("posts no journal for a loss at a zero location average instead of a master price", async () => {
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({ averageCost: dec("0") } as never);
+      const mv = {
+        ...baseMovement,
+        type: "ADJUSTMENT",
+        cost: null,
+        fromLocationId: "loc-1",
+        toLocationId: null,
+        productVariant: {
+          name: "Opname Item",
+          standardCost: dec("75"),
+          product: { ...baseProduct },
+        },
+      };
+
+      await recordInventoryMovement(mv as never);
+
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
     it("uses the persisted adjustment movement timestamp as journal entryDate", async () => {
       const effectiveDate = new Date("2026-09-30T16:59:59.999Z");
       const mv = {

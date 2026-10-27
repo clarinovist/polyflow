@@ -8,7 +8,8 @@ import { allocateProductionWip } from './production-wip-provenance';
 import {
     allocateOperationalLossCredit,
     isOperationalLoss,
-    withOperationalLossCost,
+    isStockLoss,
+    withStockLossCost,
 } from './operational-adjustment-accounting';
 import { assertProductionOutputAmount } from './production-output-amount';
 
@@ -270,12 +271,15 @@ export async function recordInventoryMovement(
         return;
     }
 
-    // Operational stock losses are valued at location WAC, never a master price.
+    // Stock losses are valued at location WAC, never a master price, so the
+    // journal matches the SKU basis removed. Operational losses additionally
+    // credit the account that capitalized the SKU (see below).
+    const stockLoss = isStockLoss(movement);
     const operationalLoss = isOperationalLoss(
         movement,
         productVariant.product.productType,
     );
-    if (operationalLoss) movement = await withOperationalLossCost(db, movement);
+    if (stockLoss) movement = await withStockLossCost(db, movement);
 
     const date = movement.createdAt || new Date();
     // Priority: Persisted movement cost -> Standard Cost -> Buy Price -> Sell Price
@@ -413,7 +417,7 @@ export async function recordInventoryMovement(
     }
     const totalAmount =
         options?.journalTotal ??
-        ((options?.productionOutput || operationalLoss || (movement.productionOrderId && movement.type === 'OUT')) && movement.cost != null
+        ((options?.productionOutput || stockLoss || (movement.productionOrderId && movement.type === 'OUT')) && movement.cost != null
             ? new Prisma.Decimal(movement.quantity).mul(movement.cost).toDecimalPlaces(2).toNumber()
             : movement.goodsReceiptId && goodsReceipt && movement.cost != null
             ? toPersistedDecimal(movement.quantity, 'movement.quantity', {

@@ -192,6 +192,22 @@ describe.skipIf(!db)('internal usage real PostgreSQL contract', () => {
         expect(scrap.cost?.toString()).toBe('0');
         expect(await lines(scrap.id)).toEqual([]);
     });
+    it('values a non-operational stock-count loss at the location average, never the standard cost', async () => {
+        await db!.product.create({ data: { id: 'loss-raw-product', name: 'Synthetic raw', productType: 'RAW_MATERIAL' } });
+        await db!.productVariant.create({ data: { id: 'loss-raw', productId: 'loss-raw-product', name: 'Synthetic raw', skuCode: 'LOSS-RAW', primaryUnit: 'KG', standardCost: 3000 } });
+        await db!.inventory.create({ data: { locationId: 'usage-office', productVariantId: 'loss-raw', quantity: 10, averageCost: 4000 } });
+        await db!.journalEntry.create({ data: { entryNumber: 'LOSS-RAW-OPENING', entryDate: new Date(), description: 'Synthetic raw stock', referenceType: 'MANUAL_ENTRY', status: 'POSTED', lines: { create: [
+            { accountId: 'usage-raw', debit: 40000, credit: 0 }, { accountId: 'usage-clearing', debit: 0, credit: 40000 },
+        ] } } });
+        // Same shape as stock-opname finalisation: an uncosted loss posted inside the caller's transaction.
+        await run(db!, () => db!.$transaction(async (tx) => {
+            const movement = await tx.stockMovement.create({ data: { id: 'loss-raw-count', type: 'ADJUSTMENT', productVariantId: 'loss-raw', fromLocationId: 'usage-office', toLocationId: null, quantity: 2, reference: 'OPN-SYNTHETIC' } });
+            await recordInventoryMovement(movement, tx);
+        }));
+        expect((await db!.stockMovement.findUniqueOrThrow({ where: { id: 'loss-raw-count' } })).cost?.toString()).toBe('4000');
+        const journal = await db!.journalEntry.findFirstOrThrow({ where: { referenceId: 'loss-raw-count' }, include: { lines: true } });
+        expect(journal.lines.map((line) => [line.accountId, Number(line.debit), Number(line.credit)])).toEqual(expect.arrayContaining([['usage-loss', 8000, 0], ['usage-raw', 0, 8000]]));
+    });
     it('isolates identical keys and identifiers across tenant databases', async () => {
         await seed(other!); const input = payload();
         await run(db!, () => createInternalUsage(input, actor));

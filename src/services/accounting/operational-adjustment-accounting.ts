@@ -9,16 +9,17 @@ const rupiah = (value: Prisma.Decimal) =>
         value.toNumber(),
     );
 
+/** Stock count / adjustment losses of any company stock. */
+export function isStockLoss(movement: StockMovement) {
+    return movement.type === 'ADJUSTMENT' && movement.toLocationId === null;
+}
+
 /** Stock count / adjustment losses of office & operational supplies. */
 export function isOperationalLoss(
     movement: StockMovement,
     productType: string | null | undefined,
 ) {
-    return (
-        movement.type === 'ADJUSTMENT' &&
-        movement.toLocationId === null &&
-        productType === 'OPERATIONAL'
-    );
+    return isStockLoss(movement) && productType === 'OPERATIONAL';
 }
 
 /**
@@ -26,7 +27,7 @@ export function isOperationalLoss(
  * journal, reports and reversals agree, and so a master standard/sale price is
  * never used as the cost. Unknown or zero WAC is recorded as an explicit zero.
  */
-export async function withOperationalLossCost(
+export async function withStockLossCost(
     db: Prisma.TransactionClient,
     movement: StockMovement,
 ): Promise<StockMovement> {
