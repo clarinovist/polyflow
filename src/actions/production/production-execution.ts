@@ -8,6 +8,7 @@ import { auth } from '@/auth';
 import { logger } from '@/lib/config/logger';
 import {
     safeAction,
+    ApplicationError,
     BusinessRuleError,
     isNextControlFlowError,
 } from '@/lib/errors/errors';
@@ -172,7 +173,7 @@ export const addProductionOutput = withTenant(
                 return null;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
-                if (error instanceof BusinessRuleError) throw error;
+                if (error instanceof ApplicationError) throw error;
 
                 // Catch Prisma foreign key constraint violation (P2003)
                 if (
@@ -211,11 +212,8 @@ export const addProductionOutput = withTenant(
                     }
                 }
 
-                throw new BusinessRuleError(
-                    error instanceof Error
-                        ? error.message
-                        : 'An unknown error occurred',
-                );
+                // Preserve safeAction's Prisma mapping and generic unknown-error response.
+                throw error;
             }
         });
     },
@@ -248,14 +246,12 @@ export const logRunningOutput = withTenant(async function logRunningOutput(
             return null;
         } catch (error) {
             if (isNextControlFlowError(error)) throw error;
-            if (error instanceof BusinessRuleError) throw error;
+            if (error instanceof ApplicationError) throw error;
             logger.error('Failed to log production output', {
                 error,
                 module: 'ProductionActions',
             });
-            throw new BusinessRuleError(
-                'Failed to log production output. Please verify input.',
-            );
+            throw error;
         }
     });
 });
@@ -712,15 +708,13 @@ export const voidProductionOutput = withTenant(
                 return null;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;
-                if (error instanceof BusinessRuleError) throw error;
+                if (error instanceof ApplicationError) throw error;
                 logger.error('Failed to void production output', {
                     executionId,
                     error,
                     module: 'ProductionActions',
                 });
-                throw new BusinessRuleError(
-                    'Failed to void production output. Please ensure you have sufficient permissions.',
-                );
+                throw error;
             }
         });
     },

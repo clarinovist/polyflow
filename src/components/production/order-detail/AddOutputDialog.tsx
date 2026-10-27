@@ -15,6 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import { AlertTriangle, Loader2, Plus, Trash2 } from 'lucide-react';
 import type {
     Location,
@@ -67,6 +69,7 @@ export function AddOutputDialog({
     const [notes, setNotes] = useState('');
     const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [submitFailure, setSubmitFailure] = useState<InputFailure | null>(null);
     const [packagedOutput, setPackagedOutput] = useState<PackagedOutputValues | undefined>();
     const voidedAffal = useMemo(() => voidedAffalAwaitingReentry(order.executions ?? []), [order.executions]);
 
@@ -79,6 +82,7 @@ export function AddOutputDialog({
             });
             setProductionDate(toBusinessDateString(new Date()));
             setError(null);
+            setSubmitFailure(null);
         }
         setOpen(nextOpen);
     }
@@ -206,6 +210,7 @@ export function AddOutputDialog({
         submitting.current = true;
         setIsSubmitting(true);
         setError(null);
+        setSubmitFailure(null);
         let finalNotes = notes || '';
         if (selectedHelpers.length)
             finalNotes += `\nHelpers: ${formData.helpers
@@ -244,10 +249,7 @@ export function AddOutputDialog({
                     : undefined,
             } as Parameters<typeof addProductionOutput>[0]);
             if (!result.success) {
-                fail(
-                    result.error ||
-                        'Gagal mencatat hasil. Periksa data dan coba lagi.',
-                );
+                setSubmitFailure(inputFailure(result, 'production'));
                 return;
             }
             toast.success('Hasil produksi berhasil dicatat');
@@ -262,10 +264,8 @@ export function AddOutputDialog({
             setCurrentRollWeight('');
             setSelectedHelpers([]);
             setShowScrapWarning(false);
-        } catch {
-            fail(
-                'Gagal menghubungi server. Periksa riwayat hasil sebelum mencoba lagi agar tidak mencatat dua kali.',
-            );
+        } catch (error) {
+            setSubmitFailure(interruptedInput(error, 'production'));
         } finally {
             submitting.current = false;
             setIsSubmitting(false);
@@ -293,6 +293,7 @@ export function AddOutputDialog({
                     className="flex min-h-0 flex-1 flex-col"
                 >
                     <div className="min-h-0 overflow-y-auto p-5">
+                        {submitFailure && <InputFailureNotice failure={submitFailure} />}
                         {error && (
                             <p
                                 role="alert"

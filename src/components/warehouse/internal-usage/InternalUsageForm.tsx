@@ -44,6 +44,8 @@ import type {
     InternalUsageReadiness,
 } from '@/types/internal-usage';
 import { AccountingDetail } from './InternalUsageAccountingDetail';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 
 export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     const router = useRouter();
@@ -54,6 +56,7 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     const [department, setDepartment] = useState('');
     const [purpose, setPurpose] = useState('');
     const [error, setError] = useState('');
+    const [failure, setFailure] = useState<InputFailure | null>(null);
     const [pending, setPending] = useState(false);
     const [intent, setIntent] = useState<InternalUsageInput | null>(null);
     const [checking, setChecking] = useState(false);
@@ -86,6 +89,7 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     async function review(event: FormEvent) {
         event.preventDefault();
         setError('');
+        setFailure(null);
         setReadiness(null);
         if (!product || !stock) {
             setError('Pilih barang dan gudang asal.');
@@ -126,12 +130,14 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                 quantity: fields.quantity,
             });
             if (!result.success) {
-                setError(result.error || 'Gagal memeriksa kesiapan pemakaian.');
+                setFailure(result.code === 'INTERNAL_ERROR' || result.code === 'EXTERNAL_SERVICE_ERROR'
+                    ? { title: 'Pemeriksaan belum selesai', message: 'Kesiapan pemakaian belum dapat diperiksa. Belum ada pemakaian yang dikirim dari formulir ini. Jangan serahkan barang dulu; coba periksa lagi.' }
+                    : inputFailure(result, 'usage'));
                 return;
             }
             setReadiness(result.data);
             if (!result.data.ready) {
-                setError(result.data.message);
+                setFailure(inputFailure({ code: result.data.code, error: result.data.message }, 'usage'));
                 return;
             }
             setIntent(parsed.data);
@@ -148,10 +154,11 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
         inFlight.current = true;
         setPending(true);
         setError('');
+        setFailure(null);
         try {
             const result = await createInternalUsageAction(intent);
             if (!result.success) {
-                setError(result.error || 'Gagal mencatat pemakaian.');
+                setFailure(inputFailure(result, 'usage'));
                 setPending(false);
                 inFlight.current = false;
                 return;
@@ -160,10 +167,8 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                 `/warehouse/internal-usage/${result.data.id}?created=1`,
             );
             router.refresh();
-        } catch {
-            setError(
-                'Koneksi terputus. Coba konfirmasi lagi dengan isian yang sama; sistem mencegah catatan ganda.',
-            );
+        } catch (error) {
+            setFailure(interruptedInput(error, 'usage'));
             inFlight.current = false;
             setPending(false);
         }
@@ -182,6 +187,11 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
         );
     return (
         <form onSubmit={review} className="space-y-4">
+            {failure && !intent && (
+                <InputFailureNotice failure={failure}>
+                    {readiness?.accounting && <AccountingDetail accounting={readiness.accounting} />}
+                </InputFailureNotice>
+            )}
             {error && !intent && (
                 <div
                     role="alert"
@@ -506,10 +516,9 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                     <div className="flex gap-2 px-1 text-xs text-muted-foreground">
                         <Info className="h-4 w-4 shrink-0" />
                         <p>
-                            Tidak perlu mengisi akun biaya. Finance harus
-                            menyiapkan mapping beban dan dasar persediaan; ATK
-                            yang sudah dibebankan saat pembelian belum dapat
-                            diproses di sini.
+                            Anda tidak perlu memilih akun biaya. Jika pencatatan
+                            terhambat, minta Finance memeriksa biaya barang.
+                            Jangan mengubah stok hanya agar bisa melanjutkan.
                         </p>
                     </div>
                 </aside>
@@ -559,6 +568,7 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                     {readiness?.accounting && (
                         <AccountingDetail accounting={readiness.accounting} />
                     )}
+                    {failure && <InputFailureNotice failure={failure} />}
                     {error && (
                         <p role="alert" className="text-sm text-destructive">
                             {error}

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import { voidProductionOutput } from '@/actions/production/production';
 import {
     AlertDialog,
@@ -29,10 +31,13 @@ export function VoidExecutionButton({
     orderNumber,
 }: VoidExecutionButtonProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [failure, setFailure] = useState<InputFailure | null>(null);
 
     const handleVoid = async () => {
         try {
             setIsLoading(true);
+            setFailure(null);
             const result = await voidProductionOutput(
                 executionId,
                 productionOrderId,
@@ -41,18 +46,23 @@ export function VoidExecutionButton({
                 toast.success(
                     `Realisasi produksi untuk ${orderNumber} berhasil dibatalkan.`,
                 );
+                setOpen(false);
             } else {
-                toast.error(result.error || 'Gagal membatalkan eksekusi');
+                setFailure(inputFailure(result, 'void'));
             }
-        } catch (_error) {
-            toast.error('Gagal memproses. Silakan coba lagi.');
+        } catch (error) {
+            setFailure(interruptedInput(error, 'void'));
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <AlertDialog>
+        <AlertDialog open={open} onOpenChange={(next) => {
+            if (isLoading) return;
+            if (next) setFailure(null);
+            setOpen(next);
+        }}>
             <AlertDialogTrigger asChild>
                 <Button
                     variant="ghost"
@@ -78,10 +88,14 @@ export function VoidExecutionButton({
                         bersifat permanen.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
+                {failure && <InputFailureNotice failure={failure} />}
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Batal</AlertDialogCancel>
+                    <AlertDialogCancel disabled={isLoading}>Batal</AlertDialogCancel>
                     <AlertDialogAction
-                        onClick={handleVoid}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            void handleVoid();
+                        }}
                         disabled={isLoading}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     >

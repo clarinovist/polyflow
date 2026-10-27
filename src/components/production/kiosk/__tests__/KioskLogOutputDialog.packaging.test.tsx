@@ -194,7 +194,7 @@ describe('KioskLogOutputDialog with actual packaging', () => {
         mocks.logRunningOutput.mockResolvedValueOnce({ success: false, error: 'Permintaan sudah dipakai', code: 'PACKAGED_REQUEST_REUSED' });
         render(<ToggleHarness />);
         await submitPackagedEntry();
-        await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith(expect.stringMatching(/sudah tersimpan/)));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Periksa riwayat hasil'));
 
         fireEvent.click(screen.getByRole('button', { name: /^Kirim hasil/ }));
         await waitFor(() => expect(mocks.logRunningOutput).toHaveBeenCalledTimes(2));

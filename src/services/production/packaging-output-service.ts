@@ -77,7 +77,7 @@ export async function postPackagedOutput(tx: Prisma.TransactionClient, order: Pr
     const alreadyPosted = priorGroups.reduce((sum, group) => sum.plus(group.quantity.mul(group.unitCost)), new Prisma.Decimal(0));
     const packagingCost = groups.reduce((sum, group) => sum.plus(group.packagingCost), new Prisma.Decimal(0));
     const remainingProcessCost = new Prisma.Decimal(orderCost).minus(alreadyPosted).minus(packagingCost);
-    if (remainingProcessCost.lt(-0.01)) throw new BusinessRuleError('Biaya SPK berubah di bawah nilai hasil yang sudah diposting. Rekonsiliasi diperlukan.');
+    if (remainingProcessCost.lt(-0.01)) throw new BusinessRuleError('Biaya SPK berubah di bawah nilai hasil yang sudah diposting. Rekonsiliasi diperlukan.', undefined, 'PRODUCTION_COST_RECONCILIATION_REQUIRED');
     const costs = packagingGroupCosts(Prisma.Decimal.max(remainingProcessCost, 0), groups);
     for (let index = 0; index < data.groups.length; index++) {
         const group = data.groups[index];

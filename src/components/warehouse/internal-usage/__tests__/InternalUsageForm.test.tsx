@@ -57,7 +57,7 @@ describe('internal usage UI', () => {
     it('blocks the handover when the readiness preflight fails, showing account detail only when returned', async () => {
         m.check.mockResolvedValue({ success: true, data: { ready: false, code: 'INTERNAL_USAGE_SOURCE_ACCOUNT_MISMATCH', message: 'Nilai barang ini tercatat terpecah' } });
         render(<InternalUsageForm data={data}/>); fill(); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
-        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('terpecah'));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('diselaraskan oleh Finance'));
         expect(screen.queryByRole('button', { name: 'Konfirmasi pemakaian' })).toBeNull(); expect(screen.getByRole('alert').textContent).not.toContain('Nilai SKU');
         m.check.mockResolvedValue({ success: true, data: { ready: false, message: 'Penerimaan belum tertaut', accounting: { amount: 6000, basis: [{ code: '1-131', name: 'Packaging', value: 40000 }] } } });
         fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));

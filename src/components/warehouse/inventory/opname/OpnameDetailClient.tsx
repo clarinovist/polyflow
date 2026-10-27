@@ -43,7 +43,7 @@ import {
 import { OpnameCounter } from './OpnameCounter';
 import { OpnameVariance } from './OpnameVariance';
 import { toast } from 'sonner';
-import { describeServerActionFailure } from '@/lib/utils/server-action-errors';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
 import {
     completeOpname,
     deleteOpnameSession,
@@ -111,6 +111,7 @@ export function OpnameDetailClient({
     const safeAttachments = Array.isArray(attachments) ? attachments : [];
     const [activeTab, setActiveTab] = useState('count');
     const [isFinalizing, setIsFinalizing] = useState(false);
+    const [finalizeFailure, setFinalizeFailure] = useState<InputFailure | null>(null);
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -191,11 +192,12 @@ export function OpnameDetailClient({
 
     const handleFinalize = async (effectiveDate: string) => {
         if (!currentUserId) {
-            toast.error('Kesalahan autentikasi: User ID tidak ditemukan.');
+            setFinalizeFailure(inputFailure({ code: 'AUTHENTICATION_ERROR' }, 'opname'));
             return;
         }
 
         setIsFinalizing(true);
+        setFinalizeFailure(null);
         try {
             const result = await completeOpname(session.id, effectiveDate);
             if (result.success) {
@@ -205,22 +207,10 @@ export function OpnameDetailClient({
                 setFinalizeDialogOpen(false);
                 router.refresh();
             } else {
-                toast.error(`Gagal: ${result.error}`);
+                setFinalizeFailure(inputFailure(result, 'opname'));
             }
         } catch (error) {
-            const failure = describeServerActionFailure(
-                error,
-                'Gagal menyelesaikan sesi',
-            );
-            toast.error(failure.message, {
-                duration: failure.isStaleDeploy ? 10000 : undefined,
-                action: failure.isStaleDeploy
-                    ? {
-                          label: 'Refresh',
-                          onClick: () => window.location.reload(),
-                      }
-                    : undefined,
-            });
+            setFinalizeFailure(interruptedInput(error, 'opname'));
         } finally {
             setIsFinalizing(false);
         }
@@ -494,6 +484,7 @@ export function OpnameDetailClient({
 
             {/* Add Item Dialog */}
             <FinalizeOpnameDialog
+                failure={finalizeFailure}
                 open={finalizeDialogOpen}
                 onOpenChange={setFinalizeDialogOpen}
                 onConfirm={handleFinalize}

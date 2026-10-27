@@ -9,6 +9,8 @@ import {
     ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import {
     Dialog,
     DialogContent,
@@ -31,6 +33,7 @@ interface FinalizeOpnameDialogProps {
     isSubmitting: boolean;
     uncountedItems?: number;
     opnameId: string;
+    failure?: InputFailure | null;
 }
 
 export function FinalizeOpnameDialog({
@@ -40,6 +43,7 @@ export function FinalizeOpnameDialog({
     isSubmitting,
     uncountedItems = 0,
     opnameId,
+    failure,
 }: FinalizeOpnameDialogProps) {
     const [effectiveDate, setEffectiveDate] = useState('');
     const [preview, setPreview] = useState<OpnameFinalizationPreview | null>(
@@ -136,6 +140,7 @@ export function FinalizeOpnameDialog({
                     </DialogDescription>
                 </DialogHeader>
 
+                {failure && <InputFailureNotice failure={failure} />}
                 <div className="space-y-4 py-2">
                     {uncountedItems > 0 && (
                         <div

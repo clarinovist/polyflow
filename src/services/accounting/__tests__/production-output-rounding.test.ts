@@ -38,7 +38,7 @@ describe('production output monetary rounding', () => {
     it('still rejects a true one-cent GL shortage after source allocation', async () => {
         const f = fixture([['74.06', '14.5299']], '74.06');
         f.db.journalLine.aggregate.mockResolvedValue({ _sum: { debit: d('2479.24'), credit: d('1403.17') } });
-        await expect(f.post()).rejects.toThrow('Saldo akun GL akan minus');
+        await expect(f.post()).rejects.toMatchObject({ code: 'INVENTORY_GL_INSUFFICIENT', message: expect.stringContaining('saldo pembukuan persediaan belum cukup') });
         expect(journal).not.toHaveBeenCalled();
     });
     it('rounds the material journal amount before passing it to the journal writer', async () => {

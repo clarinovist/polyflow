@@ -272,13 +272,29 @@ describe('WO output production date', () => {
         addScrap();
         fireEvent.submit(form());
         await waitFor(() =>
-            expect(toast.error).toHaveBeenCalledWith('Stok tidak cukup'),
+            expect(screen.getByRole('alert').textContent).toContain('Stok tidak cukup'),
         );
         expect(dateInput().value).toBe('2026-09-01');
         expect(dateInput().disabled).toBe(false);
         fireEvent.submit(form());
         await waitFor(() => expect(toast.success).toHaveBeenCalled());
         expect(addProductionOutput).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows a cost rejection without jargon and retains the request identity', async () => {
+        vi.mocked(addProductionOutput).mockResolvedValueOnce({ success: false, code: 'PRODUCTION_WIP_UNRESOLVED', error: 'vektor jurnal tidak valid' });
+        render(<AddOutputDialog {...props} />);
+        openDialog();
+        await waitFor(() => expect(document.activeElement).toBe(dateInput()));
+        addGoodOutput(); addScrap();
+        fireEvent.submit(form());
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Finance');
+        expect(alert.textContent).not.toContain('vektor');
+        expect(document.activeElement).toBe(alert);
+        fireEvent.submit(form());
+        await waitFor(() => expect(toast.success).toHaveBeenCalled());
+        expect(vi.mocked(addProductionOutput).mock.calls[0][0].clientRequestId).toBe(vi.mocked(addProductionOutput).mock.calls[1][0].clientRequestId);
     });
 
     it('preserves date through the zero-scrap confirmation', async () => {

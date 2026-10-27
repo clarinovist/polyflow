@@ -31,7 +31,7 @@ export async function resolveInboundAdjustmentCost(
     if (variant?.product?.productType === 'OPERATIONAL') {
         throw new BusinessRuleError(
             `Barang operasional ${variant.skuCode} tidak boleh masuk stok tanpa nilai. Catat lewat Penerimaan Barang dengan harga, atau minta Finance mengisi harga pokok sebelum penyesuaian/opname.`,
-            { productVariantId, locationId }, 'OPERATIONAL_STOCK_COST_REQUIRED',
+            { productVariantId, locationId, skuCode: variant.skuCode }, 'OPERATIONAL_STOCK_COST_REQUIRED',
         );
     }
     return 0;

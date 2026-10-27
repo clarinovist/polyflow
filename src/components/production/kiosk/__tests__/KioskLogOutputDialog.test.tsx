@@ -14,7 +14,7 @@ vi.mock('@/actions/production/production', () => ({
 vi.mock('@/actions/production/production-quality-standards', () => ({
     getQualityCheckParametersForVariant: (...args: unknown[]) => mocks.qcParameters(...args),
 }));
-vi.mock('@/components/ui/camera-capture', () => ({ CameraCapture: () => null }));
+vi.mock('@/components/ui/camera-capture', () => ({ CameraCapture: ({ onCapture }: { onCapture: (file: File) => void }) => <button onClick={() => onCapture(new File(['photo'], 'photo.jpg', { type: 'image/jpeg' }))}>Foto uji</button> }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: mocks.toastError } }));
 
 import { KioskLogOutputDialog } from '../KioskLogOutputDialog';
@@ -69,6 +69,60 @@ beforeEach(() => {
 });
 
 describe('KioskLogOutputDialog', () => {
+    it('separates a failed photo attachment from an output that was saved', async () => {
+        const previousFetch = globalThis.fetch;
+        globalThis.fetch = vi.fn().mockResolvedValue({ redirected: true });
+        try {
+            renderWizard();
+            fireEvent.change(qty(), { target: { value: '25' } });
+            next();
+            fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
+            fireEvent.click(screen.getByRole('button', { name: /Tambah foto/i }));
+            fireEvent.click(screen.getByRole('button', { name: 'Foto uji' }));
+            await submitAndWait();
+            await screen.findByRole('heading', { name: 'Hasil tersimpan' });
+            expect(screen.getByText(/Hasil produksi tersimpan. Unggah foto pada percobaan ini belum berhasil/)).toBeTruthy();
+            expect(sent().photoUrl).toBeUndefined();
+            expect(screen.queryByRole('alert')).toBeNull();
+            fireEvent.click(screen.getByRole('button', { name: 'Catat lagi' }));
+            expect(screen.queryByText(/Unggah foto pada percobaan ini belum berhasil/)).toBeNull();
+        } finally {
+            globalThis.fetch = previousFetch;
+        }
+    });
+
+    it('keeps a readable rejection in the form, retains the request on retry and clears after success', async () => {
+        mocks.logRunningOutput.mockResolvedValueOnce({ success: false, code: 'PRODUCTION_WIP_UNRESOLVED', error: 'vektor jurnal tidak valid' });
+        renderWizard();
+        fireEvent.change(qty(), { target: { value: '25' } });
+        next();
+        fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
+        await submitAndWait();
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Hasil belum tersimpan');
+        expect(alert.textContent).toContain('Finance');
+        expect(alert.textContent).not.toContain('vektor');
+        expect(document.activeElement).toBe(alert);
+        expect(screen.getAllByText('25 KG').length).toBeGreaterThan(0);
+        fireEvent.click(submitButton());
+        await screen.findByRole('heading', { name: 'Hasil tersimpan' });
+        expect(mocks.logRunningOutput.mock.calls[1][0].clientRequestId).toBe(sent().clientRequestId);
+        expect(screen.queryByRole('alert')).toBeNull();
+    });
+
+    it('does not report unsaved input or urge a blind retry after a lost response', async () => {
+        mocks.logRunningOutput.mockRejectedValueOnce(new Error('Failed to fetch'));
+        renderWizard();
+        fireEvent.change(qty(), { target: { value: '25' } });
+        next();
+        fireEvent.click(screen.getByRole('button', { name: 'Tidak ada affal' }));
+        await submitAndWait();
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Status penyimpanan belum diketahui');
+        expect(alert.textContent).toContain('riwayat');
+        expect(screen.queryByRole('heading', { name: 'Hasil tersimpan' })).toBeNull();
+    });
+
     it('sends the output with affal, generic helpers and the active shift', async () => {
         renderWizard();
         fireEvent.change(qty(), { target: { value: '25' } });

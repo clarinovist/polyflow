@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import { Unit } from '@prisma/client';
 import {
     Dialog,
@@ -157,7 +159,9 @@ export function KioskLogOutputDialog({
     const [noAffal, setNoAffal] = useState(false);
     const [notes, setNotes] = useState('');
     const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoWarning, setPhotoWarning] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [submitFailure, setSubmitFailure] = useState<InputFailure | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [savedRows, setSavedRows] = useState<SummaryRow[] | null>(null);
     const [session, setSession] = useState({ count: 0, total: 0 });
@@ -362,30 +366,19 @@ export function KioskLogOutputDialog({
                 (res as Response).redirected ||
                 !res.headers.get('content-type')?.includes('application/json')
             ) {
-                toast.error(
-                    'Upload foto ditolak (akses mobile). Hubungi admin — endpoint upload belum diizinkan untuk perangkat ini.',
-                );
+                setPhotoWarning(true);
                 return null;
             }
             if (!res.ok) {
-                let errMsg = `Gagal upload foto (${res.status})`;
-                try {
-                    const errBody = await res.json();
-                    if (errBody?.error)
-                        errMsg = `Upload foto: ${errBody.error}`;
-                } catch {
-                    /* response not JSON */
-                }
-                toast.error(errMsg);
+                setPhotoWarning(true);
                 return null;
             }
             const data = await res.json();
+            if (!data.publicUrl) setPhotoWarning(true);
             return data.publicUrl || null;
         } catch (error) {
             console.error('Photo upload failed:', error);
-            toast.error(
-                'Koneksi gagal saat upload foto. Periksa jaringan lalu coba lagi.',
-            );
+            setPhotoWarning(true);
             return null;
         }
     };
@@ -400,6 +393,8 @@ export function KioskLogOutputDialog({
         const sendsSalesUnit = unitMeta.hasAlternateUnit && safeQty > 0;
 
         setIsLoading(true);
+        setSubmitFailure(null);
+        setPhotoWarning(false);
         try {
             let photoUrl: string | undefined;
             if (photoFile) {
@@ -468,12 +463,12 @@ export function KioskLogOutputDialog({
             } else if (result.code === PACKAGED_REQUEST_REUSED) {
                 // An earlier attempt was saved with other numbers.
                 pendingRequestIdRef.current = null;
-                toast.error(kioskLabels.packagedRequestReused);
+                setSubmitFailure(inputFailure(result, 'production'));
             } else {
-                toast.error(result.error || kioskLabels.wizardFailed);
+                setSubmitFailure(inputFailure(result, 'production'));
             }
         } catch (error) {
-            toast.error(kioskLabels.wizardFailed);
+            setSubmitFailure(interruptedInput(error, 'production'));
             console.error(error);
         } finally {
             setIsUploadingPhoto(false);
@@ -486,6 +481,8 @@ export function KioskLogOutputDialog({
     };
 
     const resetForm = () => {
+        setSubmitFailure(null);
+        setPhotoWarning(false);
         setQuantity('');
         setScrapOnly(false);
         setProngkol('');
@@ -528,6 +525,13 @@ export function KioskLogOutputDialog({
                 showCloseButton={false}
                 className="flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col gap-0 overflow-hidden rounded-none p-0 sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100vw-2rem)] sm:max-w-6xl sm:rounded-2xl"
             >
+                {photoWarning && (
+                    <p role="status" className="mx-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 md:mx-6">
+                        {savedRows
+                            ? 'Hasil produksi tersimpan. Unggah foto pada percobaan ini belum berhasil; periksa lampiran di riwayat hasil bersama admin. Jangan catat ulang hasil hanya untuk menambahkan foto.'
+                            : 'Foto belum berhasil diunggah. Status pencatatan hasil ditampilkan terpisah; simpan foto untuk ditindaklanjuti bersama admin.'}
+                    </p>
+                )}
                 {savedRows ? (
                     <div className="flex-1 overflow-y-auto">
                         <DialogDescription className="sr-only">
@@ -679,6 +683,11 @@ export function KioskLogOutputDialog({
                             />
                         </div>
 
+                        {submitFailure && (
+                            <div className="px-4 pb-3 md:px-6">
+                                <InputFailureNotice failure={submitFailure} />
+                            </div>
+                        )}
                         <div className="grid gap-2 border-t px-4 py-3 sm:flex sm:items-center sm:gap-3 md:px-6">
                             <p
                                 aria-live="polite"

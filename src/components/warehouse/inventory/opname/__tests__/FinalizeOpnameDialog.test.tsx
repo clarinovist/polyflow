@@ -51,6 +51,14 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe('FinalizeOpnameDialog', () => {
+    it('keeps a finalization failure visible alongside the unchanged effective date', async () => {
+        render(<FinalizeOpnameDialog open onOpenChange={vi.fn()} onConfirm={vi.fn()} isSubmitting={false} opnameId="opname-1" failure={{ title: 'Opname belum difinalisasi', message: 'Minta Finance memeriksa biaya barang.' }} />);
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Opname belum difinalisasi');
+        expect(screen.getByLabelText('Tanggal Efektif')).toBeTruthy();
+        await waitFor(() => expect(confirmButton().disabled).toBe(false));
+    });
+
     it('defaults to today, warns about uncounted items, and submits the selected date', async () => {
         const onConfirm = vi.fn();
 

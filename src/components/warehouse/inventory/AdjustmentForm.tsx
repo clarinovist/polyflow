@@ -33,6 +33,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect } from 'react';
 import {
@@ -78,6 +80,7 @@ export function AdjustmentForm({
     inventory,
 }: AdjustmentFormProps) {
     const router = useRouter();
+    const [failure, setFailure] = useState<InputFailure | null>(null);
 
     const [newItem, setNewItem] = useState<{
         productVariantId: string;
@@ -194,6 +197,7 @@ export function AdjustmentForm({
     };
 
     const onSubmit: SubmitHandler<BulkAdjustStockValues> = async (data) => {
+        setFailure(null);
         try {
             const result = await adjustStockBulk(data);
             if (result.success) {
@@ -211,12 +215,10 @@ export function AdjustmentForm({
                 });
                 router.refresh();
             } else {
-                toast.error(result.error || 'Gagal menyesuaikan stok');
+                setFailure(inputFailure(result, 'adjustment'));
             }
-        } catch {
-            toast.error(
-                'Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi. Draft tetap disimpan.',
-            );
+        } catch (error) {
+            setFailure(interruptedInput(error, 'adjustment'));
         }
     };
 
@@ -238,6 +240,7 @@ export function AdjustmentForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
+                {failure && <div className="mb-4"><InputFailureNotice failure={failure} /></div>}
                 <fieldset
                     disabled={form.formState.isSubmitting}
                     className="min-w-0"

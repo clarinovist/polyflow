@@ -86,7 +86,7 @@ export async function allocateOperationalLossCredit(
     if (remaining.gt(0)) {
         throw new BusinessRuleError(
             `Nilai ${productName} yang tertaut ke jurnal persediaan kurang Rp${rupiah(remaining)} untuk penyesuaian ini. Minta Finance menautkan saldo awal atau penerimaannya sebelum menyimpan; jangan ubah jumlah opname untuk melewati pemeriksaan ini.`,
-            undefined,
+            { productName },
             OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS,
         );
     }

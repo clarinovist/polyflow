@@ -35,6 +35,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
+import { InputFailureNotice } from '@/components/shared/InputFailureNotice';
 import { Loader2 } from 'lucide-react';
 import { warehouseComponentLabels } from '@/lib/labels';
 
@@ -71,6 +73,7 @@ export function BulkAdjustDialog({
     userId,
 }: BulkAdjustDialogProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [failure, setFailure] = useState<InputFailure | null>(null);
 
     // Global controls state
     const [globalType, setGlobalType] = useState<
@@ -112,6 +115,7 @@ export function BulkAdjustDialog({
         }
         if (initializedContext.current !== contextKey) {
             initializedContext.current = contextKey;
+            setFailure(null);
             form.reset({
                 locationId: locationId,
                 items: items.map((item) => ({
@@ -139,6 +143,7 @@ export function BulkAdjustDialog({
 
     async function onSubmit(data: BulkAdjustStockValues) {
         setIsSubmitting(true);
+        setFailure(null);
         try {
             // Apply global settings if individual rows are empty/default?
             // Actually, the form values are what we submit.
@@ -169,12 +174,10 @@ export function BulkAdjustDialog({
                 );
                 onOpenChange(false);
             } else {
-                toast.error(`Gagal: ${result.error}`);
+                setFailure(inputFailure(result, 'adjustment'));
             }
-        } catch (_error) {
-            toast.error(
-                'Hasil penyesuaian belum dapat dipastikan. Periksa mutasi sebelum mencoba lagi; draft tetap disimpan.',
-            );
+        } catch (error) {
+            setFailure(interruptedInput(error, 'adjustment'));
         } finally {
             setIsSubmitting(false);
         }
@@ -198,6 +201,7 @@ export function BulkAdjustDialog({
                     </DialogDescription>
                 </DialogHeader>
 
+                {failure && <InputFailureNotice failure={failure} />}
                 {/* Global Controls */}
                 <div className="bg-muted p-4 rounded-md space-y-4 mb-4">
                     <h4 className="font-semibold text-sm">

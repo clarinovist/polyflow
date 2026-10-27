@@ -52,7 +52,7 @@ import {
     type OpnameEntryView,
 } from '@/components/warehouse/inventory/opname/OpnameEntryEditor';
 import { useOpnameAutosave } from '@/hooks/useOpnameAutosave';
-import { describeServerActionFailure } from '@/lib/utils/server-action-errors';
+import { inputFailure, interruptedInput, type InputFailure } from '@/lib/errors/input-failure';
 import { formatWibDate } from '@/lib/utils/timezone';
 import { FinalizeOpnameDialog } from '@/components/warehouse/inventory/opname/FinalizeOpnameDialog';
 
@@ -138,6 +138,7 @@ export function MobileOpnameDetailClient({
         new Set(),
     );
     const [isFinalizing, setIsFinalizing] = useState(false);
+    const [finalizeFailure, setFinalizeFailure] = useState<InputFailure | null>(null);
     const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [showVarianceSummary, setShowVarianceSummary] = useState(false);
@@ -631,6 +632,7 @@ export function MobileOpnameDetailClient({
 
     const handleFinalize = async (effectiveDate: string) => {
         setIsFinalizing(true);
+        setFinalizeFailure(null);
         try {
             const result = await completeOpname(session.id, effectiveDate);
             if (result.success) {
@@ -640,16 +642,10 @@ export function MobileOpnameDetailClient({
                 setFinalizeDialogOpen(false);
                 router.refresh();
             } else {
-                toast.error(`Gagal: ${result.error}`);
+                setFinalizeFailure(inputFailure(result, 'opname'));
             }
         } catch (error) {
-            const failure = describeServerActionFailure(
-                error,
-                'Gagal menyelesaikan sesi',
-            );
-            toast.error(failure.message, {
-                duration: failure.isStaleDeploy ? 10000 : undefined,
-            });
+            setFinalizeFailure(interruptedInput(error, 'opname'));
         } finally {
             setIsFinalizing(false);
         }
@@ -1440,6 +1436,7 @@ export function MobileOpnameDetailClient({
             </Dialog>
 
             <FinalizeOpnameDialog
+                failure={finalizeFailure}
                 open={finalizeDialogOpen}
                 onOpenChange={setFinalizeDialogOpen}
                 onConfirm={handleFinalize}

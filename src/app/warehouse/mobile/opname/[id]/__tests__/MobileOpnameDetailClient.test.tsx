@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MobileOpnameDetailClient } from '../MobileOpnameDetailClient';
 import {
     addOpnameEntry,
+    completeOpname,
     markOpnameItemUncounted,
 } from '@/actions/inventory/opname';
 
@@ -44,7 +45,7 @@ vi.mock('@/components/warehouse/WarehouseAttachmentPanel', () => ({
 
 vi.mock(
     '@/components/warehouse/inventory/opname/FinalizeOpnameDialog',
-    () => ({ FinalizeOpnameDialog: () => null }),
+    () => ({ FinalizeOpnameDialog: ({ open, onConfirm, failure }: { open: boolean; onConfirm: (date: string) => void; failure?: { title: string; message: string } }) => open ? <div role="dialog"><button onClick={() => onConfirm('2026-10-01')}>Konfirmasi uji</button>{failure && <p role="alert">{failure.title} {failure.message}</p>}</div> : null }),
 );
 
 const session = {
@@ -82,6 +83,17 @@ beforeEach(() => {
 });
 
 describe('MobileOpnameDetailClient entry synchronization', () => {
+    it('keeps an unknown finalization result in the dialog without claiming failure to save', async () => {
+        vi.mocked(completeOpname).mockRejectedValueOnce(new Error('Failed to fetch'));
+        render(<MobileOpnameDetailClient session={session} currentUserId="user-1" />);
+        fireEvent.click(screen.getByRole('button', { name: 'Selesai' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi uji' }));
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Status penyimpanan belum diketahui');
+        expect(alert.textContent).toContain('status opname');
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
     it('menandai direct count sebagai belum dihitung melalui aksi eksplisit', async () => {
         const countedSession = {
             ...session,

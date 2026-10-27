@@ -98,12 +98,9 @@ async function validateGlBalance(
 
     if (currentBalance.lt(creditAmount)) {
         throw new BusinessRuleError(
-            `Saldo akun GL akan minus!\n` +
-                `Akun: ${account.code} - ${account.name}\n` +
-                `Saldo saat ini: Rp ${currentBalance.toNumber().toLocaleString('id-ID')}\n` +
-                `Akan di-credit: Rp ${creditAmount.toLocaleString('id-ID')}\n` +
-                `Produk: ${productName}\n` +
-                `Tip: Pastikan stok sudah di-receipt/adjustment ke akun yang benar sebelum konsumsi.`,
+            `Transaksi ${productName} belum dapat dilanjutkan karena saldo pembukuan persediaan belum cukup. Minta Finance memeriksa catatan biaya barang; jangan menambah atau mengubah stok hanya agar transaksi bisa disimpan.`,
+            { productName },
+            'INVENTORY_GL_INSUFFICIENT',
         );
     }
 }

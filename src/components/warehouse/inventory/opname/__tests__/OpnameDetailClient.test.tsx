@@ -36,8 +36,8 @@ vi.mock('../OpnameVariance', () => ({
     OpnameVariance: () => <div>Rincian Selisih</div>,
 }));
 vi.mock('../FinalizeOpnameDialog', () => ({
-    FinalizeOpnameDialog: ({ open }: { open: boolean }) =>
-        open ? <div role="dialog">Dialog Finalisasi</div> : null,
+    FinalizeOpnameDialog: ({ open, onConfirm, failure }: { open: boolean; onConfirm: (date: string) => void; failure?: { title: string; message: string } }) =>
+        open ? <div role="dialog">Dialog Finalisasi<button onClick={() => onConfirm('2026-10-01')}>Konfirmasi uji</button>{failure && <p role="alert">{failure.title} {failure.message}</p>}</div> : null,
 }));
 vi.mock('@/components/warehouse/WarehouseAttachmentPanel', () => ({
     WarehouseAttachmentPanel: () => <div>Panel Bukti</div>,
@@ -104,6 +104,17 @@ afterEach(() => {
 });
 
 describe('OpnameDetailClient command center', () => {
+    it('passes a finalization rejection into the persistent dialog', async () => {
+        mocks.complete.mockResolvedValueOnce({ success: false, code: 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS', error: 'jurnal tidak cukup' });
+        render(<OpnameDetailClient session={session} currentUserId="user-1" />);
+        fireEvent.click(screen.getByRole('button', { name: 'Finalisasi Opname' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi uji' }));
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('Opname belum difinalisasi');
+        expect(alert.textContent).toContain('Finance');
+        expect(mocks.refresh).not.toHaveBeenCalled();
+    });
+
     it('surfaces readiness and keeps evidence and audit behind tabs', async () => {
         render(
             <OpnameDetailClient

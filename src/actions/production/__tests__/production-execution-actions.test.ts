@@ -21,6 +21,7 @@ import {
     requireProductionLeaderRole,
 } from '@/lib/tools/auth-checks';
 import { auth } from '@/auth';
+import { AuthorizationError } from '@/lib/errors/errors';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
 
@@ -298,6 +299,13 @@ describe('production execution actions', () => {
             shiftId: undefined,
         };
 
+        it('keeps unknown exceptions generic instead of blaming the input', async () => {
+            vi.mocked(ProductionService.logRunningOutput).mockRejectedValueOnce(new Error('internal connection detail'));
+            const result = await logRunningOutput(logInput as never);
+            expect(result).toMatchObject({ success: false, code: 'INTERNAL_ERROR' });
+            expect(JSON.stringify(result)).not.toMatch(/internal connection|verify input/);
+        });
+
         it('logs partial output mid-run', async () => {
             // Arrange
             vi.mocked(ProductionService.logRunningOutput).mockResolvedValue({
@@ -349,6 +357,20 @@ describe('production execution actions', () => {
             cekGram: undefined,
             notes: '',
         };
+
+        it('does not expose an unknown service exception as a business message', async () => {
+            vi.mocked(ProductionService.addProductionOutput).mockRejectedValueOnce(new Error('database connection detail'));
+            const result = await addProductionOutput(outputInput as never);
+            expect(result).toMatchObject({ success: false, code: 'INTERNAL_ERROR' });
+            expect(JSON.stringify(result)).not.toContain('database connection detail');
+        });
+
+        it('preserves a permission error and never calls the service', async () => {
+            vi.mocked(requireAuth).mockRejectedValueOnce(new AuthorizationError());
+            const result = await addProductionOutput(outputInput as never);
+            expect(result).toMatchObject({ success: false, code: 'AUTHORIZATION_ERROR' });
+            expect(ProductionService.addProductionOutput).not.toHaveBeenCalled();
+        });
 
         it('records output against the order', async () => {
             // Arrange
@@ -437,6 +459,13 @@ describe('production execution actions', () => {
     });
 
     describe('voidProductionOutput', () => {
+        it('does not guess that an unknown void failure is a permission problem', async () => {
+            vi.mocked(ProductionService.voidExecution).mockRejectedValueOnce(new Error('storage unavailable'));
+            const result = await voidProductionOutput('exec-1', 'po-1');
+            expect(result).toMatchObject({ success: false, code: 'INTERNAL_ERROR' });
+            expect(JSON.stringify(result)).not.toMatch(/storage|permissions/);
+        });
+
         it('voids under a production leader', async () => {
             // Arrange
             vi.mocked(ProductionService.voidExecution).mockResolvedValue(
