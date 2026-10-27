@@ -3,13 +3,13 @@ import { Prisma } from '@prisma/client';
 import { createHash } from 'node:crypto';
 import { createInternalUsage } from '../internal-usage-service';
 
-const m = vi.hoisted(() => ({ raw: vi.fn(), existing: vi.fn(), variant: vi.fn(), location: vi.fn(), actor: vi.fn(), inventory: vi.fn(), movement: vi.fn(), create: vi.fn(), journal: vi.fn(), audit: vi.fn(), lock: vi.fn(), deduct: vi.fn(), accounts: vi.fn(), basis: vi.fn(), sequence: vi.fn() }));
+const m = vi.hoisted(() => ({ raw: vi.fn(), existing: vi.fn(), variant: vi.fn(), location: vi.fn(), actor: vi.fn(), inventory: vi.fn(), movement: vi.fn(), create: vi.fn(), journal: vi.fn(), audit: vi.fn(), lock: vi.fn(), deduct: vi.fn(), accounts: vi.fn(), select: vi.fn(), basis: vi.fn(), sequence: vi.fn() }));
 vi.mock('@/lib/core/prisma', () => ({ prisma: { $transaction: (fn: (tx: unknown) => unknown) => fn({
     $queryRaw: m.raw, internalUsage: { findUnique: m.existing, create: m.create }, productVariant: { findUnique: m.variant },
     location: { findUnique: m.location }, user: { findUnique: m.actor }, inventory: { findUnique: m.inventory }, stockMovement: { create: m.movement },
 }) } }));
 vi.mock('../core-service', () => ({ InventoryCoreService: { validateAndLockStock: m.lock, deductStock: m.deduct } }));
-vi.mock('../internal-usage-accounting', () => ({ resolveInternalUsageAccounts: m.accounts, assertInternalUsageAccounting: m.basis }));
+vi.mock('../internal-usage-accounting', async (original) => ({ ...await original<typeof import('../internal-usage-accounting')>(), resolveInternalUsageAccounts: m.accounts, selectInternalUsageInventory: m.select, assertInternalUsageAccounting: m.basis }));
 vi.mock('@/services/accounting/journal-posting', () => ({ createJournalEntry: m.journal }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: m.audit }));
 vi.mock('@/lib/utils/sequence', () => ({ getNextSequence: m.sequence }));
@@ -21,7 +21,7 @@ beforeEach(() => {
     m.existing.mockResolvedValue(null); m.variant.mockResolvedValue({ id: 'pen', name: 'Pen', skuCode: 'PEN', primaryUnit: 'PCS', archivedAt: null, product: { productType: 'OPERATIONAL', inventoryAccountId: 'asset' } });
     m.location.mockResolvedValue({ id: 'office', name: 'Office', locationType: 'INTERNAL', packagingOwnerCustomerId: null });
     m.actor.mockResolvedValue({ name: 'Warehouse', isActive: true }); m.lock.mockResolvedValue(24); m.inventory.mockResolvedValue({ averageCost: dec(2000) });
-    m.accounts.mockResolvedValue({ inventory: 'asset', expense: 'expense' }); m.sequence.mockResolvedValue('PI-202610-00001'); m.movement.mockResolvedValue({ id: 'movement' }); m.journal.mockResolvedValue({ id: 'journal' }); m.create.mockResolvedValue(row);
+    m.accounts.mockResolvedValue({ inventory: 'asset', expense: 'expense' }); m.select.mockImplementation(async (_tx, _id, resolved) => resolved); m.sequence.mockResolvedValue('PI-202610-00001'); m.movement.mockResolvedValue({ id: 'movement' }); m.journal.mockResolvedValue({ id: 'journal' }); m.create.mockResolvedValue(row);
 });
 afterEach(() => vi.useRealTimers());
 describe('internal usage source transaction', () => {
@@ -39,6 +39,15 @@ describe('internal usage source transaction', () => {
         ] }), expect.anything());
         expect(m.create.mock.calls[0][0].data.stockAfter.toString()).toBe('21');
         expect(m.audit).toHaveBeenCalledWith(expect.objectContaining({ userId: 'actor', action: 'CREATE_INTERNAL_USAGE', tx: expect.anything() }));
+    });
+    it('credits the account that capitalized the SKU when no product override exists', async () => {
+        m.variant.mockResolvedValue({ id: 'pen', name: 'Pen', skuCode: 'PEN', primaryUnit: 'PCS', archivedAt: null, product: { productType: 'OPERATIONAL', inventoryAccountId: null } });
+        m.accounts.mockResolvedValue({ inventory: 'raw-material', expense: 'expense' }); m.select.mockResolvedValue('packaging');
+        await createInternalUsage(input, 'actor');
+        expect(m.select).toHaveBeenCalledWith(expect.anything(), 'pen', 'raw-material', dec(6000), false);
+        expect(m.basis).toHaveBeenCalledWith(expect.anything(), 'pen', { inventory: 'packaging', expense: 'expense' }, dec(6000));
+        expect(m.journal.mock.calls[0][0].lines[1]).toMatchObject({ accountId: 'packaging', credit: 6000 });
+        expect(m.create.mock.calls[0][0].data).toMatchObject({ inventoryAccountId: 'packaging', expenseAccountId: 'expense' });
     });
     it('returns the original result for identical retry, even on a later date', async () => {
         const { requestId: _key, ...intent } = input;
@@ -83,6 +92,8 @@ describe('internal usage source transaction', () => {
         }
         m.inventory.mockResolvedValue({ averageCost: dec(2000) }); m.basis.mockRejectedValueOnce(new Error('unattributed'));
         await expect(createInternalUsage(input, 'actor')).rejects.toThrow('unattributed');
+        m.select.mockRejectedValueOnce(new Error('split basis'));
+        await expect(createInternalUsage(input, 'actor')).rejects.toThrow('split basis');
         m.journal.mockRejectedValueOnce(new Error('period closed'));
         await expect(createInternalUsage(input, 'actor')).rejects.toThrow('period closed');
         expect(m.deduct).not.toHaveBeenCalled();

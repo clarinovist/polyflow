@@ -6,9 +6,9 @@ import { InternalUsageForm } from '../InternalUsageForm';
 import { InternalUsageDetail } from '../InternalUsageDetail';
 import { InternalUsageHistory } from '../InternalUsageHistory';
 import type { InternalUsageFormData, InternalUsageRecord } from '@/types/internal-usage';
-const m = vi.hoisted(() => ({ save: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
+const m = vi.hoisted(() => ({ save: vi.fn(), check: vi.fn(), push: vi.fn(), refresh: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: m.push, refresh: m.refresh }) }));
-vi.mock('@/actions/inventory/internal-usage', () => ({ createInternalUsageAction: m.save }));
+vi.mock('@/actions/inventory/internal-usage', () => ({ createInternalUsageAction: m.save, checkInternalUsageReadinessAction: m.check }));
 vi.mock('@/components/ui/select', () => ({
     Select: ({ value, onValueChange, children, disabled }: { value: string; onValueChange: (id: string) => void; children: ReactNode; disabled?: boolean }) => <select value={value} disabled={disabled} onChange={(e) => onValueChange(e.target.value)}><option value=""/>{children}</select>,
     SelectTrigger: () => null, SelectValue: () => null, SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -21,7 +21,8 @@ function fill() {
     fireEvent.change(product, { target: { value: 'pen' } }); fireEvent.change(location, { target: { value: 'office' } });
     for (const [label, value] of [['Jumlah diambil *', '3'], ['Penerima *', 'Staff'], ['Bagian *', 'Admin'], ['Keperluan *', 'Writing']]) fireEvent.change(screen.getByLabelText(label), { target: { value } });
 }
-beforeEach(() => { vi.resetAllMocks(); m.save.mockResolvedValue({ success: true, data: record }); });
+beforeEach(() => { vi.resetAllMocks(); m.save.mockResolvedValue({ success: true, data: record }); m.check.mockResolvedValue({ success: true, data: { ready: true, message: 'siap' } }); });
+const confirm = () => screen.findByRole('button', { name: 'Konfirmasi pemakaian' });
 afterEach(cleanup);
 describe('internal usage UI', () => {
     it('previews then confirms once, without SPK fields or client account selections', async () => {
@@ -30,7 +31,8 @@ describe('internal usage UI', () => {
         expect((screen.getByLabelText('Tanggal pemakaian') as HTMLInputElement).readOnly).toBe(true);
         fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
         expect(m.save).not.toHaveBeenCalled();
-        const save = screen.getByRole('button', { name: 'Konfirmasi pemakaian' }); fireEvent.click(save); fireEvent.click(save);
+        const save = await confirm(); fireEvent.click(save); fireEvent.click(save);
+        expect(m.check).toHaveBeenCalledWith({ productVariantId: 'pen', locationId: 'office', quantity: 3 });
         await waitFor(() => expect(m.push).toHaveBeenCalledWith('/warehouse/internal-usage/doc?created=1'));
         expect(m.save).toHaveBeenCalledTimes(1); expect(m.save.mock.calls[0][0]).toMatchObject({ quantity: 3, unit: 'PCS', recipient: 'Staff' });
         expect(m.save.mock.calls[0][0]).not.toHaveProperty('inventoryAccountId');
@@ -38,7 +40,7 @@ describe('internal usage UI', () => {
     it('retains intent id for network retry and does not silently report success', async () => {
         m.save.mockRejectedValueOnce(new Error('network'));
         render(<InternalUsageForm data={data}/>); fill(); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi pemakaian' }));
+        fireEvent.click(await confirm());
         await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Koneksi terputus'));
         expect(m.push).not.toHaveBeenCalled();
         fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi pemakaian' }));
@@ -48,9 +50,29 @@ describe('internal usage UI', () => {
     it('shows domain rejection and supports cancel before saving', async () => {
         m.save.mockResolvedValue({ success: false, error: 'Finance belum siap' });
         render(<InternalUsageForm data={data}/>); fill(); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
-        fireEvent.click(screen.getByRole('button', { name: 'Kembali periksa' })); expect(m.save).not.toHaveBeenCalled();
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' })); fireEvent.click(screen.getByRole('button', { name: 'Konfirmasi pemakaian' }));
+        fireEvent.click(await screen.findByRole('button', { name: 'Kembali periksa' })); expect(m.save).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' })); fireEvent.click(await confirm());
         await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Finance belum siap'));
+    });
+    it('blocks the handover when the readiness preflight fails, showing account detail only when returned', async () => {
+        m.check.mockResolvedValue({ success: true, data: { ready: false, code: 'INTERNAL_USAGE_SOURCE_ACCOUNT_MISMATCH', message: 'Nilai barang ini tercatat terpecah' } });
+        render(<InternalUsageForm data={data}/>); fill(); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('terpecah'));
+        expect(screen.queryByRole('button', { name: 'Konfirmasi pemakaian' })).toBeNull(); expect(screen.getByRole('alert').textContent).not.toContain('Nilai SKU');
+        m.check.mockResolvedValue({ success: true, data: { ready: false, message: 'Penerimaan belum tertaut', accounting: { amount: 6000, basis: [{ code: '1-131', name: 'Packaging', value: 40000 }] } } });
+        fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('1-131 Packaging'));
+        m.check.mockRejectedValue(new Error('offline')); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Jangan serahkan barang'));
+        m.check.mockResolvedValue({ success: false, error: 'Tidak memiliki izin' }); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
+        await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('izin'));
+        expect(m.save).not.toHaveBeenCalled();
+    });
+    it('shows the credited account to Finance in the confirmation', async () => {
+        m.check.mockResolvedValue({ success: true, data: { ready: true, message: 'siap', accounting: { amount: 6000, glBalance: 40000, inventoryAccount: { code: '1-131', name: 'Packaging' }, expenseAccount: { code: '6-012', name: 'Office' }, basis: [] } } });
+        render(<InternalUsageForm data={data}/>); fill(); fireEvent.click(screen.getByRole('button', { name: 'Periksa pemakaian' }));
+        await confirm(); expect(screen.getByText(/Kredit: 1-131 Packaging/)).toBeTruthy(); expect(screen.getByText(/Debit: 6-012 Office/)).toBeTruthy();
+        expect(screen.getByText(/belum ada jurnal penerimaan/)).toBeTruthy();
     });
     it('rejects unavailable quantities and required whitespace, and explains empty catalogue', () => {
         const view = render(<InternalUsageForm data={data}/>); fill();

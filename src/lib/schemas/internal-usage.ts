@@ -36,3 +36,12 @@ export const internalUsageFiltersSchema = z.object({
     department: z.string().trim().max(100).default(''),
     page: z.coerce.number().int().min(1).max(100000).default(1),
 });
+
+export const internalUsageReadinessSchema = internalUsageSchema.pick({
+    productVariantId: true,
+    locationId: true,
+    quantity: true,
+});
+export type InternalUsageReadinessInput = z.infer<
+    typeof internalUsageReadinessSchema
+>;

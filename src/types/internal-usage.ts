@@ -45,3 +45,19 @@ export type InternalUsageHistory = {
     department: string;
     departments: string[];
 };
+
+export type InternalUsageAccountRef = { code: string; name: string };
+
+/** Read-only preflight result; `accounting` is only returned to Finance/Admin. */
+export type InternalUsageReadiness = {
+    ready: boolean;
+    code?: string;
+    message: string;
+    accounting?: {
+        amount?: number;
+        inventoryAccount?: InternalUsageAccountRef;
+        expenseAccount?: InternalUsageAccountRef;
+        glBalance?: number;
+        basis: (InternalUsageAccountRef & { value: number })[];
+    };
+};

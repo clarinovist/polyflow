@@ -4,7 +4,10 @@ import { useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Info, Loader2 } from 'lucide-react';
-import { createInternalUsageAction } from '@/actions/inventory/internal-usage';
+import {
+    checkInternalUsageReadinessAction,
+    createInternalUsageAction,
+} from '@/actions/inventory/internal-usage';
 import {
     internalUsageSchema,
     type InternalUsageInput,
@@ -36,7 +39,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import type { InternalUsageFormData } from '@/types/internal-usage';
+import type {
+    InternalUsageFormData,
+    InternalUsageReadiness,
+} from '@/types/internal-usage';
+import { AccountingDetail } from './InternalUsageAccountingDetail';
 
 export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     const router = useRouter();
@@ -49,6 +56,10 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     const [error, setError] = useState('');
     const [pending, setPending] = useState(false);
     const [intent, setIntent] = useState<InternalUsageInput | null>(null);
+    const [checking, setChecking] = useState(false);
+    const [readiness, setReadiness] = useState<InternalUsageReadiness | null>(
+        null,
+    );
     const retry = useRef<{ signature: string; requestId: string } | null>(null);
     const inFlight = useRef(false);
     const product = data.products.find((item) => item.id === productId);
@@ -72,9 +83,10 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
             ? 'Isi jumlah positif sesuai satuan dan tidak melebihi stok tersedia.'
             : '';
 
-    function review(event: FormEvent) {
+    async function review(event: FormEvent) {
         event.preventDefault();
         setError('');
+        setReadiness(null);
         if (!product || !stock) {
             setError('Pilih barang dan gudang asal.');
             return;
@@ -105,7 +117,31 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
             setError(parsed.error.issues[0].message);
             return;
         }
-        setIntent(parsed.data);
+        // Check readiness before goods are handed over; posting re-checks atomically.
+        setChecking(true);
+        try {
+            const result = await checkInternalUsageReadinessAction({
+                productVariantId: fields.productVariantId,
+                locationId: fields.locationId,
+                quantity: fields.quantity,
+            });
+            if (!result.success) {
+                setError(result.error || 'Gagal memeriksa kesiapan pemakaian.');
+                return;
+            }
+            setReadiness(result.data);
+            if (!result.data.ready) {
+                setError(result.data.message);
+                return;
+            }
+            setIntent(parsed.data);
+        } catch {
+            setError(
+                'Koneksi terputus saat memeriksa kesiapan. Jangan serahkan barang dulu; coba periksa lagi.',
+            );
+        } finally {
+            setChecking(false);
+        }
     }
     async function save() {
         if (!intent || inFlight.current) return;
@@ -147,12 +183,15 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
     return (
         <form onSubmit={review} className="space-y-4">
             {error && !intent && (
-                <p
+                <div
                     role="alert"
                     className="rounded-lg border border-destructive p-4 text-sm text-destructive"
                 >
-                    {error}
-                </p>
+                    <p>{error}</p>
+                    {readiness?.accounting && (
+                        <AccountingDetail accounting={readiness.accounting} />
+                    )}
+                </div>
             )}
             <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div className="space-y-6">
@@ -440,10 +479,14 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                             <Button
                                 type="submit"
                                 className="min-h-11 w-full"
-                                disabled={pending}
+                                disabled={pending || checking}
                             >
-                                Periksa pemakaian
-                                <ArrowRight className="h-4 w-4" />
+                                {checking ? 'Memeriksa…' : 'Periksa pemakaian'}
+                                {checking ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <ArrowRight className="h-4 w-4" />
+                                )}
                             </Button>
                             <Button
                                 asChild
@@ -512,6 +555,9 @@ export function InternalUsageForm({ data }: { data: InternalUsageFormData }) {
                                 </div>
                             ))}
                         </dl>
+                    )}
+                    {readiness?.accounting && (
+                        <AccountingDetail accounting={readiness.accounting} />
                     )}
                     {error && (
                         <p role="alert" className="text-sm text-destructive">

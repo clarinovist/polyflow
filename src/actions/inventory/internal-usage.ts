@@ -4,11 +4,13 @@ import { revalidatePath } from 'next/cache';
 import { withTenant } from '@/lib/core/tenant';
 import { requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
 import { safeAction } from '@/lib/errors/errors';
+import { hasAnyRole } from '@/lib/auth/roles';
 import {
     INTERNAL_USAGE_RESOURCE,
     type InternalUsageInput,
 } from '@/lib/schemas/internal-usage';
 import { createInternalUsage } from '@/services/inventory/internal-usage-service';
+import { checkInternalUsageReadiness } from '@/services/inventory/internal-usage-readiness';
 import {
     getInternalUsageDetail,
     getInternalUsageFormData,
@@ -38,6 +40,22 @@ export const getInternalUsageFormAction = withTenant(
                 INTERNAL_USAGE_RESOURCE,
             );
             return getInternalUsageFormData(session.user.id);
+        });
+    },
+);
+export const checkInternalUsageReadinessAction = withTenant(
+    async function checkInternalUsageReadinessAction(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireWarehouseResourcePermission(
+                INTERNAL_USAGE_RESOURCE,
+            );
+            // Warehouse staff get the cause and next step; account values are Finance's.
+            return checkInternalUsageReadiness(input, {
+                includeAccounting: hasAnyRole(session.user, [
+                    'ADMIN',
+                    'FINANCE',
+                ]),
+            });
         });
     },
 );

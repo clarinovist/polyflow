@@ -20,7 +20,9 @@ import { createJournalEntry } from '@/services/accounting/journal-posting';
 import { InventoryCoreService } from './core-service';
 import {
     assertInternalUsageAccounting,
+    internalUsageAmount,
     resolveInternalUsageAccounts,
+    selectInternalUsageInventory,
 } from './internal-usage-accounting';
 import {
     internalUsageRecordSelect,
@@ -117,20 +119,22 @@ export async function createInternalUsage(
                 },
             });
             const cost = inventory?.averageCost;
-            if (!cost || cost.lte(0))
-                throw new BusinessRuleError(
-                    'Biaya persediaan di gudang ini belum tersedia. Minta Finance mencocokkan penerimaan ATK; harga jual tidak dapat dipakai sebagai biaya.',
-                );
-            const amount = cost.mul(data.quantity).toDecimalPlaces(2);
-            if (amount.lte(0) || amount.gt('9999999999999.99'))
-                throw new BusinessRuleError(
-                    'Nilai pemakaian di luar batas pencatatan jurnal.',
-                );
+            const amount = internalUsageAmount(cost, data.quantity);
             const [year, month] = data.date.split('-').map(Number);
             await tx.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE year = ${year} AND month = ${month} FOR SHARE`;
-            const accountIds = await resolveInternalUsageAccounts(
+            const resolved = await resolveInternalUsageAccounts(
                 variant.product.inventoryAccountId,
             );
+            const accountIds = {
+                ...resolved,
+                inventory: await selectInternalUsageInventory(
+                    tx,
+                    variant.id,
+                    resolved.inventory,
+                    amount,
+                    Boolean(variant.product.inventoryAccountId),
+                ),
+            };
             await assertInternalUsageAccounting(
                 tx,
                 variant.id,
