@@ -6,7 +6,12 @@ import {
 } from '../src/lib/ops/absorbed-scrap-normalization';
 
 type Options =
-    | { tenant: string; mode: 'scan'; database: string }
+    | {
+          tenant: string;
+          mode: 'scan';
+          database: string;
+          retainScrapOnlyResidual?: boolean;
+      }
     | {
           tenant: string;
           mode: 'order';
@@ -23,19 +28,23 @@ export function parseAbsorbedScrapArgs(args: string[]): Options {
     };
     const tenant = value('tenant'),
         database = value('database');
+    // Finance policy flag: keep a proven scrap-only residual in the WO's WIP.
+    const retain = args.includes('--retain-scrap-only-residual');
+    const policy = retain ? { retainScrapOnlyResidual: true } : {};
     if (args.includes('--scan')) {
         // Scan is read-only by construction: refuse any order/apply argument with it.
         if (
             args.some(
                 (arg) =>
                     arg !== '--scan' &&
+                    arg !== '--retain-scrap-only-residual' &&
                     !arg.startsWith('--tenant=') &&
                     !arg.startsWith('--database='),
             )
         ) {
             throw new Error('--scan takes only --tenant and --database.');
         }
-        return { tenant, mode: 'scan', database };
+        return { tenant, mode: 'scan', database, ...policy };
     }
     const execute = args.includes('--execute');
     if (execute && !args.includes('--yes'))
@@ -46,6 +55,7 @@ export function parseAbsorbedScrapArgs(args: string[]): Options {
         orderNumber: value('order-number'),
         actorId: value('actor-id'),
         reason: value('reason'),
+        ...policy,
         ...(execute
             ? {
                   expectedFingerprint: value('fingerprint'),
@@ -78,7 +88,10 @@ async function main() {
         });
         const result =
             options.mode === 'scan'
-                ? await scanAbsorbedScrap(tenantDb, { database })
+                ? await scanAbsorbedScrap(tenantDb, {
+                      database,
+                      retainScrapOnlyResidual: options.retainScrapOnlyResidual,
+                  })
                 : await normalizeAbsorbedScrap(
                       tenantDb,
                       options.request,

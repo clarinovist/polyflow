@@ -133,6 +133,37 @@ describe('absorbed legacy scrap normalization', () => {
         await expect(preview(db)).rejects.toMatchObject({ code });
         expect(tx.stockMovement.updateMany).not.toHaveBeenCalled();
     });
+    function withScrapOnlyBatch(state: ReturnType<typeof fixture>['state'], { affalAt = 60000, issueAt = 60100 } = {}) {
+        // A later scrap-only entry: 0.5 kg material went entirely to 1 kg of leaf scrap.
+        state.executions.push({ id: 'affal', productionOrderId: 'wo', status: 'COMPLETED', endTime: later(affalAt + 500), createdAt: later(affalAt),
+            quantityProduced: d(0), scrapQuantity: d(0), scrapProngkolQty: d(0), scrapDaunQty: d(1) });
+        state.movements.push({ ...state.movements[0], id: 'issue-r', quantity: d(0.5), createdAt: later(issueAt) },
+            { ...state.movements[4], id: 'leaf-affal', quantity: d(1), createdAt: later(affalAt + 200) });
+        state.journals.push({ ...state.journals[0], id: 'j-issue-r', referenceId: 'issue-r', lines: state.journals[0].lines.map(l => ({ ...l, debit: l.debit.gt(0) ? d(5) : d(0), credit: l.credit.gt(0) ? d(5) : d(0) })) });
+        state.records.push({ id: 'record-affal', productionOrderId: 'wo', productionExecutionId: 'affal', productVariantId: 'leaf', quantity: d(1), locationId: 'scrap-store' });
+    }
+    const retain = (db: PrismaClient, extra: Partial<AbsorbedScrapRequest> = {}) => normalizeAbsorbedScrap(db, { ...request, retainScrapOnlyResidual: true, ...extra }, Boolean(extra.expectedFingerprint));
+    it('keeps a proven scrap-only residual in WIP only when Finance chose that policy', async () => {
+        const { db, state, tx } = fixture(); withScrapOnlyBatch(state);
+        await expect(preview(db)).rejects.toMatchObject({ code: 'AFFAL_ONLY_DEFERRED' });
+        const result = await retain(db);
+        expect(result).toMatchObject({ mode: 'RETAIN_SCRAP_ONLY_RESIDUAL', scrapOnlyExecutionId: 'affal', absorbedValue: '140', residualValue: '5' });
+        expect('scraps' in result && result.scraps.find(m => m.movementId === 'leaf-affal')?.executionId).toBe('affal');
+        await retain(db, { expectedFingerprint: result.fingerprint, backupReference: 'verified-backup' });
+        const updates = tx.stockMovement.updateMany.mock.calls.map(c => (c[0] as { where: { id: string }; data: { productionExecutionId: string } }));
+        expect(updates.map(u => [u.where.id, u.data.productionExecutionId])).toEqual([['lump-move', 'exec'], ['leaf-move', 'exec'], ['leaf-affal', 'affal']]);
+        expect(tx.auditLog.create.mock.calls[0][0].data.changes).toMatchObject({ mode: 'RETAIN_SCRAP_ONLY_RESIDUAL', residualValue: '5', journalsCreated: 0 });
+    });
+    it.each([
+        ['ambiguous material timing', (s: ReturnType<typeof fixture>['state']) => withScrapOnlyBatch(s, { affalAt: 20000, issueAt: 10000 }), 'SOURCE_MISMATCH'],
+        ['scrap-only batch without material', (s: ReturnType<typeof fixture>['state']) => { withScrapOnlyBatch(s); s.movements = s.movements.filter(m => m.id !== 'issue-r'); s.journals = s.journals.filter(j => j.id !== 'j-issue-r'); }, 'SOURCE_MISMATCH'],
+        ['two scrap-only batches', (s: ReturnType<typeof fixture>['state']) => { withScrapOnlyBatch(s); s.executions.push({ ...s.executions[2], id: 'affal-2' }); }, 'UNSUPPORTED_HISTORY'],
+        ['scrap linked to the wrong batch', (s: ReturnType<typeof fixture>['state']) => { withScrapOnlyBatch(s); s.records[2] = { ...s.records[2], productionExecutionId: 'exec' }; }, 'SOURCE_MISMATCH'],
+    ])('fails closed on %s in residual mode', async (_name, mutate, code) => {
+        const { db, state, tx } = fixture(); mutate(state);
+        await expect(retain(db)).rejects.toMatchObject({ code });
+        expect(tx.stockMovement.updateMany).not.toHaveBeenCalled();
+    });
     it('scans active orders into eligible and skipped without hardcoded order numbers', async () => {
         const { db, tx } = fixture();
         const result = await scanAbsorbedScrap(db, { database: 'synthetic_test' });
@@ -153,6 +184,8 @@ describe('absorbed scrap CLI arguments', () => {
         const order = [...base, '--order-id=wo', '--order-number=WO-1', '--actor-id=system', '--reason=Verified legacy scrap'];
         expect(parseAbsorbedScrapArgs(order)).toMatchObject({ mode: 'order', execute: false, request: { orderId: 'wo', orderNumber: 'WO-1' } });
         expect(parseAbsorbedScrapArgs([...order, '--execute', '--yes', `--fingerprint=${'a'.repeat(64)}`, '--backup=bk'])).toMatchObject({ execute: true, request: { backupReference: 'bk' } });
+        expect(parseAbsorbedScrapArgs([...order, '--retain-scrap-only-residual'])).toMatchObject({ request: { retainScrapOnlyResidual: true } });
+        expect(parseAbsorbedScrapArgs([...base, '--scan', '--retain-scrap-only-residual'])).toEqual({ tenant: 'synthetic', mode: 'scan', database: 'synthetic_test', retainScrapOnlyResidual: true });
     });
     it('rejects ambiguous or unconfirmed arguments', () => {
         expect(() => parseAbsorbedScrapArgs([...base, '--scan', '--order-id=wo'])).toThrow('--scan');

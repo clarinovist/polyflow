@@ -33,6 +33,8 @@ export interface AbsorbedScrapRequest {
     reason: string;
     expectedFingerprint?: string;
     backupReference?: string;
+    /** Finance policy: keep a proven scrap-only residual in this WO's WIP. */
+    retainScrapOnlyResidual?: boolean;
 }
 
 const ACTIVE_STATUSES = [
@@ -99,7 +101,12 @@ function journalValue(journal: Journal, movement: Movement) {
     return debit;
 }
 
-async function loadOrder(tx: Tx, orderId: string, orderNumber: string) {
+async function loadOrder(
+    tx: Tx,
+    orderId: string,
+    orderNumber: string,
+    retainScrapOnlyResidual: boolean,
+) {
     const order = await tx.productionOrder.findUnique({
         where: { id: orderId },
         include: { bom: true },
@@ -125,16 +132,23 @@ async function loadOrder(tx: Tx, orderId: string, orderNumber: string) {
         skip('UNSUPPORTED_HISTORY', 'SPK memiliki eksekusi yang di-void.');
     const scrapReported = (e: (typeof executions)[number]) =>
         e.scrapQuantity.plus(e.scrapProngkolQty).plus(e.scrapDaunQty);
-    if (
-        executions.some(
-            (e) => e.quantityProduced.isZero() && scrapReported(e).gt(0),
-        )
-    ) {
+    const scrapOnly = executions.filter(
+        (e) => e.quantityProduced.isZero() && scrapReported(e).gt(0),
+    );
+    if (scrapOnly.length && !retainScrapOnlyResidual) {
         skip(
             'AFFAL_ONLY_DEFERRED',
             'SPK memiliki eksekusi affal-only/sisa WIP; kebijakan biayanya belum diputuskan Finance.',
         );
     }
+    if (
+        scrapOnly.length > 1 ||
+        scrapOnly.some((e) => e.status !== 'COMPLETED' || !e.endTime)
+    )
+        skip(
+            'UNSUPPORTED_HISTORY',
+            'Mode sisa WIP hanya untuk satu eksekusi affal-only yang selesai.',
+        );
     const positive = executions.filter((e) => e.quantityProduced.gt(0));
     if (positive.length !== 1)
         skip('UNSUPPORTED_HISTORY', 'SPK bukan satu hasil tunggal.');
@@ -149,13 +163,15 @@ async function loadOrder(tx: Tx, orderId: string, orderNumber: string) {
             'Eksekusi hasil tidak cocok dengan jumlah aktual SPK.',
         );
     }
-    return { order, executions, execution };
+    return { order, executions, execution, scrapOnly: scrapOnly[0] ?? null };
 }
+type Execution = Awaited<ReturnType<typeof loadOrder>>['execution'];
 
 async function loadSources(
     tx: Tx,
     order: Awaited<ReturnType<typeof loadOrder>>['order'],
-    execution: Awaited<ReturnType<typeof loadOrder>>['execution'],
+    execution: Execution,
+    scrapOnly: Execution | null,
 ) {
     const movements = await tx.stockMovement.findMany({
         where: { productionOrderId: order.id },
@@ -193,12 +209,36 @@ async function loadSources(
             m.type === 'IN' &&
             m.productVariantId !== order.bom.productVariantId,
     );
+    // Legacy issues carry no execution link: attribute each to the single
+    // execution it was posted beside, and refuse anything ambiguous.
+    const ownerOf = (m: Movement) => {
+        const near = [execution, scrapOnly].filter(
+            (e): e is Execution =>
+                !!e &&
+                Math.abs(m.createdAt.getTime() - e.createdAt.getTime()) <=
+                    SCRAP_LINK_WINDOW_MS,
+        );
+        return near.length === 1 ? near[0].id : null;
+    };
+    const residualIssues = scrapOnly
+        ? issues.filter((m) => ownerOf(m) === scrapOnly.id)
+        : [];
+    if (
+        scrapOnly &&
+        (issues.some((m) => !ownerOf(m)) || !residualIssues.length)
+    )
+        skip(
+            'SOURCE_MISMATCH',
+            'Bahan tidak dapat diatribusikan pasti ke satu eksekusi.',
+        );
+    const outputIssues = issues.filter((m) => !residualIssues.includes(m));
     if (
         outputs.length !== 1 ||
         !outputs[0].quantity.eq(execution.quantityProduced) ||
-        !issues.length ||
+        !outputIssues.length ||
         !scraps.length ||
-        scraps.length > 2 ||
+        // At most prongkol + daun per execution; provenScraps checks each one.
+        scraps.length > (scrapOnly ? 4 : 2) ||
         [...issues, outputs[0]].some((m) => m.cost == null)
     )
         skip('SOURCE_MISMATCH', 'Komposisi bahan/hasil/affal tidak sesuai.');
@@ -216,19 +256,30 @@ async function loadSources(
             'JOURNALED_SCRAP',
             'Ada affal berjurnal; gunakan rekonsiliasi affal berjurnal, bukan mode ini.',
         );
-    return { movements, issues, output: outputs[0], scraps, journals, forMove };
+    return {
+        movements,
+        outputIssues,
+        residualIssues,
+        output: outputs[0],
+        scraps,
+        journals,
+        forMove,
+    };
 }
 
-/** Every WIP leg debited by material must be credited by the good output. */
+/**
+ * Every WIP leg debited by the output batch's material must be credited by the
+ * good output. A scrap-only batch's material stays in WIP as the proven residual.
+ */
 async function provenAbsorption(
     tx: Tx,
     sources: Awaited<ReturnType<typeof loadSources>>,
 ) {
-    const { issues, output, journals, forMove } = sources;
+    const { outputIssues, residualIssues, output, journals, forMove } = sources;
     const vector = new Map<string, Prisma.Decimal>();
     const add = (accountId: string, value: Prisma.Decimal) =>
         vector.set(accountId, (vector.get(accountId) ?? zero()).plus(value));
-    for (const movement of [...issues, output]) {
+    for (const movement of [...outputIssues, output]) {
         const own = forMove(movement.id);
         if (own.length !== 1)
             skip('SOURCE_MISMATCH', 'Jurnal sumber bahan/hasil bukan satu.');
@@ -251,13 +302,24 @@ async function provenAbsorption(
             'PARTIAL_ABSORPTION',
             'Biaya bahan belum seluruhnya terserap hasil (ada sisa WIP).',
         );
-    return journalValue(forMove(output.id)[0], output);
+    let residualValue = zero();
+    for (const movement of residualIssues) {
+        const own = forMove(movement.id);
+        if (own.length !== 1)
+            skip('SOURCE_MISMATCH', 'Jurnal bahan affal-only bukan satu.');
+        residualValue = residualValue.plus(journalValue(own[0], movement));
+    }
+    return {
+        absorbedValue: journalValue(forMove(output.id)[0], output),
+        residualValue,
+    };
 }
 
+/** Each scrap row must belong to exactly one execution through its ScrapRecord. */
 async function provenScraps(
     tx: Tx,
     orderNumber: string,
-    execution: Awaited<ReturnType<typeof loadOrder>>['execution'],
+    owners: Execution[],
     scraps: Movement[],
     orderId: string,
 ) {
@@ -265,22 +327,10 @@ async function provenScraps(
         where: { productionOrderId: orderId },
         orderBy: { id: 'asc' },
     });
-    const reported = [execution.scrapProngkolQty, execution.scrapDaunQty]
-        .filter((q) => q.gt(0))
-        .map(String)
-        .sort()
-        .join('|');
-    if (
-        records.length !== scraps.length ||
-        new Set(scraps.map((m) => m.productVariantId)).size !== scraps.length ||
-        reported !==
-            scraps
-                .map((m) => m.quantity.toString())
-                .sort()
-                .join('|')
-    )
+    if (records.length !== scraps.length)
         skip('SOURCE_MISMATCH', 'Rincian affal eksekusi tidak sesuai sumber.');
     const inventories = [];
+    const scrapOwner = new Map<string, string>();
     for (const m of scraps) {
         const variant = await tx.productVariant.findUnique({
             where: { id: m.productVariantId },
@@ -291,7 +341,10 @@ async function provenScraps(
                 r.productVariantId === m.productVariantId &&
                 r.quantity.eq(m.quantity) &&
                 r.locationId === m.toLocationId &&
-                r.productionExecutionId === execution.id,
+                owners.some((e) => e.id === r.productionExecutionId),
+        );
+        const owner = owners.find(
+            (e) => e.id === matches[0]?.productionExecutionId,
         );
         if (
             variant?.product.productType !== 'SCRAP' ||
@@ -300,10 +353,12 @@ async function provenScraps(
             m.fromLocationId ||
             m.reference !== `Production Scrap: ${orderNumber}` ||
             matches.length !== 1 ||
-            Math.abs(m.createdAt.getTime() - execution.createdAt.getTime()) >
+            !owner ||
+            Math.abs(m.createdAt.getTime() - owner.createdAt.getTime()) >
                 SCRAP_LINK_WINDOW_MS
         )
             skip('SOURCE_MISMATCH', 'Atribusi affal historis tidak terbukti.');
+        scrapOwner.set(m.id, owner.id);
         const inventory = await tx.inventory.findUnique({
             where: {
                 locationId_productVariantId: {
@@ -323,7 +378,28 @@ async function provenScraps(
             );
         inventories.push(inventory);
     }
-    return { records, inventories };
+    // Reported prongkol/daun per execution must equal its own scrap rows.
+    for (const e of owners) {
+        const own = scraps.filter((m) => scrapOwner.get(m.id) === e.id);
+        const reported = [e.scrapProngkolQty, e.scrapDaunQty]
+            .filter((q) => q.gt(0))
+            .map(String)
+            .sort()
+            .join('|');
+        if (
+            new Set(own.map((m) => m.productVariantId)).size !== own.length ||
+            reported !==
+                own
+                    .map((m) => m.quantity.toString())
+                    .sort()
+                    .join('|')
+        )
+            skip(
+                'SOURCE_MISMATCH',
+                'Rincian affal eksekusi tidak sesuai sumber.',
+            );
+    }
+    return { records, inventories, scrapOwner };
 }
 
 async function inspect(
@@ -331,23 +407,30 @@ async function inspect(
     database: string,
     orderId: string,
     orderNumber: string,
+    retainScrapOnlyResidual = false,
 ) {
-    const { order, executions, execution } = await loadOrder(
+    const { order, executions, execution, scrapOnly } = await loadOrder(
         tx,
         orderId,
         orderNumber,
+        retainScrapOnlyResidual,
     );
-    const sources = await loadSources(tx, order, execution);
-    const absorbedValue = await provenAbsorption(tx, sources);
-    const { records, inventories } = await provenScraps(
+    const sources = await loadSources(tx, order, execution, scrapOnly);
+    const { absorbedValue, residualValue } = await provenAbsorption(
+        tx,
+        sources,
+    );
+    const { records, inventories, scrapOwner } = await provenScraps(
         tx,
         order.orderNumber,
-        execution,
+        scrapOnly ? [execution, scrapOnly] : [execution],
         sources.scraps,
         order.id,
     );
+    const mode = scrapOnly ? 'RETAIN_SCRAP_ONLY_RESIDUAL' : 'FULL_ABSORPTION';
     const fingerprint = hash({
         database,
+        mode,
         order,
         executions,
         movements: sources.movements,
@@ -358,9 +441,13 @@ async function inspect(
     return {
         order,
         execution,
+        scrapOnly,
+        mode,
         scraps: sources.scraps,
+        scrapOwner,
         inventories,
         absorbedValue,
+        residualValue,
         fingerprint,
     };
 }
@@ -372,10 +459,14 @@ function preview(evidence: Evidence) {
         alreadyApplied: false,
         fingerprint: evidence.fingerprint,
         orderNumber: evidence.order.orderNumber,
+        mode: evidence.mode,
         executionId: evidence.execution.id,
+        scrapOnlyExecutionId: evidence.scrapOnly?.id ?? null,
         absorbedValue: evidence.absorbedValue.toString(),
+        residualValue: evidence.residualValue.toString(),
         scraps: evidence.scraps.map((m, i) => ({
             movementId: m.id,
+            executionId: evidence.scrapOwner.get(m.id),
             quantity: m.quantity.toString(),
             averageCost:
                 evidence.inventories[i].averageCost?.toString() ?? null,
@@ -394,7 +485,10 @@ async function assertTarget(tx: Tx, database: string) {
 /** Read-only classification of every active WO holding legacy NULL-cost unjournaled scrap. */
 export async function scanAbsorbedScrap(
     db: PrismaClient,
-    { database }: { database: string },
+    {
+        database,
+        retainScrapOnlyResidual = false,
+    }: { database: string; retainScrapOnlyResidual?: boolean },
 ) {
     return db.$transaction(
         async (tx) => {
@@ -417,6 +511,7 @@ export async function scanAbsorbedScrap(
                         database,
                         candidate.id,
                         candidate.orderNumber,
+                        retainScrapOnlyResidual,
                     );
                     results.push({
                         orderId: candidate.id,
@@ -507,6 +602,7 @@ export async function normalizeAbsorbedScrap(
                 input.database,
                 input.orderId,
                 input.orderNumber,
+                input.retainScrapOnlyResidual,
             );
             const result = preview(evidence);
             if (!execute) return result;
@@ -527,7 +623,7 @@ export async function normalizeAbsorbedScrap(
                     data: {
                         cost: 0,
                         companyOwned: true,
-                        productionExecutionId: evidence.execution.id,
+                        productionExecutionId: evidence.scrapOwner.get(m.id),
                     },
                 });
                 if (updated.count !== 1)
@@ -549,8 +645,11 @@ export async function normalizeAbsorbedScrap(
                             orderNumber: input.orderNumber,
                             fingerprint: evidence.fingerprint,
                             backupReference: input.backupReference,
+                            mode: evidence.mode,
                             executionId: evidence.execution.id,
+                            scrapOnlyExecutionId: evidence.scrapOnly?.id ?? null,
                             absorbedValue: evidence.absorbedValue,
+                            residualValue: evidence.residualValue,
                             originalMovements: evidence.scraps,
                             inventories: evidence.inventories,
                             netPhysicalQuantityChange: 0,

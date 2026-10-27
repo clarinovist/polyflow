@@ -6,6 +6,8 @@ import { tenantContext } from '@/lib/core/prisma';
 import { recordInventoryMovement } from '@/services/accounting/inventory-link-service';
 import { ProductionCostService } from '@/services/production/cost-service';
 import { voidProductionExecutionInTransaction } from '@/services/production/execution-void-helper';
+import { recordFinishedGoodsOutput } from '@/services/production/execution-output-posting';
+import type { ProductionExecutionOrder } from '@/services/production/execution-types';
 import { normalizeAbsorbedScrap, scanAbsorbedScrap } from '../absorbed-scrap-normalization';
 
 // Synthetic only: real PostgreSQL proves the normalized legacy rows are what the
@@ -67,14 +69,22 @@ async function output(tx: Prisma.TransactionClient, value: number, createdAt = a
     await recordInventoryMovement(movement, tx, { productionOutput: true });
 }
 /** Pre-fix shape: one fully absorbed output plus two NULL-cost, unjournaled automatic scraps. */
-async function legacyOrder({ affalOnly = false } = {}) {
+async function legacyOrder({ affalOnly = false, scrapOnlyBatch = false } = {}) {
     await run(async tx => {
         await issue(tx, 140); await output(tx, 140);
         await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: 10 } });
         await tx.productionExecution.create({ data: { id: 'legacy-execution', productionOrderId: 'wo', quantityProduced: 10,
             scrapProngkolQty: 2, scrapDaunQty: 2, startTime: at, endTime: at, createdAt: at } });
-        if (affalOnly) await tx.productionExecution.create({ data: { id: 'affal-only', productionOrderId: 'wo', quantityProduced: 0,
+        if (affalOnly || scrapOnlyBatch) await tx.productionExecution.create({ data: { id: 'affal-only', productionOrderId: 'wo', quantityProduced: 0,
             scrapDaunQty: 0.5, startTime: at, endTime: at, createdAt: new Date(at.getTime() + 60000) } });
+        if (scrapOnlyBatch) {
+            // Its 0.5 kg material (Rp5) went entirely to scrap and stays in WIP.
+            await issue(tx, 5, new Date(at.getTime() + 60100));
+            await tx.stockMovement.create({ data: { id: 'legacy-affal', type: 'IN', productVariantId: 'leaf', productionOrderId: 'wo',
+                quantity: 0.5, cost: null, toLocationId: 'scrap-loc', createdAt: new Date(at.getTime() + 60200), reference: 'Production Scrap: wo' } });
+            await tx.scrapRecord.create({ data: { productionOrderId: 'wo', productionExecutionId: 'affal-only',
+                productVariantId: 'leaf', quantity: 0.5, locationId: 'scrap-loc', recordedAt: new Date(at.getTime() + 60200) } });
+        }
         for (const id of ['leaf', 'lump']) {
             await tx.stockMovement.create({ data: { id: `legacy-${id}`, type: 'IN', productVariantId: id, productionOrderId: 'wo',
                 quantity: 2, cost: null, toLocationId: 'scrap-loc', createdAt: at, reference: 'Production Scrap: wo' } });
@@ -148,6 +158,28 @@ describe.skipIf(!db)('absorbed legacy scrap normalization PostgreSQL contract', 
         await db!.inventory.updateMany({ where: { productVariantId: 'leaf' }, data: { quantity: 31 } });
         await expect(normalizeAbsorbedScrap(db!, { ...request, expectedFingerprint: preview.fingerprint }, true)).rejects.toThrow('Data berubah');
         expect(await db!.stockMovement.count({ where: { cost: d(0) } })).toBe(0);
+    });
+    it('keeps a scrap-only residual in WIP so the next output absorbs it and the pool ends at zero', async () => {
+        const request = await legacyOrder({ scrapOnlyBatch: true });
+        await expect(normalizeAbsorbedScrap(db!, request)).rejects.toMatchObject({ code: 'AFFAL_ONLY_DEFERRED' });
+        const retained = { ...request, retainScrapOnlyResidual: true };
+        const preview = await normalizeAbsorbedScrap(db!, retained);
+        expect(preview).toMatchObject({ mode: 'RETAIN_SCRAP_ONLY_RESIDUAL', residualValue: '5', scrapOnlyExecutionId: 'affal-only' });
+        const before = await snapshot();
+        await normalizeAbsorbedScrap(db!, { ...retained, expectedFingerprint: preview.fingerprint }, true);
+        expect(await snapshot()).toEqual(before);
+        expect(await db!.stockMovement.findUniqueOrThrow({ where: { id: 'legacy-affal' } })).toMatchObject({ cost: d(0), productionExecutionId: 'affal-only' });
+        expect(await balance(accounts.wip)).toBe(5);
+        // Next batch through the real output path: remaining posted WIP (5 + 50) relieves fully.
+        await run(async tx => {
+            await issue(tx, 50, new Date(at.getTime() + 600000));
+            const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 10 } }, include: { bom: true } });
+            await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder, quantityProduced: 10, reference: 'Synthetic next output' });
+        });
+        expect(await balance(accounts.wip)).toBe(0);
+        const next = await db!.stockMovement.findFirstOrThrow({ where: { reference: 'Synthetic next output' } });
+        const journal = await db!.journalEntry.findFirstOrThrow({ where: { referenceId: next.id }, include: { lines: true } });
+        expect(journal.lines.reduce((sum, line) => sum + Number(line.debit), 0)).toBe(55);
     });
     it('reports affal-only and other target databases instead of normalizing', async () => {
         await legacyOrder({ affalOnly: true });
