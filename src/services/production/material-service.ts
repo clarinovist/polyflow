@@ -8,17 +8,23 @@ import {
     ScrapRecordValues,
     QualityInspectionValues,
 } from '@/lib/schemas/production';
-import { MovementType, ReferenceType, Prisma } from '@prisma/client';
+import { MovementType, Prisma } from '@prisma/client';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
+import { reverseProductionMovementJournal } from '../accounting/production-movement-reversal';
+import { logActivity } from '@/lib/tools/audit';
+import { removeZeroCostScrapReceipt } from './zero-cost-scrap-removal';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
 import {
     ValidationError,
     NotFoundError,
     InsufficientStockError,
     ProductionRuleViolationError,
+    ConflictError,
 } from '@/lib/errors/errors';
+
+const scrapReceiptMarker = (scrapId: string) => `[SCRAP:${scrapId}]`;
 
 export interface CappedIssueItem {
     productVariantId: string;
@@ -1111,8 +1117,9 @@ export class ProductionMaterialService {
         } = data;
 
         const recordLogic = async (tx: Prisma.TransactionClient) => {
+            // Serialize with output posting, which funds results from this WO's WIP.
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
             if (data.productionExecutionId) {
-                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
                 const execution = await tx.productionExecution.findUnique({
                     where: { id: data.productionExecutionId },
                     select: { productionOrderId: true, status: true },
@@ -1127,32 +1134,13 @@ export class ProductionMaterialService {
             });
             if (!order) throw new NotFoundError('ProductionOrder', productionOrderId);
 
-            if (data.productionExecutionId) {
-                // Full-absorption COGM already assigns the consumed material to
-                // good output. Automatic scrap has zero allocated cost, not the
-                // SKU's sale price, and must not inflate existing stock value.
-                await InventoryCoreService.incrementStockWithCost(tx, locationId, productVariantId, quantity, 0);
-            } else {
-                await InventoryCoreService.incrementStock(tx, locationId, productVariantId, quantity);
-            }
+            // Full-absorption COGM already assigns the consumed material to
+            // good output. Affal, automatic or recorded manually on the SPK, has
+            // zero allocated cost, not the SKU's sale price, and must not
+            // inflate existing stock value or post a WIP journal.
+            await InventoryCoreService.incrementStockWithCost(tx, locationId, productVariantId, quantity, 0);
 
-            const movement = await tx.stockMovement.create({
-                data: {
-                    type: MovementType.IN,
-                    productVariantId,
-                    toLocationId: locationId,
-                    quantity,
-                    reference: `Production Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
-                    productionExecutionId: data.productionExecutionId,
-                    cost: data.productionExecutionId ? 0 : undefined,
-                    companyOwned: data.productionExecutionId ? !order.isMaklon : undefined,
-                    createdById: userId,
-                    productionOrderId: productionOrderId, // Add structured relation
-                },
-            });
-            await AccountingService.recordInventoryMovement(movement, tx);
-
-            await tx.scrapRecord.create({
+            const scrap = await tx.scrapRecord.create({
                 data: {
                     productionOrderId,
                     productVariantId,
@@ -1163,6 +1151,24 @@ export class ProductionMaterialService {
                     locationId,
                 },
             });
+            // A manual record has no execution; deletion finds its exact receipt
+            // by this marker, never by matching quantity or time.
+            const marker = data.productionExecutionId ? '' : ` ${scrapReceiptMarker(scrap.id)}`;
+            const movement = await tx.stockMovement.create({
+                data: {
+                    type: MovementType.IN,
+                    productVariantId,
+                    toLocationId: locationId,
+                    quantity,
+                    reference: `Production Scrap: ${order.orderNumber}${marker}`,
+                    productionExecutionId: data.productionExecutionId,
+                    cost: 0,
+                    companyOwned: !order.isMaklon,
+                    createdById: userId,
+                    productionOrderId: productionOrderId, // Add structured relation
+                },
+            });
+            await AccountingService.recordInventoryMovement(movement, tx);
         };
 
         if (existingTx) {
@@ -1178,12 +1184,10 @@ export class ProductionMaterialService {
         // }
     }
 
-    static async deleteScrap(scrapId: string, productionOrderId: string) {
+    static async deleteScrap(scrapId: string, productionOrderId: string, userId?: string) {
         await prisma.$transaction(async (tx) => {
-            const scrap = await tx.scrapRecord.findUnique({
-                where: { id: scrapId },
-                include: { productVariant: true },
-            });
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+            const scrap = await tx.scrapRecord.findUnique({ where: { id: scrapId } });
 
             if (!scrap) throw new NotFoundError('ScrapRecord', scrapId);
             if (scrap.productionOrderId !== productionOrderId) {
@@ -1192,75 +1196,38 @@ export class ProductionMaterialService {
             if (scrap.productionExecutionId) {
                 throw new ProductionRuleViolationError('Affal hasil eksekusi harus dibatalkan bersama eksekusinya.');
             }
-
-            // ROBUST: Use saved locationId
-            let locationId = scrap.locationId;
-            if (!locationId) {
-                // Legacy fallback: determine from StockMovement
-                const movement = await tx.stockMovement.findFirst({
-                    where: {
-                        productVariantId: scrap.productVariantId,
-                        reference: { contains: `${productionOrderId}` },
-                        type: MovementType.IN,
-                        quantity: scrap.quantity,
-                    },
-                    orderBy: { createdAt: 'desc' },
-                });
-                locationId = movement?.toLocationId ?? null;
+            // Reverse only the receipt this record wrote. Legacy records carry no
+            // exact link; guessing by quantity could reverse another receipt.
+            const receipts = await tx.stockMovement.findMany({ where: {
+                productionOrderId, type: MovementType.IN, reversalOfId: null,
+                reference: { endsWith: scrapReceiptMarker(scrapId) },
+            } });
+            if (receipts.length !== 1 || !receipts[0].cost?.isZero()) {
+                throw new ProductionRuleViolationError('Catatan affal lama belum memiliki tautan stok yang pasti dan tidak dapat dihapus otomatis. Hubungi admin.');
             }
-
-            if (!locationId) {
-                const scrapLoc = await tx.location.findUnique({
-                    where: { slug: WAREHOUSE_SLUGS.SCRAP },
-                });
-                if (!scrapLoc)
-                    throw new NotFoundError('Location', WAREHOUSE_SLUGS.SCRAP);
-                locationId = scrapLoc.id;
+            if (!userId) throw new ProductionRuleViolationError('Aktor pembatalan wajib tersedia.');
+            const receipt = receipts[0];
+            if (await tx.stockMovement.findFirst({ where: { reversalOfId: receipt.id }, select: { id: true } })) {
+                throw new ConflictError('Penerimaan affal sudah dibalik.');
             }
-
-            await InventoryCoreService.deductStock(
-                tx,
-                locationId,
-                scrap.productVariantId,
-                scrap.quantity.toNumber(),
-            );
-
-            const order = await tx.productionOrder.findUnique({
-                where: { id: productionOrderId },
-                select: { orderNumber: true },
-            });
-
-            const movement = await tx.stockMovement.create({
+            await removeZeroCostScrapReceipt(tx, receipt);
+            const reversal = await tx.stockMovement.create({
                 data: {
                     type: MovementType.OUT,
-                    productVariantId: scrap.productVariantId,
-                    fromLocationId: locationId,
-                    quantity: scrap.quantity,
-                    reference: `VOID Scrap: ${order?.orderNumber || 'UNKNOWN'}`,
-                    productionOrderId: productionOrderId, // Add structured relation
+                    productVariantId: receipt.productVariantId,
+                    fromLocationId: receipt.toLocationId,
+                    quantity: receipt.quantity,
+                    cost: receipt.cost,
+                    reference: `VOID: ${receipt.reference}`,
+                    productionOrderId, reversalOfId: receipt.id,
+                    companyOwned: receipt.companyOwned,
+                    createdById: userId,
                 },
             });
-            await AccountingService.recordInventoryMovement(movement, tx);
-
-            // Delete record
+            await reverseProductionMovementJournal(tx, receipt, reversal, userId);
             await tx.scrapRecord.delete({ where: { id: scrapId } });
-
-            // Find and Void Journal Entry
-            const journal = await tx.journalEntry.findFirst({
-                where: {
-                    referenceType: ReferenceType.STOCK_ADJUSTMENT,
-                    referenceId: scrapId,
-                },
-            });
-
-            if (journal && journal.status === 'POSTED') {
-                await AccountingService.voidJournal(journal.id);
-            } else if (journal && journal.status === 'DRAFT') {
-                await tx.journalEntry.update({
-                    where: { id: journal.id },
-                    data: { status: 'VOIDED' },
-                });
-            }
+            await logActivity({ userId, action: 'DELETE_SCRAP_RECORD', entityType: 'ScrapRecord', entityId: scrapId,
+                details: 'Manual SPK affal removed with its exact zero-cost stock receipt.', tx });
         });
     }
 

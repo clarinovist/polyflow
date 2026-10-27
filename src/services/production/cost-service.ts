@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { MovementType, Prisma } from '@prisma/client';
+import { BusinessRuleError } from '@/lib/errors/errors';
+import { availableProductionWip } from '@/services/accounting/production-wip-provenance';
 
 export class ProductionCostService {
     static async calculateBatchTotalCost(productionOrderId: string, tx: Prisma.TransactionClient) {
@@ -40,6 +42,41 @@ export class ProductionCostService {
         const total = basis.unitCost.mul(persistedQuantity).toDecimalPlaces(2).plus(adjustment);
         return {
             unitCost: persistedQuantity.gt(0) ? total.div(persistedQuantity).toNumber() : 0,
+            journalTotal: total.toNumber(),
+        };
+    }
+
+    /**
+     * Non-maklon general output: everything this WO posted to WIP and has not
+     * yet relieved. Each batch carries its own material (plus any affal-only
+     * residual), never an order-wide cumulative average that a better-yield
+     * batch cannot fund or a worse-yield batch leaves behind.
+     */
+    static async calculateRemainingOutputValuation(
+        productionOrderId: string,
+        quantity: number,
+        tx: Prisma.TransactionClient,
+    ) {
+        const order = await tx.productionOrder.findUniqueOrThrow({
+            where: { id: productionOrderId }, select: { estimatedConversionCost: true },
+        });
+        if (order.estimatedConversionCost && !order.estimatedConversionCost.isZero()) {
+            throw new BusinessRuleError(
+                'Hasil belum disimpan. Biaya konversi SPK non-maklon belum memiliki jurnal WIP sumber. Minta admin/Finance memeriksa biaya konversi SPK ini.',
+                { productionOrderId }, 'PRODUCTION_CONVERSION_UNFUNDED',
+            );
+        }
+        const total = await availableProductionWip(tx, productionOrderId);
+        if (!total.gt(0)) {
+            // A master/sale price would capitalize value no material funded.
+            throw new BusinessRuleError(
+                'Hasil belum disimpan. Tidak ada sisa biaya bahan SPK untuk hasil ini: bahan yang tercatat sudah dibebankan ke hasil sebelumnya. Laporkan ke admin; jangan mengubah jumlah hasil atau memakai penyesuaian stok.',
+                { productionOrderId }, 'PRODUCTION_OUTPUT_COST_UNAVAILABLE',
+            );
+        }
+        const persistedQuantity = new Prisma.Decimal(quantity).toDecimalPlaces(4);
+        return {
+            unitCost: total.div(persistedQuantity).toDecimalPlaces(4).toNumber(),
             journalTotal: total.toNumber(),
         };
     }

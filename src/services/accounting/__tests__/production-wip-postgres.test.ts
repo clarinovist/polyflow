@@ -11,6 +11,7 @@ import type { ProductionExecutionOrder } from '../../production/execution-types'
 import { recordExecutionScrap } from '../../production/execution-scrap-recording';
 import { voidProductionExecutionInTransaction } from '../../production/execution-void-helper';
 import { reconcileProductionScrap } from '@/lib/ops/production-scrap-reconciliation';
+import { ProductionMaterialService } from '../../production/material-service';
 
 const connection = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
 const db = connection ? returnTestClient(connection) : null;
@@ -195,6 +196,80 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
         expect((await stock()).quantity.mul((await stock()).averageCost ?? 0).toNumber()).toBeCloseTo(600, 2);
         expect(await db!.stockMovement.count({ where: { reversalOfId: { in: scraps.filter(m => m.productionExecutionId === 'first').map(m => m.id) } } })).toBe(2);
         expect(await db!.auditLog.count({ where: { action: 'VOID_PRODUCTION_EXECUTION', entityId: 'first' } })).toBe(1);
+    });
+    it('values each output from its WO remaining WIP across yield, mapping change and a voided middle batch', async () => {
+        const a = ids.get(db!)!;
+        async function batch(tx: Prisma.TransactionClient, executionId: string, slot: number, kg: number) {
+            const batchTime = new Date(at.getTime() + slot * 120000);
+            await tx.productionExecution.create({ data: { id: executionId, productionOrderId: 'wo', quantityProduced: 10,
+                startTime: batchTime, endTime: batchTime, createdAt: batchTime, clientRequestId: executionId } });
+            const material = await tx.stockMovement.create({ data: { type: 'OUT', productVariantId: 'raw', productionOrderId: 'wo',
+                fromLocationId: 'loc', quantity: kg, cost: 10, createdAt: batchTime, reference: `Backflush ${executionId}` } });
+            await recordInventoryMovement(material, tx);
+            const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 10 } }, include: { bom: true } });
+            await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                quantityProduced: 10, reference: `Synthetic output ${executionId}` });
+            await tx.stockMovement.updateMany({ where: { reference: `Synthetic output ${executionId}` }, data: { createdAt: batchTime } });
+            const posted = await tx.stockMovement.findFirstOrThrow({ where: { reference: `Synthetic output ${executionId}` } });
+            const journal = await tx.journalEntry.findFirstOrThrow({ where: { referenceId: posted.id }, include: { lines: true } });
+            return journal.lines.reduce((sum, line) => sum.plus(line.debit), d(0)).toNumber();
+        }
+        expect(await run(db!, tx => batch(tx, 'b1', 0, 12))).toBe(120);
+        await db!.product.update({ where: { id: 'raw' }, data: { wipAccountId: a.wip } });
+        // A cumulative average would ask 110 here, which the posted 100 cannot fund.
+        expect(await run(db!, tx => batch(tx, 'b2', 1, 10))).toBe(100);
+        expect(await run(db!, tx => batch(tx, 'b3', 2, 14))).toBe(140);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        expect(await balance(db!, a.wip)).toBe(10); // initial opening only
+        expect(await balance(db!, a.output)).toBe(360);
+        await run(db!, tx => voidProductionExecutionInTransaction(tx, 'b2', { userId: 'actor' }));
+        expect(await balance(db!, a.output)).toBe(260);
+        expect(await balance(db!, a.wip)).toBe(10);
+        expect(await run(db!, tx => batch(tx, 'b4', 3, 11))).toBe(110);
+        expect(await balance(db!, a.output)).toBe(370);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        expect(await balance(db!, a.wip)).toBe(10);
+        await expect(run(db!, async tx => {
+            const order = await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 5 } }, include: { bom: true } });
+            await recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                quantityProduced: 5, reference: 'Synthetic unfunded output' });
+        })).rejects.toMatchObject({ code: 'PRODUCTION_OUTPUT_COST_UNAVAILABLE' });
+        expect(await db!.stockMovement.count({ where: { reference: 'Synthetic unfunded output' } })).toBe(0);
+    });
+    it('records manual SPK affal at zero cost without WIP effect and deletes it by its exact receipt', async () => {
+        const a = ids.get(db!)!;
+        await db!.location.create({ data: { id: 'scrap-loc', name: 'Synthetic scrap', slug: 'scrap_warehouse', locationPurpose: 'SCRAP' } });
+        await db!.product.create({ data: { id: 'scrap-product', name: 'Synthetic scrap', productType: 'SCRAP' } });
+        await db!.productVariant.create({ data: { id: 'leaf', productId: 'scrap-product', name: 'leaf', skuCode: 'SCRAP-DAUN', primaryUnit: 'KG', price: 7000 } });
+        await db!.inventory.create({ data: { locationId: 'scrap-loc', productVariantId: 'leaf', quantity: 10, averageCost: 60 } });
+        const produce = (tx: Prisma.TransactionClient, quantity: number, reference: string) =>
+            tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: quantity } }, include: { bom: true } })
+                .then(order => recordFinishedGoodsOutput({ tx, productionOrderId: 'wo', order: order as unknown as ProductionExecutionOrder,
+                    quantityProduced: quantity, reference }));
+        await run(db!, async tx => {
+            await issue(tx, 100);
+            await ProductionMaterialService.recordScrap({ productionOrderId: 'wo', productVariantId: 'leaf', locationId: 'scrap-loc',
+                quantity: 2, userId: 'actor', reason: 'Manual affal' }, tx);
+            await produce(tx, 10, 'Synthetic output after manual affal');
+        });
+        const receipt = await db!.stockMovement.findFirstOrThrow({ where: { productVariantId: 'leaf' } });
+        expect(receipt.cost?.toString()).toBe('0');
+        expect(receipt.companyOwned).toBe(true);
+        expect(await db!.journalEntry.count({ where: { referenceId: receipt.id } })).toBe(0);
+        expect(await balance(db!, a.output)).toBe(100);
+        expect(await balance(db!, a.legacy)).toBe(0);
+        const stock = () => db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'scrap-loc', productVariantId: 'leaf' } } });
+        expect((await stock()).averageCost?.toNumber()).toBe(50);
+        const record = await db!.scrapRecord.findFirstOrThrow({ where: { productionOrderId: 'wo' } });
+        await tenantContext.run(db!, () => ProductionMaterialService.deleteScrap(record.id, 'wo', 'actor'));
+        expect((await stock()).quantity.toNumber()).toBe(10);
+        expect((await stock()).averageCost?.toNumber()).toBe(60);
+        expect(await db!.stockMovement.count({ where: { reversalOfId: receipt.id } })).toBe(1);
+        expect(await db!.scrapRecord.count()).toBe(0);
+        expect(await db!.auditLog.count({ where: { action: 'DELETE_SCRAP_RECORD', entityId: record.id } })).toBe(1);
+        await run(db!, async tx => { await issue(tx, 50); await produce(tx, 5, 'Synthetic output after deletion'); });
+        expect(await balance(db!, a.output)).toBe(150);
+        expect(await balance(db!, a.legacy)).toBe(0);
     });
     async function legacyScrapFixture() {
         const a = ids.get(db!)!;

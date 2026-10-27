@@ -36,23 +36,19 @@ function wipLines(movement: StockMovement, journal: Source) {
 }
 
 /**
- * Allocate an output's credit only from posted WIP legs belonging to this WO.
- * Caller holds the WO lock and owns the posting transaction. No bridging journal,
- * revaluation, inactive-account activation, or borrowing another WO's balance.
+ * Posted WIP left on each source account of one WO, in first-source order.
+ * Rejects every inconsistent source instead of guessing, and never returns a
+ * negative pool. `excludeMovementId` leaves out the output being funded.
  */
-export async function allocateProductionWip(
+async function readProductionWipBalances(
     tx: Prisma.TransactionClient,
-    output: StockMovement,
-    amount: Prisma.Decimal,
-): Promise<Array<{ accountId: string; credit: Prisma.Decimal }>> {
-    if (!output.productionOrderId || output.type !== 'IN' || output.reversalOfId ||
-        !amount.isFinite() || !amount.gt(0) || amount.decimalPlaces() > 2) {
-        unresolved('identitas hasil/nilai tidak valid');
-    }
+    productionOrderId: string,
+    excludeMovementId?: string,
+): Promise<Map<string, Prisma.Decimal>> {
     const movements = await tx.stockMovement.findMany({
         where: {
-            productionOrderId: output.productionOrderId,
-            id: { not: output.id }, type: { in: ['IN', 'OUT'] },
+            productionOrderId,
+            ...(excludeMovementId ? { id: { not: excludeMovementId } } : {}), type: { in: ['IN', 'OUT'] },
         },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
@@ -116,7 +112,33 @@ export async function allocateProductionWip(
     // A negative pool is a historical inconsistency, not permission to fund it
     // with an unrelated positive account. Reconcile before accepting more output.
     if ([...balances.values()].some(value => value.lt(0))) unresolved('sisa nilai akun WIP WO negatif');
-    const available = [...balances.values()].reduce((sum, value) => sum.plus(value), zero());
+    return balances;
+}
+
+const total = (balances: Map<string, Prisma.Decimal>) =>
+    [...balances.values()].reduce((sum, value) => sum.plus(value), zero());
+
+/** Posted material value this WO has not yet relieved into output, in cents. */
+export async function availableProductionWip(tx: Prisma.TransactionClient, productionOrderId: string) {
+    return total(await readProductionWipBalances(tx, productionOrderId));
+}
+
+/**
+ * Allocate an output's credit only from posted WIP legs belonging to this WO.
+ * Caller holds the WO lock and owns the posting transaction. No bridging journal,
+ * revaluation, inactive-account activation, or borrowing another WO's balance.
+ */
+export async function allocateProductionWip(
+    tx: Prisma.TransactionClient,
+    output: StockMovement,
+    amount: Prisma.Decimal,
+): Promise<Array<{ accountId: string; credit: Prisma.Decimal }>> {
+    if (!output.productionOrderId || output.type !== 'IN' || output.reversalOfId ||
+        !amount.isFinite() || !amount.gt(0) || amount.decimalPlaces() > 2) {
+        unresolved('identitas hasil/nilai tidak valid');
+    }
+    const balances = await readProductionWipBalances(tx, output.productionOrderId, output.id);
+    const available = total(balances);
     if (available.lt(amount)) unresolved('debit bahan WO tidak cukup untuk nilai hasil kumulatif');
     let remaining = amount;
     const allocation: Array<{ accountId: string; credit: Prisma.Decimal }> = [];

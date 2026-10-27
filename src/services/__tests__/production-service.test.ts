@@ -219,6 +219,10 @@ describe("ProductionService", () => {
     vi.mocked(ProductionCostService.calculateBatchOutputValuation).mockImplementation(
       async (_orderId, quantity) => ({ unitCost: 500, journalTotal: quantity * 500 }),
     );
+    // Company output takes the WO's remaining posted WIP; maklon keeps the average path.
+    vi.mocked(ProductionCostService.calculateRemainingOutputValuation).mockImplementation(
+      async (_orderId, quantity) => ({ unitCost: 500, journalTotal: quantity * 500 }),
+    );
 
     (AccountingService.recordInventoryMovement as any).mockResolvedValue(
       undefined,

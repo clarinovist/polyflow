@@ -33,7 +33,7 @@ function setup(isMaklon = false) {
             }),
             findMany: vi.fn(async () => movements),
         },
-        scrapRecord: { create: vi.fn(), findUnique: vi.fn() },
+        scrapRecord: { create: vi.fn(async () => ({ id: 'scrap-record' })), findUnique: vi.fn() },
         journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
     };
     return { db, tx: db as unknown as Prisma.TransactionClient, movements };

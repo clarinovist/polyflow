@@ -179,8 +179,8 @@ Ya. Semua accounting otomatis:
 
 - Backflush material → Dr. WIP / Cr. Inventori Bahan
 - Output produksi → Dr. Inventori Jadi / Cr. WIP
-- Scrap → Dr. Inventori Scrap / Cr. WIP
-- COGM dihitung dari total material cost + conversion cost
+- Affal/scrap (otomatis maupun "Catat Scrap Manual") → stok bertambah dengan biaya alokasi Rp0, tanpa jurnal; nilai bahannya sudah ikut ke hasil baik, bukan dinilai harga jual
+- Nilai tiap output = sisa biaya bahan SPK yang sudah diposting ke WIP dan belum dibebankan ke output sebelumnya; hasil tanpa sisa biaya ditolak, bukan dinilai harga master/jual
 
 ### Bisa pakai untuk Maklon?
 

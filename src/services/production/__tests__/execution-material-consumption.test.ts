@@ -211,6 +211,21 @@ describe('backflushMaterials — STAGED→ISSUED conversion & manual-issue guard
         expect(tx.stockMovement.create).toHaveBeenCalled();
     });
 
+    it('writes an explicit zero cost for an uncosted material so the journal cannot fall back to a sale price', async () => {
+        await backflushMaterials({
+            tx,
+            order: mockOrder,
+            productionOrderId: 'po-1',
+            totalConsumed: 100,
+            reference: 'Backflush: WO-001',
+            userId: 'user-1',
+        });
+
+        expect(tx.stockMovement.create).toHaveBeenCalledWith({
+            data: expect.objectContaining({ type: 'OUT', productVariantId: 'pv-1', cost: 0 }),
+        });
+    });
+
     it('keeps backflush consuming at the explicit consumption location while output lands elsewhere', async () => {
         vi.mocked(resolveMaterialLocation).mockClear();
         const mockTx = {

@@ -26,6 +26,7 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     stockMovement: {
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       create: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -56,6 +57,7 @@ vi.mock("@/lib/core/prisma", () => ({
     journalLine: {
       deleteMany: vi.fn(),
     },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn((callback) => callback(prisma)),
   },
 }));
@@ -66,6 +68,7 @@ vi.mock("@/services/inventory/core-service", () => ({
     validateAndLockStock: vi.fn(),
     deductStock: vi.fn(),
     incrementStock: vi.fn(),
+    incrementStockWithCost: vi.fn(),
   },
 }));
 
@@ -134,11 +137,13 @@ describe("ProductionMaterialService", () => {
       const mockOrder = {
         id: "po-1",
         orderNumber: "WO-001",
+        isMaklon: false,
       };
 
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
         mockOrder as any,
       );
+      vi.mocked(prisma.scrapRecord.create).mockResolvedValue({ id: "scrap-1" } as any);
       vi.mocked(prisma.stockMovement.create).mockResolvedValue({} as any);
 
       // Act
@@ -152,7 +157,16 @@ describe("ProductionMaterialService", () => {
       });
 
       // Assert
-      expect(prisma.stockMovement.create).toHaveBeenCalled();
+      // Manual affal carries zero allocated cost and an exact deletion link.
+      expect(InventoryCoreService.incrementStockWithCost).toHaveBeenCalledWith(prisma, "loc-1", "pv-1", 10, 0);
+      expect(prisma.stockMovement.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          cost: 0,
+          companyOwned: true,
+          productionExecutionId: undefined,
+          reference: "Production Scrap: WO-001 [SCRAP:scrap-1]",
+        }),
+      });
     });
   });
 
@@ -195,7 +209,7 @@ describe("ProductionMaterialService", () => {
   });
 
   describe("deleteScrap", () => {
-    it("should delete scrap record", async () => {
+    it("rejects a legacy manual record without an exact receipt link before touching stock", async () => {
       // Arrange
       const mockScrap = {
         id: "scrap-1",
@@ -214,13 +228,17 @@ describe("ProductionMaterialService", () => {
       vi.mocked(prisma.journalEntry.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.journalEntry.update).mockResolvedValue({} as any);
 
+      vi.mocked(prisma.stockMovement.findMany).mockResolvedValue([]);
+
       // Act
-      await ProductionMaterialService.deleteScrap("scrap-1", "po-1");
+      await expect(
+        ProductionMaterialService.deleteScrap("scrap-1", "po-1", "user-1"),
+      ).rejects.toThrow("tautan stok");
 
       // Assert
-      expect(prisma.scrapRecord.delete).toHaveBeenCalledWith({
-        where: { id: "scrap-1" },
-      });
+      expect(InventoryCoreService.deductStock).not.toHaveBeenCalled();
+      expect(prisma.stockMovement.create).not.toHaveBeenCalled();
+      expect(prisma.scrapRecord.delete).not.toHaveBeenCalled();
     });
 
     it("should throw error when scrap not found", async () => {

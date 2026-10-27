@@ -307,7 +307,9 @@ export async function backflushMaterials(params: {
                 productVariantId: item.productVariantId,
                 fromLocationId: consumptionLocationId,
                 quantity: qtyToDeduct,
-                cost: params.executionId ? sourceUnitCost : (sourceUnitCost > 0 ? sourceUnitCost : undefined),
+                // Explicit zero, never NULL: a NULL cost lets the journal fall back to a
+                // master or sale price and fund WIP with value no stock carried.
+                cost: sourceUnitCost,
                 productionExecutionId: params.executionId,
                 companyOwned: params.executionId ? !order.isMaklon : undefined,
                 packagingOwnerCustomerId: params.executionId && order.isMaklon

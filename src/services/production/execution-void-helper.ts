@@ -13,6 +13,7 @@ import {
   cancelSpecificReservation,
 } from '@/services/inventory/reservation-service';
 import { reversePackagedExecution } from './packaging-reversal-service';
+import { removeZeroCostScrapReceipt } from './zero-cost-scrap-removal';
 import { VOID_PIECE_SNAPSHOT } from '@/services/hrd/piece-rate-helpers';
 import { syncProductionRunStatusFromOrders } from './routing-execution-guard';
 
@@ -133,26 +134,8 @@ export async function voidProductionExecutionInTransaction(
     const marker = options.sourceMarker ? ` ${sourceMarker(move.id)}` : '';
     if (move.type === MovementType.IN) {
       if (move.productionExecutionId && move.cost?.isZero()) {
-        // Automatic scrap entered at zero allocated cost. Removing it must
-        // restore the pre-receipt stock value, not expense the current WAC.
-        await InventoryCoreService.validateAndLockStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
-        const downstream = await tx.stockMovement.findFirst({ where: {
-          productVariantId: move.productVariantId, fromLocationId: move.toLocationId,
-          createdAt: { gte: move.createdAt }, type: { in: ['OUT', 'TRANSFER'] },
-          OR: [{ productionExecutionId: null }, { productionExecutionId: { not: executionId } }],
-        } });
-        if (downstream) throw new ProductionRuleViolationError('Affal sudah dipindahkan/digunakan. Balik transaksi lanjutan terlebih dahulu.');
-        const stock = await tx.inventory.findUniqueOrThrow({ where: {
-          locationId_productVariantId: { locationId: move.toLocationId!, productVariantId: move.productVariantId },
-        } });
-        const remainingQty = stock.quantity.minus(move.quantity);
-        const value = stock.quantity.mul(stock.averageCost ?? 0);
-        if (value.lt(0) || (remainingQty.isZero() && value.abs().gt(0.01))) {
-          throw new ProductionRuleViolationError('Nilai stok affal sudah berubah. Rekonsiliasi diperlukan sebelum pembatalan.');
-        }
-        await tx.inventory.update({ where: { id: stock.id }, data: {
-          quantity: remainingQty, averageCost: remainingQty.gt(0) ? value.div(remainingQty).toDecimalPlaces(4) : 0,
-        } });
+        // Automatic scrap entered at zero allocated cost.
+        await removeZeroCostScrapReceipt(tx, move, executionId);
       } else {
         await InventoryCoreService.deductStock(tx, move.toLocationId!, move.productVariantId, Number(move.quantity));
       }

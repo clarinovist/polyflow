@@ -183,10 +183,10 @@ export const deleteScrap = withTenant(async function deleteScrap(
     productionOrderId: string,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        const session = await requireAuth();
 
         try {
-            await ProductionService.deleteScrap(scrapId, productionOrderId);
+            await ProductionService.deleteScrap(scrapId, productionOrderId, session?.user?.id);
 
             revalidatePath(`/production/orders/${productionOrderId}`);
             return null;

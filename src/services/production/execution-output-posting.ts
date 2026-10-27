@@ -12,27 +12,21 @@ import { isSalesStockReservationEnabled } from '@/lib/config/stock-reservation-f
 import { ProductionCostService } from './cost-service';
 import type { ProductionExecutionOrder } from './execution-types';
 
-export async function recordFinishedGoodsOutput(params: {
+/**
+ * Maklon output is customer property and posts no company journal. It keeps
+ * the order-average service cost chain:
+ * 1. Actual COGM from material issues + maklon service costs
+ * 2. Variant's saved cost basis (standardCost → buyPrice → price)
+ * 3. Estimated from BOM recipe (last resort before zero)
+ */
+async function resolveMaklonOutputCost(params: {
     tx: Prisma.TransactionClient;
     productionOrderId: string;
-    order: ProductionExecutionOrder;
+    outputVariantId: string;
     quantityProduced: number;
     materialRoundingAdjustment?: number;
-    reference: string;
 }) {
-    const { tx, productionOrderId, order, quantityProduced, reference } =
-        params;
-    if (quantityProduced <= 0) {
-        return;
-    }
-
-    const locationId = order.locationId;
-    const outputVariantId = order.bom.productVariantId;
-
-    // ── Cost Resolution Chain ──────────────────────────────────────────
-    // 1. Actual COGM from material issues + conversion costs
-    // 2. Variant's saved cost basis (standardCost → buyPrice → price)
-    // 3. Estimated from BOM recipe (last resort before zero)
+    const { tx, productionOrderId, outputVariantId, quantityProduced } = params;
     let unitCost = 0;
     let journalTotal: number | undefined;
 
@@ -104,6 +98,38 @@ export async function recordFinishedGoodsOutput(params: {
                 `(variant ${outputVariantId}). Recording at zero cost — inventory avgCost will be diluted.`,
         );
     }
+
+    return { unitCost, journalTotal };
+}
+
+export async function recordFinishedGoodsOutput(params: {
+    tx: Prisma.TransactionClient;
+    productionOrderId: string;
+    order: ProductionExecutionOrder;
+    quantityProduced: number;
+    materialRoundingAdjustment?: number;
+    reference: string;
+}) {
+    const { tx, productionOrderId, order, quantityProduced, reference } =
+        params;
+    if (quantityProduced <= 0) {
+        return;
+    }
+
+    const locationId = order.locationId;
+    const outputVariantId = order.bom.productVariantId;
+
+    // ── Cost Resolution ────────────────────────────────────────────────
+    // Company output takes this WO's remaining posted WIP, the same source the
+    // WIP guard funds it from. It never falls back to a master or sale price.
+    const { unitCost, journalTotal } = order.isMaklon
+        ? await resolveMaklonOutputCost({
+              tx, productionOrderId, outputVariantId, quantityProduced,
+              materialRoundingAdjustment: params.materialRoundingAdjustment,
+          })
+        : await ProductionCostService.calculateRemainingOutputValuation(
+              productionOrderId, quantityProduced, tx,
+          );
 
     // ── Inventory Posting ──────────────────────────────────────────────
     // Always use incrementStockWithCost so averageCost is recalculated,
