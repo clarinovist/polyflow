@@ -15,6 +15,8 @@ export const settingsLabels = {
     attendanceDesc: 'Konfigurasi self-service & geofence absensi',
     kioskProduksi: 'Kiosk Produksi',
     kioskProduksiDesc: 'Konfigurasi fitur kiosk produksi',
+    biayaProduksi: 'Biaya Produksi',
+    biayaProduksiDesc: 'Sumber biaya konversi Laporan HPP',
     system: 'Sistem',
     systemDesc: 'Lihat kesehatan sistem dan versi',
 

@@ -9,6 +9,7 @@ import { AccessControlTab } from './AccessControlTab';
 import { CompanySettings } from './CompanySettings';
 import { KioskFeatureSettings } from './KioskFeatureSettings';
 import { ShellCloseSettings } from './ShellCloseSettings';
+import { ConversionCostSettings } from './ConversionCostSettings';
 import { RoutingFeatureSettings } from './RoutingFeatureSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,6 +23,7 @@ import {
     Bell,
     CalendarCheck,
     Wrench,
+    Calculator,
     LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
@@ -61,6 +63,7 @@ type TabValue =
     | 'access'
     | 'attendance'
     | 'kiosk'
+    | 'costing'
     | 'system';
 
 interface TabItem {
@@ -147,6 +150,12 @@ export function SettingsTabs({
                       icon: Wrench,
                       description: settingsLabels.kioskProduksiDesc,
                   } as TabItem,
+                  {
+                      value: 'costing',
+                      label: settingsLabels.biayaProduksi,
+                      icon: Calculator,
+                      description: settingsLabels.biayaProduksiDesc,
+                  } as TabItem,
               ]
             : []),
         {
@@ -195,6 +204,8 @@ export function SettingsTabs({
                         <RoutingFeatureSettings />
                     </div>
                 ) : null;
+            case 'costing':
+                return isAdmin ? <ConversionCostSettings /> : null;
             case 'system':
                 return (
                     <Card className="max-w-2xl">

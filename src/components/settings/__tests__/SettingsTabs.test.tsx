@@ -1,15 +1,15 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Role } from '@prisma/client';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ push: vi.fn(), general: vi.fn() }));
+const mocks = vi.hoisted(() => ({ push: vi.fn(), general: vi.fn(), search: 'tab=general' }));
 
 vi.mock('next/navigation', () => ({
     usePathname: () => '/dashboard/settings',
     useRouter: () => ({ push: mocks.push }),
-    useSearchParams: () => new URLSearchParams('tab=general'),
+    useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 vi.mock('../GeneralSettings', () => ({
     GeneralSettings: (props: unknown) => {
@@ -29,6 +29,9 @@ vi.mock('../KioskFeatureSettings', () => ({
 }));
 vi.mock('../ShellCloseSettings', () => ({
     ShellCloseSettings: () => <div>Shell close content</div>,
+}));
+vi.mock('../ConversionCostSettings', () => ({
+    ConversionCostSettings: () => <div>Conversion cost content</div>,
 }));
 vi.mock('../RoutingFeatureSettings', () => ({
     RoutingFeatureSettings: () => <div>Routing content</div>,
@@ -87,5 +90,28 @@ describe('SettingsTabs mobile containment', () => {
         expect(mocks.general).toHaveBeenCalledWith(
             expect.objectContaining({ authMode: 'CENTRAL' }),
         );
+    });
+});
+
+describe('SettingsTabs production cost tab', () => {
+    afterEach(() => {
+        cleanup();
+        mocks.search = 'tab=general';
+    });
+
+    it('gives admins a Biaya Produksi tab that renders the conversion cost setting', () => {
+        mocks.search = 'tab=costing';
+        render(<SettingsTabs currentUserRole={Role.ADMIN} currentUserRoles={[Role.ADMIN]} />);
+
+        expect(screen.getByRole('tab', { name: 'Biaya Produksi' }).getAttribute('aria-selected')).toBe('true');
+        expect(screen.getByText('Conversion cost content')).toBeTruthy();
+    });
+
+    it('hides the tab and its content from non-admins, even via the URL', () => {
+        mocks.search = 'tab=costing';
+        render(<SettingsTabs currentUserRole={Role.FINANCE} currentUserRoles={[Role.FINANCE]} />);
+
+        expect(screen.queryByRole('tab', { name: 'Biaya Produksi' })).toBeNull();
+        expect(screen.queryByText('Conversion cost content')).toBeNull();
     });
 });
