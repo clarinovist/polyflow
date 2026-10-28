@@ -31,6 +31,7 @@ import { resolveProductionOutputUnit } from './execution-unit-conversion';
 import { resolveShiftAwareLogTimes } from '@/lib/production/execution-business-date';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import { buildPieceSnapshotForOperator } from '@/services/hrd/piece-rate-helpers';
+import { RUNNING_EXECUTION_WHERE } from '@/lib/production/execution-running';
 import {
     assertRoutedOrderCanStart,
     assertMachineCapableForOrder,
@@ -1233,10 +1234,7 @@ export class ProductionExecutionService {
      */
     static async getActiveExecutions() {
         return await prisma.productionExecution.findMany({
-            where: {
-                endTime: { equals: null },
-                status: { not: 'VOIDED' },
-            },
+            where: RUNNING_EXECUTION_WHERE,
             select: {
                 id: true,
                 startTime: true,

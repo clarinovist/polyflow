@@ -35,6 +35,7 @@ import {
 } from '@/services/production/shift-service';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
+import { RUNNING_EXECUTION_WHERE } from '@/lib/production/execution-running';
 import { resolveKioskActor } from '@/lib/auth/kiosk-actor';
 
 export const startExecution = withTenant(async function startExecution(
@@ -769,11 +770,7 @@ export const getOperatorTodaySummary = withTenant(
                 }),
                 // Running jobs for this operator (any start date) — hub badge must not be tenant-wide
                 prisma.productionExecution.count({
-                    where: {
-                        operatorId,
-                        endTime: null,
-                        status: { not: 'VOIDED' },
-                    },
+                    where: { ...RUNNING_EXECUTION_WHERE, operatorId },
                 }),
             ]);
 

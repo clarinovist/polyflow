@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { executionCostHours } from '@/lib/production/execution-running';
+import {
+    RUNNING_EXECUTION_WHERE,
+    executionCostHours,
+} from '@/lib/production/execution-running';
 
 const start = new Date('2026-10-28T01:00:00.000Z');
 const now = new Date('2026-10-28T05:00:00.000Z');
@@ -56,5 +59,17 @@ describe('executionCostHours', () => {
 
         // Assert
         expect(hours).toBe(0);
+    });
+});
+
+describe('RUNNING_EXECUTION_WHERE', () => {
+    it('keeps only unvoided open sessions of SPKs that are still open', () => {
+        expect(RUNNING_EXECUTION_WHERE).toEqual({
+            endTime: null,
+            status: { not: 'VOIDED' },
+            productionOrder: {
+                status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            },
+        });
     });
 });

@@ -1,6 +1,20 @@
+import type { Prisma, ProductionStatus } from '@prisma/client';
 import { TERMINAL_STATUSES } from '@/lib/production/routing-run-terminal';
 
 const MS_PER_HOUR = 3_600_000;
+
+/**
+ * A session is running only while its SPK is still open. Finishing an SPK from
+ * the admin page used to leave its kiosk shell with `endTime` null; such a shell
+ * is not running work and must not mark an operator or machine as busy.
+ */
+export const RUNNING_EXECUTION_WHERE = {
+    endTime: null,
+    status: { not: 'VOIDED' },
+    productionOrder: {
+        status: { notIn: [...TERMINAL_STATUSES] as ProductionStatus[] },
+    },
+} satisfies Prisma.ProductionExecutionWhereInput;
 
 /**
  * Hours an execution charges to conversion cost. An open shell on a finished

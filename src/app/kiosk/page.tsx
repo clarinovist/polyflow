@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { withTenantPage } from '@/lib/core/tenant';
 import { readKioskFeatureSettings } from '@/services/settings/kiosk-feature-service';
 import { KioskHub } from '@/components/kiosk/KioskHub';
+import { RUNNING_EXECUTION_WHERE } from '@/lib/production/execution-running';
 
 const getData = withTenantPage(async function getData() {
     const hasProsesKhusus = await readKioskFeatureSettings();
@@ -61,7 +62,7 @@ const getData = withTenantPage(async function getData() {
 
     // Operators with a running shell, for the gate's "Sedang jalan" filter.
     const running = await prisma.productionExecution.findMany({
-        where: { endTime: null, operatorId: { not: null } },
+        where: { ...RUNNING_EXECUTION_WHERE, operatorId: { not: null } },
         select: { operatorId: true },
         distinct: ['operatorId'],
     });

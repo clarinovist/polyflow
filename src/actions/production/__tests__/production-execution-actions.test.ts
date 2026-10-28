@@ -885,6 +885,31 @@ describe('production execution actions', () => {
             expect(prisma.productionExecution.findMany).not.toHaveBeenCalled();
         });
 
+        it('counts only running sessions of open SPKs for the badge', async () => {
+            // Arrange
+            vi.mocked(prisma.productionExecution.findMany).mockResolvedValue(
+                [] as never,
+            );
+            vi.mocked(prisma.productionExecution.count).mockResolvedValue(
+                0 as never,
+            );
+
+            // Act
+            await getOperatorTodaySummary('op-1');
+
+            // Assert
+            expect(prisma.productionExecution.count).toHaveBeenCalledWith({
+                where: {
+                    endTime: null,
+                    status: { not: 'VOIDED' },
+                    productionOrder: {
+                        status: { notIn: ['COMPLETED', 'CANCELLED'] },
+                    },
+                    operatorId: 'op-1',
+                },
+            });
+        });
+
         it('counts distinct orders, not executions, and sums the quantities', async () => {
             // Arrange — three runs across two orders
             vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
