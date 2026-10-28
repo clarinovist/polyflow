@@ -4,6 +4,7 @@ import { prisma } from "@/lib/core/prisma";
 
 vi.mock("@/lib/core/prisma", () => {
   const mockPrisma = {
+    auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
     $transaction: vi.fn(async (queries) => {
       if (Array.isArray(queries)) return Promise.all(queries);
       if (typeof queries === "function") {
