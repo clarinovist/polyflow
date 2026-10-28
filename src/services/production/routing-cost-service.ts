@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
 import { executionScrapTotal } from '@/lib/production/execution-scrap';
 import { executionCostHours } from '@/lib/production/execution-running';
+import { readConversionCostSetting } from '@/services/settings/conversion-cost-setting-service';
 
 type RunCostStep = {
   orderId: string;
@@ -49,8 +50,8 @@ function executionConversionCost(execution: {
   pieceEarnings: unknown;
   machine: { costPerHour: unknown } | null;
   operator: { dailyRate: unknown; standardDayHours: unknown; payType: string } | null;
-}, orderStatus: string) {
-  if (execution.status === 'VOIDED') return 0;
+}, orderStatus: string, sessionConversion: boolean) {
+  if (execution.status === 'VOIDED' || !sessionConversion) return 0;
   const hours = executionCostHours(execution, orderStatus);
   const machineCost = hours * Number(execution.machine?.costPerHour ?? 0);
   const laborCost = execution.operator?.payType === 'PIECE' && execution.pieceEarnings != null
@@ -107,6 +108,8 @@ function netPairedMovements(allMovements: CostMovement[]): CostMovement[] {
  */
 export class RoutingCostService {
   static async computeRunCost(runId: string): Promise<RunCostSummary> {
+    // Journal-based tenants carry no session cost; their pool is split per period in the HPP report, not per run.
+    const sessionConversion = !(await readConversionCostSetting()).enabled;
     const run = await prisma.productionRun.findUnique({
       where: { id: runId },
       include: {
@@ -165,7 +168,7 @@ export class RoutingCostService {
         }
       }
 
-      const conv = order.executions.reduce((sum, execution) => sum + executionConversionCost(execution, order.status), 0);
+      const conv = order.executions.reduce((sum, execution) => sum + executionConversionCost(execution, order.status, sessionConversion), 0);
       const scrapQty = order.executions.reduce((sum, execution) => sum + executionScrapTotal(execution), 0);
       externalMaterialCost += matExternal;
       internalWipValue += matInternal;

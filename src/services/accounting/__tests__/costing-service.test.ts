@@ -6,11 +6,19 @@ vi.mock("@/lib/core/prisma", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    journalLine: {
+      findMany: vi.fn(),
+    },
   },
+}));
+
+vi.mock("@/services/settings/conversion-cost-setting-service", () => ({
+  readConversionCostSetting: vi.fn(async () => ({ enabled: false, accountIds: [] })),
 }));
 
 import { prisma } from "@/lib/core/prisma";
 import { CostingService } from "@/services/accounting/costing-service";
+import { readConversionCostSetting } from "@/services/settings/conversion-cost-setting-service";
 
 /** Create a Prisma Decimal-like mock that works with Number() and .toNumber() */
 function dec(value: number) {
@@ -397,6 +405,110 @@ describe("CostingService", () => {
 
       expect(result).toHaveLength(1);
       expect(result[0].orderNumber).toBe("MO-001");
+    });
+  });
+
+  describe("getPeriodCostReport with journal conversion", () => {
+    // Material = issue quantity x standard cost; one 2-hour session that would cost 100 labor.
+    const spk = (id: string, status: string, materialQty: number) => ({
+      id,
+      orderNumber: id.toUpperCase(),
+      status,
+      actualQuantity: 10,
+      materialIssues: [
+        {
+          id: `${id}-issue`,
+          status: "COMPLETED",
+          quantity: dec(materialQty),
+          issuedAt: new Date("2026-10-05T10:00:00Z"),
+          productVariantId: "pv",
+          batchId: null,
+          locationId: null,
+          productVariant: { standardCost: dec(1000), buyPrice: null, price: null },
+        },
+      ],
+      stockMovements: [],
+      executions: [
+        {
+          id: `${id}-exec`,
+          status: "COMPLETED",
+          startTime: new Date("2026-10-05T08:00:00Z"),
+          endTime: new Date("2026-10-05T10:00:00Z"),
+          machine: { costPerHour: dec(0) },
+          operator: { dailyRate: dec(400), standardDayHours: dec(8) },
+        },
+      ],
+    });
+    const start = new Date("2026-10-01T00:00:00Z");
+    const end = new Date("2026-10-31T23:59:59Z");
+
+    function arrange(accountIds: string[]) {
+      vi.mocked(readConversionCostSetting).mockResolvedValue({ enabled: true, accountIds });
+      vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([
+        { id: "po-a" },
+        { id: "po-b" },
+        { id: "po-run" },
+      ] as never);
+      const orders = new Map([
+        ["po-a", spk("po-a", "COMPLETED", 3)],
+        ["po-b", spk("po-b", "COMPLETED", 1)],
+        ["po-run", spk("po-run", "IN_PROGRESS", 2)],
+      ]);
+      vi.mocked(prisma.productionOrder.findUnique).mockImplementation(
+        (async (args: { where: { id: string } }) => orders.get(args.where.id)) as never,
+      );
+      vi.mocked(prisma.journalLine.findMany).mockResolvedValue([
+        { accountId: "wage", debit: 300, credit: 0, account: { code: "5-012b", name: "Tenaga Kerja Langsung" } },
+        { accountId: "power", debit: 100, credit: 0, account: { code: "5-031", name: "Pemakaian Listrik" } },
+      ] as never);
+    }
+
+    it("drops session cost and splits the journal pool across completed SPKs by material", async () => {
+      // Arrange
+      arrange(["wage", "power"]);
+
+      // Act
+      const report = await CostingService.getPeriodCostReport(start, end);
+
+      // Assert
+      const byId = new Map(report.costs.map((c) => [c.productionOrderId, c]));
+      expect(byId.get("po-a")).toMatchObject({ laborCost: 0, machineCost: 0, overheadCost: 300, totalCost: 3300, unitCost: 330 });
+      expect(byId.get("po-b")).toMatchObject({ laborCost: 0, overheadCost: 100, totalCost: 1100 });
+      expect(byId.get("po-run")).toMatchObject({ laborCost: 0, overheadCost: 0, totalCost: 2000 });
+      expect(report.conversion).toEqual({
+        enabled: true,
+        pool: 400,
+        allocated: 400,
+        unallocated: 0,
+        byAccount: [
+          { accountId: "wage", code: "5-012b", name: "Tenaga Kerja Langsung", amount: 300 },
+          { accountId: "power", code: "5-031", name: "Pemakaian Listrik", amount: 100 },
+        ],
+      });
+      expect(prisma.journalLine.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { accountId: { in: ["wage", "power"] }, journalEntry: { status: "POSTED", entryDate: { gte: start, lte: end } } },
+      }));
+    });
+
+    it("with no account chosen carries neither session cost nor an allocation", async () => {
+      arrange([]);
+
+      const report = await CostingService.getPeriodCostReport(start, end);
+
+      expect(report.costs.every((c) => c.laborCost === 0 && c.overheadCost === 0)).toBe(true);
+      expect(report.conversion).toMatchObject({ enabled: true, pool: 0, allocated: 0, unallocated: 0 });
+      expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+    });
+
+    it("keeps session-based labor and reports no pool while the setting is off", async () => {
+      arrange(["wage"]);
+      vi.mocked(readConversionCostSetting).mockResolvedValue({ enabled: false, accountIds: [] });
+
+      const report = await CostingService.getPeriodCostReport(start, end);
+
+      expect(report.costs.find((c) => c.productionOrderId === "po-a")).toMatchObject({ laborCost: 100, overheadCost: 0, totalCost: 3100 });
+      expect(report.conversion).toEqual({ enabled: false, pool: 0, allocated: 0, unallocated: 0, byAccount: [] });
+      expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
     });
   });
 });

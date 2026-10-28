@@ -110,6 +110,7 @@ export default async function CostingPage(props: {
     const totalMaterial = costs.reduce((sum, c) => sum + c.materialCost, 0);
     const totalLabor = costs.reduce((sum, c) => sum + c.laborCost, 0);
     const totalMachine = costs.reduce((sum, c) => sum + c.machineCost, 0);
+    const totalOverhead = costs.reduce((sum, c) => sum + c.overheadCost, 0);
 
     const variants =
         variantsRes.success && variantsRes.data ? variantsRes.data : [];
@@ -254,6 +255,13 @@ export default async function CostingPage(props: {
                                 : 0}
                             % dari total
                         </p>
+                        {totalOverhead > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Konversi dari jurnal:{' '}
+                                {formatRupiah(totalOverhead)} (
+                                {((totalOverhead / totalCOGM) * 100).toFixed(1)}%)
+                            </p>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -640,6 +648,9 @@ export default async function CostingPage(props: {
                                     <TableHead className="text-right">
                                         Machine
                                     </TableHead>
+                                    <TableHead className="text-right">
+                                        Konversi
+                                    </TableHead>
                                     <TableHead className="text-right font-bold">
                                         Total Cost
                                     </TableHead>
@@ -652,7 +663,7 @@ export default async function CostingPage(props: {
                                 {costs.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={8}
                                             className="text-center h-24 text-muted-foreground"
                                         >
                                             No costing data for selected period.
@@ -677,6 +688,9 @@ export default async function CostingPage(props: {
                                             </TableCell>
                                             <TableCell className="text-right text-muted-foreground">
                                                 {formatRupiah(cost.machineCost)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-muted-foreground">
+                                                {formatRupiah(cost.overheadCost)}
                                             </TableCell>
                                             <TableCell className="text-right font-bold">
                                                 {formatRupiah(cost.totalCost)}

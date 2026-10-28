@@ -6,6 +6,9 @@ const mockPrisma = vi.hoisted(() => ({
 
 vi.mock('@/lib/core/prisma', () => ({ prisma: mockPrisma }));
 
+const mockSetting = vi.hoisted(() => ({ read: vi.fn(async () => ({ enabled: false, accountIds: [] as string[] })) }));
+vi.mock('@/services/settings/conversion-cost-setting-service', () => ({ readConversionCostSetting: mockSetting.read }));
+
 import { RoutingCostService } from '../routing-cost-service';
 
 describe('RoutingCostService', () => {
@@ -323,5 +326,33 @@ describe('RoutingCostService', () => {
     const result = await RoutingCostService.computeRunCost('run-stale');
 
     expect(result.conversionCost).toBe(10); // closed hour only: 1h / 8h * 80
+  });
+
+  it('carries no session conversion when the tenant books it through journals', async () => {
+    const hour = new Date('2026-07-29T08:00:00.000Z');
+    const hourLater = new Date('2026-07-29T09:00:00.000Z');
+    mockSetting.read.mockResolvedValueOnce({ enabled: true, accountIds: ['wage'] });
+    mockPrisma.productionRun.findUnique.mockResolvedValue({
+      id: 'run-journal',
+      runNumber: 'RUN-JOURNAL',
+      orders: [{
+        id: 'order-1', orderNumber: 'WO-1', status: 'COMPLETED', routeSequenceSnapshot: 0,
+        processCodeSnapshot: 'EXT', processNameSnapshot: 'Extrusion',
+        plannedQuantity: 1, actualQuantity: 1,
+        bom: { productVariantId: 'fg', outputQuantity: 1 },
+        plannedMaterials: [],
+        materialIssues: [],
+        stockMovements: [],
+        executions: [{
+          status: 'COMPLETED', startTime: hour, endTime: hourLater,
+          pieceEarnings: null, scrapQuantity: 0,
+          machine: { costPerHour: 10 }, operator: { dailyRate: 80, standardDayHours: 8, payType: 'TIME' },
+        }],
+      }],
+    } as never);
+
+    const result = await RoutingCostService.computeRunCost('run-journal');
+
+    expect(result.conversionCost).toBe(0);
   });
 });

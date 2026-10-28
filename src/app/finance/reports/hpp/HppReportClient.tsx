@@ -162,6 +162,7 @@ export default function HppReportClient() {
             'Material/unit',
             'Labor/unit',
             'Machine/unit',
+            'Konversi/unit',
             'HPP/Unit',
             'Standard Cost',
             'Variance',
@@ -177,6 +178,7 @@ export default function HppReportClient() {
             rupiahForCsv(p.materialPerUnit),
             rupiahForCsv(p.laborPerUnit),
             rupiahForCsv(p.machinePerUnit),
+            rupiahForCsv(p.overheadPerUnit),
             rupiahForCsv(p.hppPerUnit),
             rupiahForCsv(p.standardCost),
             rupiahForCsv(p.varianceAmount),
@@ -198,6 +200,7 @@ export default function HppReportClient() {
             '',
             '',
             '',
+            '',
         ]);
         rows.push([
             'Order#',
@@ -208,6 +211,7 @@ export default function HppReportClient() {
             'Material',
             'Labor',
             'Machine',
+            'Konversi',
             'Total',
             'Unit Cost',
             '',
@@ -223,6 +227,7 @@ export default function HppReportClient() {
                 rupiahForCsv(o.materialCost),
                 rupiahForCsv(o.laborCost),
                 rupiahForCsv(o.machineCost),
+                rupiahForCsv(o.overheadCost),
                 rupiahForCsv(o.totalCost),
                 rupiahForCsv(o.unitCost),
                 '',
@@ -374,6 +379,13 @@ export default function HppReportClient() {
                 </div>
             )}
 
+            {data?.conversion.enabled && (
+                <ConversionCostCard
+                    conversion={data.conversion}
+                    overheadShare={data.summary.overheadShare}
+                />
+            )}
+
             {/* HPP per Produk */}
             <Card>
                 <CardHeader>
@@ -415,6 +427,9 @@ export default function HppReportClient() {
                                         Machine/unit
                                     </TableHead>
                                     <TableHead className="text-right">
+                                        Konversi/unit
+                                    </TableHead>
+                                    <TableHead className="text-right">
                                         HPP/Unit
                                     </TableHead>
                                     <TableHead className="text-right">
@@ -426,7 +441,7 @@ export default function HppReportClient() {
                                 {loading ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={8}
                                             className="text-center py-8"
                                         >
                                             <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />
@@ -436,7 +451,7 @@ export default function HppReportClient() {
                                 ) : filteredProducts.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={7}
+                                            colSpan={8}
                                             className="text-center py-8 text-muted-foreground"
                                         >
                                             {data?.products.length === 0
@@ -633,6 +648,9 @@ function ProductRow({
                 <TableCell className="text-right">
                     {formatRupiah(product.machinePerUnit)}
                 </TableCell>
+                <TableCell className="text-right">
+                    {formatRupiah(product.overheadPerUnit)}
+                </TableCell>
                 <TableCell className="text-right font-medium">
                     {formatRupiah(product.hppPerUnit)}
                 </TableCell>
@@ -663,6 +681,9 @@ function ProductRow({
                         <TableCell className="text-right text-sm">
                             {formatRupiah(order.machineCost)}
                         </TableCell>
+                        <TableCell className="text-right text-sm">
+                            {formatRupiah(order.overheadCost)}
+                        </TableCell>
                         <TableCell className="text-right text-sm font-medium">
                             {formatRupiah(order.totalCost)}
                         </TableCell>
@@ -672,5 +693,53 @@ function ProductRow({
                     </TableRow>
                 ))}
         </>
+    );
+}
+
+function ConversionCostCard({
+    conversion,
+    overheadShare,
+}: {
+    conversion: HppReportData['conversion'];
+    overheadShare: number;
+}) {
+    return (
+        <Card>
+            <CardHeader className="pb-2">
+                <CardDescription>Biaya konversi dari jurnal</CardDescription>
+                <CardTitle className="text-2xl">
+                    {formatRupiah(conversion.allocated)}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        {overheadShare.toFixed(1)}% dari total COGM
+                    </span>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-xs text-muted-foreground">
+                {conversion.byAccount.length === 0 ? (
+                    <p>
+                        Tidak ada jurnal dari akun biaya yang dipilih di
+                        Pengaturan untuk periode ini.
+                    </p>
+                ) : (
+                    conversion.byAccount.map((account) => (
+                        <p key={account.accountId}>
+                            {account.code} {account.name}:{' '}
+                            {formatRupiah(account.amount)}
+                        </p>
+                    ))
+                )}
+                {conversion.unallocated !== 0 && (
+                    <p className="text-amber-600">
+                        Tidak teralokasi: {formatRupiah(conversion.unallocated)}{' '}
+                        (tidak ada SPK selesai dengan biaya bahan di periode
+                        ini)
+                    </p>
+                )}
+                <p>
+                    Dibagi ke SPK yang selesai di periode ini menurut biaya
+                    bahan. SPK yang masih berjalan tidak mendapat alokasi.
+                </p>
+            </CardContent>
+        </Card>
     );
 }

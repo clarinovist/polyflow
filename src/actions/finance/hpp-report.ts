@@ -24,7 +24,10 @@ export const getHppReportData = withTenant(async function getHppReportData(
         const end = endDate ?? endOfMonth(now);
 
         // Get production costs for the period
-        const costs = await CostingService.getPeriodCosts(start, end);
+        const { costs, conversion } = await CostingService.getPeriodCostReport(
+            start,
+            end,
+        );
 
         if (costs.length === 0) {
             return {
@@ -34,11 +37,13 @@ export const getHppReportData = withTenant(async function getHppReportData(
                     materialShare: 0,
                     laborShare: 0,
                     machineShare: 0,
+                    overheadShare: 0,
                     productCount: 0,
                     orderCount: 0,
                 },
                 products: [],
                 orders: [],
+                conversion,
             } satisfies HppReportData;
         }
 
@@ -93,7 +98,7 @@ export const getHppReportData = withTenant(async function getHppReportData(
             });
         }
 
-        return aggregateHppReport(enriched);
+        return aggregateHppReport(enriched, conversion);
     });
 });
 

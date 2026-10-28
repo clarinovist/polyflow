@@ -2,16 +2,57 @@ import { prisma } from '@/lib/core/prisma';
 import type { Prisma } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import { executionCostHours } from '@/lib/production/execution-running';
+import { readConversionCostSetting } from '@/services/settings/conversion-cost-setting-service';
+import {
+    allocateByMaterial,
+    readConversionPool,
+    type ConversionPoolAccount,
+} from './conversion-cost-allocation';
 
 export interface ProductionCost {
     productionOrderId: string;
     orderNumber: string;
+    status: string;
     materialCost: number;
     machineCost: number;
     laborCost: number;
+    /** Journal conversion cost split to this SPK (tenant setting); 0 otherwise. */
+    overheadCost: number;
     totalCost: number;
     quantityProduced: number;
     unitCost: number;
+}
+
+export interface ConversionCostSummary {
+    enabled: boolean;
+    pool: number;
+    allocated: number;
+    /** Pool with no completed SPK (or no material) to carry it this period. */
+    unallocated: number;
+    byAccount: ConversionPoolAccount[];
+}
+
+export interface PeriodCostReport {
+    costs: ProductionCost[];
+    conversion: ConversionCostSummary;
+}
+
+const SESSION_CONVERSION: ConversionCostSummary = {
+    enabled: false,
+    pool: 0,
+    allocated: 0,
+    unallocated: 0,
+    byAccount: [],
+};
+
+function withOverhead(cost: ProductionCost, overheadCost: number): ProductionCost {
+    const totalCost = cost.materialCost + cost.machineCost + cost.laborCost + overheadCost;
+    return {
+        ...cost,
+        overheadCost,
+        totalCost,
+        unitCost: cost.quantityProduced > 0 ? totalCost / cost.quantityProduced : 0,
+    };
 }
 
 export class CostingService {
@@ -83,6 +124,7 @@ export class CostingService {
      */
     static async calculateOrderCost(
         productionOrderId: string,
+        options: { sessionConversion?: boolean } = {},
     ): Promise<ProductionCost> {
         // 1. Fetch Production Order with related data
         const order = await prisma.productionOrder.findUnique({
@@ -162,7 +204,10 @@ export class CostingService {
         let machineCost = 0;
         let laborCost = 0;
 
-        for (const exec of order.executions) {
+        // A tenant that books conversion through journals carries no session cost.
+        const costedExecutions =
+            options.sessionConversion === false ? [] : order.executions;
+        for (const exec of costedExecutions) {
             if (exec.status === 'VOIDED') continue;
             const durationHours = executionCostHours(exec, order.status);
 
@@ -197,9 +242,11 @@ export class CostingService {
         return {
             productionOrderId: order.id,
             orderNumber: order.orderNumber,
+            status: order.status,
             materialCost,
             machineCost,
             laborCost,
+            overheadCost: 0,
             totalCost,
             quantityProduced,
             unitCost,
@@ -210,6 +257,17 @@ export class CostingService {
      * Get Costs for All Completed Production Orders in a Date Range
      */
     static async getPeriodCosts(startDate?: Date, endDate?: Date) {
+        return (await this.getPeriodCostReport(startDate, endDate)).costs;
+    }
+
+    /**
+     * Period costs plus, when the tenant books conversion through journals,
+     * the pool of its chosen accounts split across the SPKs completed in it.
+     */
+    static async getPeriodCostReport(
+        startDate?: Date,
+        endDate?: Date,
+    ): Promise<PeriodCostReport> {
         if (!startDate || isNaN(startDate.getTime())) {
             startDate = new Date(
                 new Date().getFullYear(),
@@ -236,12 +294,36 @@ export class CostingService {
             select: { id: true },
         });
 
+        const setting = await readConversionCostSetting();
         const results = await Promise.allSettled(
-            orders.map((o) => this.calculateOrderCost(o.id)),
+            orders.map((o) =>
+                this.calculateOrderCost(o.id, {
+                    sessionConversion: !setting.enabled,
+                }),
+            ),
         );
-
-        return results
+        const costs = results
             .filter((r) => r.status === 'fulfilled')
             .map((r) => (r as PromiseFulfilledResult<ProductionCost>).value);
+        if (!setting.enabled) return { costs, conversion: SESSION_CONVERSION };
+
+        // Same recipients as Alokasi FOH: only SPKs completed in the period.
+        const pool = await readConversionPool(prisma, setting.accountIds, startDate, endDate);
+        const split = allocateByMaterial(
+            costs.filter((c) => c.status === 'COMPLETED'),
+            pool.total,
+        );
+        return {
+            costs: costs.map((c) =>
+                withOverhead(c, split.allocations.get(c.productionOrderId) ?? 0),
+            ),
+            conversion: {
+                enabled: true,
+                pool: pool.total,
+                allocated: split.allocated,
+                unallocated: split.unallocated,
+                byAccount: pool.byAccount,
+            },
+        };
     }
 }

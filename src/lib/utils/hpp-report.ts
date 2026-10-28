@@ -1,6 +1,17 @@
-import type { ProductionCost } from '@/services/accounting/costing-service';
+import type {
+    ConversionCostSummary,
+    ProductionCost,
+} from '@/services/accounting/costing-service';
 
 // ---- Types ----
+
+const SESSION_CONVERSION: ConversionCostSummary = {
+    enabled: false,
+    pool: 0,
+    allocated: 0,
+    unallocated: 0,
+    byAccount: [],
+};
 
 export interface HppProductRow {
     bomId: string;
@@ -13,6 +24,7 @@ export interface HppProductRow {
     materialPerUnit: number;
     laborPerUnit: number;
     machinePerUnit: number;
+    overheadPerUnit: number;
     hppPerUnit: number;
     standardCost: number;
     varianceAmount: number;
@@ -29,6 +41,7 @@ interface HppOrderRow {
     materialCost: number;
     laborCost: number;
     machineCost: number;
+    overheadCost: number;
     totalCost: number;
     unitCost: number;
 }
@@ -39,6 +52,7 @@ interface HppSummary {
     materialShare: number;
     laborShare: number;
     machineShare: number;
+    overheadShare: number;
     productCount: number;
     orderCount: number;
 }
@@ -47,6 +61,7 @@ export interface HppReportData {
     summary: HppSummary;
     products: HppProductRow[];
     orders: HppOrderRow[];
+    conversion: ConversionCostSummary;
 }
 
 // Enriched type from server action
@@ -63,6 +78,7 @@ export interface EnrichedProductionCost extends ProductionCost {
 
 export function aggregateHppReport(
     orders: EnrichedProductionCost[],
+    conversion: ConversionCostSummary = SESSION_CONVERSION,
 ): HppReportData {
     // Group orders by bomId
     const grouped = new Map<string, EnrichedProductionCost[]>();
@@ -93,11 +109,17 @@ export function aggregateHppReport(
             (sum, o) => sum + o.machineCost,
             0,
         );
+        const totalOverhead = bomOrders.reduce(
+            (sum, o) => sum + o.overheadCost,
+            0,
+        );
 
         const materialPerUnit = totalMaterial / totalQuantity;
         const laborPerUnit = totalLabor / totalQuantity;
         const machinePerUnit = totalMachine / totalQuantity;
-        const hppPerUnit = materialPerUnit + laborPerUnit + machinePerUnit;
+        const overheadPerUnit = totalOverhead / totalQuantity;
+        const hppPerUnit =
+            materialPerUnit + laborPerUnit + machinePerUnit + overheadPerUnit;
 
         const standardCost = first.standardCost;
         const varianceAmount = hppPerUnit - standardCost;
@@ -115,6 +137,7 @@ export function aggregateHppReport(
             materialPerUnit,
             laborPerUnit,
             machinePerUnit,
+            overheadPerUnit,
             hppPerUnit,
             standardCost,
             varianceAmount,
@@ -136,6 +159,7 @@ export function aggregateHppReport(
         materialCost: o.materialCost,
         laborCost: o.laborCost,
         machineCost: o.machineCost,
+        overheadCost: o.overheadCost,
         totalCost: o.totalCost,
         unitCost: o.unitCost,
     }));
@@ -148,16 +172,20 @@ export function aggregateHppReport(
     const totalMaterialAll = orders.reduce((sum, o) => sum + o.materialCost, 0);
     const totalLaborAll = orders.reduce((sum, o) => sum + o.laborCost, 0);
     const totalMachineAll = orders.reduce((sum, o) => sum + o.machineCost, 0);
+    const totalOverheadAll = orders.reduce((sum, o) => sum + o.overheadCost, 0);
+    const share = (part: number) =>
+        totalCogm > 0 ? (part / totalCogm) * 100 : 0;
 
     const summary: HppSummary = {
         totalCogm,
         totalQuantity: orders.reduce((sum, o) => sum + o.quantityProduced, 0),
-        materialShare: totalCogm > 0 ? (totalMaterialAll / totalCogm) * 100 : 0,
-        laborShare: totalCogm > 0 ? (totalLaborAll / totalCogm) * 100 : 0,
-        machineShare: totalCogm > 0 ? (totalMachineAll / totalCogm) * 100 : 0,
+        materialShare: share(totalMaterialAll),
+        laborShare: share(totalLaborAll),
+        machineShare: share(totalMachineAll),
+        overheadShare: share(totalOverheadAll),
         productCount: products.length,
         orderCount: orders.length,
     };
 
-    return { summary, products, orders: ordersList };
+    return { summary, products, orders: ordersList, conversion };
 }
