@@ -1,11 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
 import {
     safeAction,
+    BusinessRuleError,
     InsufficientStockError,
     ProductionRuleViolationError,
     ConflictError,
 } from './errors';
+import { TRACEABLE_REJECTION_CODES } from './traceable-rejections';
 
 describe('ApplicationError classes', () => {
     it('sets code and statusCode correctly for InsufficientStockError', () => {
@@ -156,5 +158,37 @@ describe('safeAction with Prisma errors', () => {
             expect(res.code).toBe('CONFLICT');
             expect(res.error).toBe('Custom business conflict');
         }
+    });
+});
+
+describe('safeAction business rejection trace', () => {
+    // Mirror of the host log monitor pattern: a matching line raises a Telegram alert.
+    const monitorPattern = /(error|exception|fatal|panic|failed|numeric field overflow|violates (?:not-null|foreign key|unique|check) constraint|deadlock detected|out of memory|too many connections|could not (?:connect|serialize|obtain)|\bP\d{4}\b)/i;
+    const reject = (code: string, details?: Record<string, unknown>) =>
+        safeAction(async () => { throw new BusinessRuleError('Pesan untuk pengguna yang gagal', details, code); });
+
+    it('logs one traceable line with the code and safe details, not the user message', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const res = await reject('PRODUCTION_WIP_UNRESOLVED', { reason: 'jumlah jurnal sumber bukan satu', productName: 'Barang P1234 error' });
+        expect(res).toMatchObject({ success: false, code: 'PRODUCTION_WIP_UNRESOLVED' });
+        expect(warn).toHaveBeenCalledTimes(1);
+        const line = String(warn.mock.calls[0][0]);
+        expect(line).toBe('[BusinessRejection] {"code":"PRODUCTION_WIP_UNRESOLVED","reason":"jumlah jurnal sumber bukan satu"}');
+        warn.mockRestore();
+    });
+
+    it.each([...TRACEABLE_REJECTION_CODES])('never trips the host error monitor for %s', async (code) => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        await reject(code, { reason: 'sisa nilai akun WIP WO negatif', accountCode: '11320' });
+        expect(String(warn.mock.calls[0][0])).not.toMatch(monitorPattern);
+        warn.mockRestore();
+    });
+
+    it('stays silent for rejections the user can resolve without Finance', async () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        await safeAction(async () => { throw new InsufficientStockError('Bahan kurang'); });
+        await safeAction(async () => { throw new ConflictError('Sesi sudah dibatalkan'); });
+        expect(warn).not.toHaveBeenCalled();
+        warn.mockRestore();
     });
 });

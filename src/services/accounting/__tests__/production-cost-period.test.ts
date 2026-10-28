@@ -45,5 +45,7 @@ describe('explicit forward-only production cost boundary',()=>{
     it('rejects invalid or wrong-order receipt',async()=>{
         const f=setup();f.db.auditLog.findUnique.mockResolvedValue({action:COST_PERIOD_ACTION,entityType:'ProductionOrder',entityId:'other',changes:f.data});
         await expect(readCostPeriod(f.tx,'wo')).rejects.toThrow('bukti');
+        // The reason travels in details so the server trace says which check failed.
+        await expect(readCostPeriod(f.tx,'wo')).rejects.toMatchObject({ code:'PRODUCTION_COST_PERIOD_INVALID', details:{ reason:'bukti persetujuan tidak valid' } });
     });
 });

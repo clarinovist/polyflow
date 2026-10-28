@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Prisma, type StockMovement } from '@prisma/client';
-import { BusinessRuleError } from '@/lib/errors/errors';
+import { BusinessRuleError, ConflictError } from '@/lib/errors/errors';
 
 export const COST_PERIOD_ACTION = 'START_PRODUCTION_COST_PERIOD';
 export type PeriodJournal = Prisma.JournalEntryGetPayload<{
@@ -47,7 +47,7 @@ export function costPeriodHash(value: unknown): string {
 export function periodFailure(reason: string): never {
     throw new BusinessRuleError(
         `Batas biaya SPK belum dapat digunakan: ${reason}.`,
-        undefined,
+        { reason },
         'PRODUCTION_COST_PERIOD_INVALID',
     );
 }
@@ -150,11 +150,18 @@ export async function assertMutableCostExecution(
     tx: Prisma.TransactionClient,
     execution: { id: string; productionOrderId: string; status: string },
 ) {
+    // Operator-actionable states keep their own codes; only a broken boundary goes to Finance.
     if (execution.status === 'VOIDED')
-        periodFailure('eksekusi sudah dibatalkan');
+        throw new ConflictError(
+            'Sesi produksi ini sudah dibatalkan. Muat ulang halaman dan pilih sesi yang masih berjalan.',
+        );
     const period = await readCostPeriod(tx, execution.productionOrderId);
     if (period?.executionIds.includes(execution.id))
-        periodFailure('eksekusi historis dibekukan; gunakan sesi baru');
+        throw new BusinessRuleError(
+            'Sesi historis dibekukan karena termasuk catatan sebelum batas biaya. Mulai sesi baru untuk mencatat hasil berikutnya.',
+            undefined,
+            'PRODUCTION_EXECUTION_FROZEN',
+        );
 }
 
 /** Ignore no history implicitly: verify exact frozen sources before isolating new funding. */

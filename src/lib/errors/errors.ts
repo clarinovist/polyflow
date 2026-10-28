@@ -1,5 +1,7 @@
 'use strict';
 
+import { traceableRejectionLine } from './traceable-rejections';
+
 /**
  * PolyFlow Application Error Hierarchy
  *
@@ -225,6 +227,8 @@ export async function safeAction<T>(fn: () => Promise<T>): Promise<
         // Re-throw Next.js internal errors (redirect, notFound) — they use thrown errors as control flow
         if (isNextControlFlowError(error)) throw error;
         if (error instanceof ApplicationError) {
+            const trace = traceableRejectionLine(error.code, error.details);
+            if (trace) console.warn(trace);
             return {
                 success: false,
                 error: error.message,

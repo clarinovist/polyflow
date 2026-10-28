@@ -99,7 +99,7 @@ async function validateGlBalance(
     if (currentBalance.lt(creditAmount)) {
         throw new BusinessRuleError(
             `Transaksi ${productName} belum dapat dilanjutkan karena saldo pembukuan persediaan belum cukup. Minta Finance memeriksa catatan biaya barang; jangan menambah atau mengubah stok hanya agar transaksi bisa disimpan.`,
-            { productName },
+            { productName, accountCode: account.code },
             'INVENTORY_GL_INSUFFICIENT',
         );
     }

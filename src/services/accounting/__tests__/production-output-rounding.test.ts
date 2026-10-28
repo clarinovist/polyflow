@@ -38,7 +38,7 @@ describe('production output monetary rounding', () => {
     it('still rejects a true one-cent GL shortage after source allocation', async () => {
         const f = fixture([['74.06', '14.5299']], '74.06');
         f.db.journalLine.aggregate.mockResolvedValue({ _sum: { debit: d('2479.24'), credit: d('1403.17') } });
-        await expect(f.post()).rejects.toMatchObject({ code: 'INVENTORY_GL_INSUFFICIENT', message: expect.stringContaining('saldo pembukuan persediaan belum cukup') });
+        await expect(f.post()).rejects.toMatchObject({ code: 'INVENTORY_GL_INSUFFICIENT', message: expect.stringContaining('saldo pembukuan persediaan belum cukup'), details: expect.objectContaining({ accountCode: expect.any(String) }) });
         expect(journal).not.toHaveBeenCalled();
     });
     it('rounds the material journal amount before passing it to the journal writer', async () => {
@@ -156,7 +156,7 @@ function fixture(inputs: readonly Input[], yieldQty = '711', conversion = '0', p
         },
         journalEntry: { findMany: vi.fn(async () => sources), findFirst: vi.fn(async () => null) },
         productVariant: { findUnique: vi.fn(async () => productVariant) },
-        account: { findUnique: vi.fn(async ({ where }: { where: { code?: string; id?: string } }) => ({ id: where.code ?? where.id, type: 'ASSET' })) },
+        account: { findUnique: vi.fn(async ({ where }: { where: { code?: string; id?: string } }) => ({ id: where.code ?? where.id, code: where.code ?? where.id, type: 'ASSET' })) },
         journalLine: { aggregate: vi.fn(async () => ({ _sum: { debit: d('999999999'), credit: d(0) } })) },
         $queryRaw: vi.fn(async () => []),
     };

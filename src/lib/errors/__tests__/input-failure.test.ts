@@ -31,6 +31,15 @@ describe('input failure presentation', () => {
         expect(result.message).not.toMatch(/999|internal/);
     });
 
+    it.each([
+        ['PRODUCTION_EXECUTION_FROZEN', 'Sesi historis dibekukan karena termasuk catatan sebelum batas biaya. Mulai sesi baru untuk mencatat hasil berikutnya.'],
+        ['CONFLICT', 'Sesi produksi ini sudah dibatalkan. Muat ulang halaman dan pilih sesi yang masih berjalan.'],
+    ])('passes the operator instruction for %s through instead of sending them to Finance', (code, error) => {
+        const result = inputFailure({ code, error }, 'production');
+        expect(result.message).toBe(error);
+        expect(result.message).not.toContain('Finance');
+    });
+
     it('does not tell users to create receipts or adjustments to bypass a GL shortage', () => {
         const result = inputFailure({ code: 'INVENTORY_GL_INSUFFICIENT', error: 'di-receipt/adjustment' }, 'adjustment');
         expect(result.message).toContain('Finance');

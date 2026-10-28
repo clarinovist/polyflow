@@ -168,6 +168,8 @@ describe('sealed or voided execution write protection', () => {
         tx.productionExecution.findUniqueOrThrow.mockResolvedValue({id:'frozen',productionOrderId:'po-1',status:'VOIDED'});
         const operation = kind === 'stop' ? ProductionExecutionService.stopExecution({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never) : ProductionExecutionService.logRunningOutput({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never);
         await expect(operation).rejects.toThrow('sudah dibatalkan');
+        // A stale screen is not a cost-boundary problem: no Finance escalation code.
+        await expect(operation).rejects.toMatchObject({ code: 'CONFLICT', message: expect.stringContaining('Muat ulang') });
         expect(tx.productionExecution.update).not.toHaveBeenCalled(); expect(tx.productionExecution.create).not.toHaveBeenCalled();
         expect(String(tx.$queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
     });
@@ -176,6 +178,7 @@ describe('sealed or voided execution write protection', () => {
         tx.auditLog.findUnique.mockResolvedValueOnce({action:'START_PRODUCTION_COST_PERIOD',entityType:'ProductionOrder',entityId:'po-1',changes:{version:1,orderId:'po-1',movementIds:['m'],executionIds:['frozen'],sourceHash:'a'.repeat(64),executionHash:'b'.repeat(64),fingerprint:'c'.repeat(64),historicalBalances:[]}});
         const operation = kind === 'stop' ? ProductionExecutionService.stopExecution({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never) : ProductionExecutionService.logRunningOutput({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never);
         await expect(operation).rejects.toThrow('historis dibekukan'); expect(tx.productionExecution.update).not.toHaveBeenCalled();
+        await expect(operation).rejects.toMatchObject({ code: 'PRODUCTION_EXECUTION_FROZEN', message: expect.stringContaining('sesi baru') });
     });
 });
 
