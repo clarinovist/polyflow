@@ -27,6 +27,9 @@ vi.mock('../CompanySettings', () => ({
 vi.mock('../KioskFeatureSettings', () => ({
     KioskFeatureSettings: () => <div>Kiosk content</div>,
 }));
+vi.mock('../ShellCloseSettings', () => ({
+    ShellCloseSettings: () => <div>Shell close content</div>,
+}));
 vi.mock('../RoutingFeatureSettings', () => ({
     RoutingFeatureSettings: () => <div>Routing content</div>,
 }));

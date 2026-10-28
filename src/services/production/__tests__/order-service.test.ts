@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ProductionOrderService } from "../order-service";
 import { prisma } from "@/lib/core/prisma";
+import { runWithActor } from "@/lib/core/actor-context";
 import {
   ProductionStatus,
   BomCategory,
@@ -72,6 +73,9 @@ vi.mock("@/lib/core/prisma", () => ({
     productionExecution: {
       findFirst: vi.fn(),
       count: vi.fn(),
+      findMany: vi.fn(),
+      aggregate: vi.fn(),
+      updateMany: vi.fn(),
     },
     productionRouteStep: {
       findUnique: vi.fn(),
@@ -90,6 +94,7 @@ vi.mock("@/lib/core/prisma", () => ({
     },
     auditLog: {
       create: vi.fn(),
+      findUnique: vi.fn(),
     },
     scrapRecord: {
       deleteMany: vi.fn(),
@@ -103,6 +108,7 @@ vi.mock("@/lib/core/prisma", () => ({
     salesOrderItem: {
       findFirst: vi.fn(),
     },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn((callback: (tx: typeof prisma) => Promise<unknown>) =>
       callback(prisma),
     ),
@@ -1892,6 +1898,87 @@ describe("ProductionOrderService", () => {
           locationId: "loc-rm",
         }),
       ).rejects.toThrow("Lokasi output tidak valid untuk SPK");
+    });
+
+    describe("status transitions", () => {
+      const shellStart = new Date("2026-10-06T08:46:00Z");
+      const lastOutput = new Date("2026-10-20T02:08:00Z");
+
+      beforeEach(() => {
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+          mockExistingOrder({ status: "IN_PROGRESS" }),
+        );
+        vi.mocked(prisma.productionOrder.update).mockResolvedValue({ id: "po-1" } as any);
+        vi.mocked(prisma.auditLog.findUnique).mockResolvedValue(null);
+        // Tenant chose last-output closing; the zero-length default is covered by the helper suite.
+        vi.mocked(prisma.appSetting.findUnique).mockResolvedValue({ value: "true" } as any);
+        vi.mocked(prisma.productionExecution.findMany).mockResolvedValue([
+          { id: "shell-1", productionOrderId: "po-1", machineId: "m-1", operatorId: null,
+            startTime: shellStart, endTime: null, status: "COMPLETED", quantityProduced: 0, notes: null },
+        ] as any);
+        vi.mocked(prisma.productionExecution.aggregate).mockResolvedValue({ _max: { endTime: lastOutput } } as any);
+        vi.mocked(prisma.productionExecution.updateMany).mockResolvedValue({ count: 1 } as any);
+      });
+
+      it("closes running shells and audits the completion with the actor inside the transaction", async () => {
+        await runWithActor("user-1", () =>
+          ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.COMPLETED }),
+        );
+
+        expect(String(vi.mocked(prisma.$queryRaw).mock.calls[0][0])).toContain("FOR UPDATE");
+        expect(prisma.productionExecution.updateMany).toHaveBeenCalledWith({
+          where: { id: "shell-1", endTime: null, status: { not: "VOIDED" } },
+          data: expect.objectContaining({ endTime: lastOutput }),
+        });
+        expect(prisma.productionOrder.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED" }) }),
+        );
+        const audit = vi.mocked(prisma.auditLog.create).mock.calls[0][0].data;
+        expect(audit).toMatchObject({
+          userId: "user-1",
+          action: "UPDATE_PRODUCTION_ORDER_STATUS",
+          entityType: "ProductionOrder",
+          entityId: "po-1",
+          fromStatus: "IN_PROGRESS",
+          toStatus: "COMPLETED",
+        });
+        expect(JSON.parse(audit.changes)).toEqual({
+          closedExecutions: [{ id: "shell-1", endTime: lastOutput.toISOString() }],
+          skippedFrozen: [],
+          costPeriodUnreadable: false,
+          atLastOutput: true,
+        });
+      });
+
+      it("rolls back the completion when the audit cannot be written", async () => {
+        vi.mocked(prisma.auditLog.create).mockRejectedValue(new Error("audit down"));
+
+        await expect(
+          ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.COMPLETED }),
+        ).rejects.toThrow("audit down");
+      });
+
+      it("audits other transitions as the system actor without touching shells", async () => {
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+          mockExistingOrder({ status: "RELEASED" }),
+        );
+
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.IN_PROGRESS });
+
+        expect(prisma.productionExecution.findMany).not.toHaveBeenCalled();
+        expect(vi.mocked(prisma.auditLog.create).mock.calls[0][0].data).toMatchObject({
+          userId: "system", fromStatus: "RELEASED", toStatus: "IN_PROGRESS",
+        });
+      });
+
+      it("neither locks nor audits when the status is absent or unchanged", async () => {
+        await ProductionOrderService.updateOrder({ id: "po-1", priority: "HIGH" } as any);
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.IN_PROGRESS });
+
+        expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+        expect(prisma.productionExecution.findMany).not.toHaveBeenCalled();
+        expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      });
     });
   });
 

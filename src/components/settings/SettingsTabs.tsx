@@ -8,6 +8,7 @@ import { UsersTab } from './UsersTab';
 import { AccessControlTab } from './AccessControlTab';
 import { CompanySettings } from './CompanySettings';
 import { KioskFeatureSettings } from './KioskFeatureSettings';
+import { ShellCloseSettings } from './ShellCloseSettings';
 import { RoutingFeatureSettings } from './RoutingFeatureSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -190,6 +191,7 @@ export function SettingsTabs({
                 return isAdmin ? (
                     <div className="space-y-4">
                         <KioskFeatureSettings />
+                        <ShellCloseSettings />
                         <RoutingFeatureSettings />
                     </div>
                 ) : null;

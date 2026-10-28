@@ -43,6 +43,8 @@ import {
     isMachineCompatibleWithCategory,
     parseMachineStageMap,
 } from '@/lib/production/machine-compatibility';
+import { getActorUserId } from '@/lib/core/actor-context';
+import { closeOpenShellsForOrder, type ShellClosureResult } from './order-shell-closure';
 
 /**
  * Generic (non-routed) SPK: machine type must match the BOM category,
@@ -861,6 +863,10 @@ export class ProductionOrderService {
         } = data;
 
         return prisma.$transaction(async (tx) => {
+            // Serialize status transitions so the audited "from" status is current.
+            if (status !== undefined) {
+                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${id} FOR UPDATE`;
+            }
             const existing = await tx.productionOrder.findUnique({
                 where: { id },
                 select: {
@@ -1046,6 +1052,13 @@ export class ProductionOrderService {
                 await ensureRoutedOrderWipReservation(tx, existing as never);
             }
 
+            const statusChanged = status !== undefined && status !== existing.status;
+            let closure: ShellClosureResult | undefined;
+            if (statusChanged && status === ProductionStatus.COMPLETED) {
+                // A finished SPK must not leave its machine shown as running.
+                closure = await closeOpenShellsForOrder(tx, id);
+            }
+
             const updated = await tx.productionOrder.update({
                 where: { id },
                 data: {
@@ -1072,6 +1085,29 @@ export class ProductionOrderService {
                         : {}),
                 } as Prisma.ProductionOrderUpdateInput,
             });
+            if (statusChanged) {
+                // Critical status transitions are logged inside the transaction (src/lib/AGENTS.md).
+                await logActivity({
+                    userId: getActorUserId() ?? 'system',
+                    action: 'UPDATE_PRODUCTION_ORDER_STATUS',
+                    entityType: 'ProductionOrder',
+                    entityId: id,
+                    details: `${existing.status} -> ${status}${closure?.closed.length ? `; ${closure.closed.length} sesi berjalan ditutup` : ''}`,
+                    fromStatus: existing.status,
+                    toStatus: status,
+                    ...(closure
+                        ? {
+                              changes: {
+                                  closedExecutions: closure.closed,
+                                  skippedFrozen: closure.skippedFrozen,
+                                  costPeriodUnreadable: closure.costPeriodUnreadable,
+                                  atLastOutput: closure.atLastOutput,
+                              },
+                          }
+                        : {}),
+                    tx,
+                });
+            }
             if (status && existing.productionRunId && existing.routeStepId) {
                 if (status === 'COMPLETED' || status === 'CANCELLED') {
                     await tx.stockReservation.updateMany({
