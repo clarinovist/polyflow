@@ -18,6 +18,7 @@ vi.mock("@/services/settings/conversion-cost-setting-service", () => ({
 
 import { prisma } from "@/lib/core/prisma";
 import { CostingService } from "@/services/accounting/costing-service";
+import { nonClosingJournalFilter } from "@/services/accounting/closing-reference-filter";
 import { readConversionCostSetting } from "@/services/settings/conversion-cost-setting-service";
 
 /** Create a Prisma Decimal-like mock that works with Number() and .toNumber() */
@@ -486,7 +487,7 @@ describe("CostingService", () => {
         ],
       });
       expect(prisma.journalLine.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { accountId: { in: ["wage", "power"] }, journalEntry: { status: "POSTED", entryDate: { gte: start, lte: end } } },
+        where: { accountId: { in: ["wage", "power"] }, journalEntry: { status: "POSTED", entryDate: { gte: start, lte: end }, ...nonClosingJournalFilter() } },
       }));
     });
 

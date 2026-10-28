@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { allocateByMaterial, readConversionPool } from '../conversion-cost-allocation';
+import { nonClosingJournalFilter } from '../closing-reference-filter';
 
 const sum = (values: Iterable<number>) => [...values].reduce((total, v) => total + Math.round(v * 100), 0) / 100;
 
@@ -79,8 +80,25 @@ describe('readConversionPool', () => {
             ],
         });
         expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: { accountId: { in: ['wage', 'power'] }, journalEntry: { status: 'POSTED', entryDate: { gte: start, lte: end } } },
+            where: {
+                accountId: { in: ['wage', 'power'] },
+                journalEntry: { status: 'POSTED', entryDate: { gte: start, lte: end }, ...nonClosingJournalFilter() },
+            },
         }));
+    });
+
+    it('leaves out month-end closing entries, which zero every expense account of a closed month', async () => {
+        // Arrange
+        const findMany = vi.fn(async () => []);
+
+        // Act
+        await readConversionPool({ journalLine: { findMany } } as never, ['wage'], new Date('2026-09-01'), new Date('2026-09-30'));
+
+        // Assert — same exclusion as the profit and loss report
+        const [[args]] = findMany.mock.calls as unknown as [[{ where: { journalEntry: Record<string, unknown> } }]];
+        expect(args.where.journalEntry).toMatchObject(nonClosingJournalFilter());
+        expect(JSON.stringify(args.where.journalEntry)).toContain('CLOSING-');
+        expect(JSON.stringify(args.where.journalEntry)).toContain('CLOSE-');
     });
 
     it('reads nothing when no account is chosen', async () => {

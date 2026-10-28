@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { nonClosingJournalFilter } from './closing-reference-filter';
 
 /**
  * Journal-based conversion cost for cost reports: the POSTED amounts of the
@@ -37,6 +38,8 @@ export async function readConversionPool(
             journalEntry: {
                 status: 'POSTED',
                 entryDate: { gte: start, lte: end },
+                // Month-end closing zeroes every expense account of a closed month.
+                ...nonClosingJournalFilter(),
             },
         },
         select: {
