@@ -31,6 +31,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/inventory/__tests__/internal-usage-postgres.test.ts \
   src/services/production/__tests__/order-context-postgres.test.ts \
   src/lib/ops/__tests__/stale-shell-closure-postgres.test.ts \
+  src/lib/ops/__tests__/order-end-date-backfill-postgres.test.ts \
   src/services/production/__tests__/material-order-postgres.test.ts \
   src/services/production/__tests__/packaging-postgres.test.ts \
   src/services/production/__tests__/scrap-void-postgres.test.ts \
