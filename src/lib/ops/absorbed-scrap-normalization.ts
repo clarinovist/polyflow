@@ -402,7 +402,7 @@ async function provenScraps(
     return { records, inventories, scrapOwner };
 }
 
-async function inspect(
+export async function inspectAbsorbedScrap(
     tx: Tx,
     database: string,
     orderId: string,
@@ -451,7 +451,7 @@ async function inspect(
         fingerprint,
     };
 }
-type Evidence = Awaited<ReturnType<typeof inspect>>;
+type Evidence = Awaited<ReturnType<typeof inspectAbsorbedScrap>>;
 
 function preview(evidence: Evidence) {
     return {
@@ -506,7 +506,7 @@ export async function scanAbsorbedScrap(
             const results = [];
             for (const candidate of candidates) {
                 try {
-                    const evidence = await inspect(
+                    const evidence = await inspectAbsorbedScrap(
                         tx,
                         database,
                         candidate.id,
@@ -538,8 +538,9 @@ export async function scanAbsorbedScrap(
     );
 }
 
-export async function normalizeAbsorbedScrap(
-    db: PrismaClient,
+/** Internal transaction seam; web callers must add stricter evidence/recovery gates. */
+export async function normalizeAbsorbedScrapInTransaction(
+    tx: Tx,
     input: AbsorbedScrapRequest,
     execute = false,
 ) {
@@ -561,108 +562,111 @@ export async function normalizeAbsorbedScrap(
             'Eksekusi wajib fingerprint dry-run dan referensi backup terverifikasi.',
         );
     }
+    if (!execute) await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    await assertTarget(tx, input.database);
+    const actor = await tx.user.findUnique({
+        where: { id: input.actorId },
+        select: { role: true, roles: { select: { role: true } } },
+    });
+    if (
+        input.actorId !== 'system' &&
+        ![actor?.role, ...(actor?.roles?.map(r => r.role) ?? [])].some(role => role === 'ADMIN' || role === 'FINANCE')
+    )
+        fail('Aktor koreksi tidak diizinkan.');
+    // Serializes against output posting and void, which both lock the WO first.
+    if (execute)
+        await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${input.orderId} FOR UPDATE`;
+    const dedupeKey = `${ABSORBED_SCRAP_ACTION}:${input.orderId}`;
+    const previous = await tx.auditLog.findUnique({
+        where: { dedupeKey },
+    });
+    if (previous) {
+        const saved = previous.changes as Prisma.JsonObject | null;
+        if (
+            !saved ||
+            saved.orderNumber !== input.orderNumber ||
+            saved.database !== input.database ||
+            (execute && saved.fingerprint !== input.expectedFingerprint)
+        )
+            fail('Identitas koreksi terdahulu berbeda.');
+        return {
+            changed: false,
+            alreadyApplied: true,
+            auditId: previous.id,
+            fingerprint: String(saved.fingerprint),
+        };
+    }
+    const evidence = await inspectAbsorbedScrap(
+        tx,
+        input.database,
+        input.orderId,
+        input.orderNumber,
+        input.retainScrapOnlyResidual,
+    );
+    const result = preview(evidence);
+    if (!execute) return result;
+    if (evidence.fingerprint !== input.expectedFingerprint)
+        fail(
+            'Data berubah setelah dry-run; tidak ada koreksi diterapkan.',
+        );
+    await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM "StockMovement" WHERE id IN (${Prisma.join(evidence.scraps.map((m) => m.id))}) ORDER BY id FOR UPDATE`,
+    );
+    for (const m of evidence.scraps) {
+        const updated = await tx.stockMovement.updateMany({
+            where: {
+                id: m.id,
+                cost: null,
+                productionExecutionId: null,
+            },
+            data: {
+                cost: 0,
+                companyOwned: true,
+                productionExecutionId: evidence.scrapOwner.get(m.id),
+            },
+        });
+        if (updated.count !== 1)
+            fail(
+                'Affal berubah bersamaan; tidak ada koreksi diterapkan.',
+            );
+    }
+    const audit = await tx.auditLog.create({
+        data: {
+            userId: input.actorId,
+            action: ABSORBED_SCRAP_ACTION,
+            entityType: 'ProductionOrder',
+            entityId: evidence.order.id,
+            dedupeKey,
+            details: input.reason,
+            changes: JSON.parse(
+                JSON.stringify({
+                    database: input.database,
+                    orderNumber: input.orderNumber,
+                    fingerprint: evidence.fingerprint,
+                    backupReference: input.backupReference,
+                    mode: evidence.mode,
+                    executionId: evidence.execution.id,
+                    scrapOnlyExecutionId: evidence.scrapOnly?.id ?? null,
+                    absorbedValue: evidence.absorbedValue,
+                    residualValue: evidence.residualValue,
+                    originalMovements: evidence.scraps,
+                    inventories: evidence.inventories,
+                    netPhysicalQuantityChange: 0,
+                    journalsCreated: 0,
+                }),
+            ) as Prisma.InputJsonObject,
+        },
+    });
+    return { ...result, changed: true, auditId: audit.id };
+}
+
+export async function normalizeAbsorbedScrap(
+    db: PrismaClient,
+    input: AbsorbedScrapRequest,
+    execute = false,
+) {
     return db.$transaction(
-        async (tx) => {
-            if (!execute) await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-            await assertTarget(tx, input.database);
-            const actor = await tx.user.findUnique({
-                where: { id: input.actorId },
-                select: { role: true },
-            });
-            if (
-                input.actorId !== 'system' &&
-                !['ADMIN', 'FINANCE'].includes(actor?.role ?? '')
-            )
-                fail('Aktor koreksi tidak diizinkan.');
-            // Serializes against output posting and void, which both lock the WO first.
-            if (execute)
-                await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${input.orderId} FOR UPDATE`;
-            const dedupeKey = `${ABSORBED_SCRAP_ACTION}:${input.orderId}`;
-            const previous = await tx.auditLog.findUnique({
-                where: { dedupeKey },
-            });
-            if (previous) {
-                const saved = previous.changes as Prisma.JsonObject | null;
-                if (
-                    !saved ||
-                    saved.orderNumber !== input.orderNumber ||
-                    saved.database !== input.database ||
-                    (execute && saved.fingerprint !== input.expectedFingerprint)
-                )
-                    fail('Identitas koreksi terdahulu berbeda.');
-                return {
-                    changed: false,
-                    alreadyApplied: true,
-                    auditId: previous.id,
-                    fingerprint: String(saved.fingerprint),
-                };
-            }
-            const evidence = await inspect(
-                tx,
-                input.database,
-                input.orderId,
-                input.orderNumber,
-                input.retainScrapOnlyResidual,
-            );
-            const result = preview(evidence);
-            if (!execute) return result;
-            if (evidence.fingerprint !== input.expectedFingerprint)
-                fail(
-                    'Data berubah setelah dry-run; tidak ada koreksi diterapkan.',
-                );
-            await tx.$queryRaw(
-                Prisma.sql`SELECT id FROM "StockMovement" WHERE id IN (${Prisma.join(evidence.scraps.map((m) => m.id))}) ORDER BY id FOR UPDATE`,
-            );
-            for (const m of evidence.scraps) {
-                const updated = await tx.stockMovement.updateMany({
-                    where: {
-                        id: m.id,
-                        cost: null,
-                        productionExecutionId: null,
-                    },
-                    data: {
-                        cost: 0,
-                        companyOwned: true,
-                        productionExecutionId: evidence.scrapOwner.get(m.id),
-                    },
-                });
-                if (updated.count !== 1)
-                    fail(
-                        'Affal berubah bersamaan; tidak ada koreksi diterapkan.',
-                    );
-            }
-            const audit = await tx.auditLog.create({
-                data: {
-                    userId: input.actorId,
-                    action: ABSORBED_SCRAP_ACTION,
-                    entityType: 'ProductionOrder',
-                    entityId: evidence.order.id,
-                    dedupeKey,
-                    details: input.reason,
-                    changes: JSON.parse(
-                        JSON.stringify({
-                            database: input.database,
-                            orderNumber: input.orderNumber,
-                            fingerprint: evidence.fingerprint,
-                            backupReference: input.backupReference,
-                            mode: evidence.mode,
-                            executionId: evidence.execution.id,
-                            scrapOnlyExecutionId: evidence.scrapOnly?.id ?? null,
-                            absorbedValue: evidence.absorbedValue,
-                            residualValue: evidence.residualValue,
-                            originalMovements: evidence.scraps,
-                            inventories: evidence.inventories,
-                            netPhysicalQuantityChange: 0,
-                            journalsCreated: 0,
-                        }),
-                    ) as Prisma.InputJsonObject,
-                },
-            });
-            return { ...result, changed: true, auditId: audit.id };
-        },
-        {
-            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-            timeout: 30000,
-        },
+        (tx) => normalizeAbsorbedScrapInTransaction(tx, input, execute),
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 },
     );
 }

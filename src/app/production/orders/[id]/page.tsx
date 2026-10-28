@@ -90,6 +90,7 @@ export default async function ProductionDetailPage(props: PageProps) {
 
             <ProductionOrderDetail
                 order={order as unknown as ExtendedProductionOrder}
+                canRecoverCosts={!!session?.user && hasAnyRole(session.user, ['ADMIN', 'FINANCE'])}
                 canEditCustomers={
                     !!session?.user &&
                     hasAnyRole(session.user, ['ADMIN', 'PLANNING'])

@@ -183,6 +183,11 @@ export const financeLinks = [
         heading: 'Laporan',
         items: [
             {
+                href: '/finance/production-cost-recovery',
+                icon: FileText,
+                label: 'Pemulihan biaya SPK',
+            },
+            {
                 href: '/finance/reports',
                 icon: FileText,
                 label: financeSidebarLabels.reportsHub,

@@ -6,6 +6,7 @@ import { Calculator, Info } from 'lucide-react';
 import { InfoHint } from '@/components/common/InfoHint';
 import { formatRupiah } from '@/lib/utils/utils';
 import { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+import { ProductionCostRecovery } from '@/components/production/order-detail/ProductionCostRecovery';
 import { MaklonCostManager } from '@/components/maklon/MaklonCostManager';
 import type { getOrderCosting } from '@/actions/finance/finance';
 
@@ -18,15 +19,18 @@ interface OrderCostingTabProps {
     order: ExtendedProductionOrder;
     costingData: OrderCostingData;
     loadingCosting: boolean;
+    canRecoverCosts?: boolean;
 }
 
 export function OrderCostingTab({
     order,
     costingData,
     loadingCosting,
+    canRecoverCosts = false,
 }: OrderCostingTabProps) {
     return (
         <div className="space-y-6">
+            {canRecoverCosts && <ProductionCostRecovery key={order.id} orderId={order.id} />}
             {/* Maklon Conversion Costs – only for Maklon orders */}
             {order.isMaklon && (
                 <MaklonCostManager

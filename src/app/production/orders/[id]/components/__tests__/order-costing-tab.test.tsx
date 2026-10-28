@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OrderCostingTab, type OrderCostingData } from '../order-costing-tab';
 import type { ExtendedProductionOrder } from '@/components/production/order-detail/types';
+vi.mock('@/components/production/order-detail/ProductionCostRecovery', () => ({ ProductionCostRecovery: () => <div>Recovery panel</div> }));
 vi.mock('@/components/maklon/MaklonCostManager', () => ({
     MaklonCostManager: () => <div>Biaya maklon</div>,
 }));
@@ -64,6 +65,12 @@ describe('order costing presentation', () => {
         expect(
             screen.getByText('Belum ada data biaya untuk SPK ini.'),
         ).toBeTruthy();
+    });
+    it('shows recovery only with the server-provided finance capability', () => {
+        const { rerender } = render(<OrderCostingTab order={order} costingData={null} loadingCosting={false} />);
+        expect(screen.queryByText('Recovery panel')).toBeNull();
+        rerender(<OrderCostingTab order={order} costingData={null} loadingCosting={false} canRecoverCosts />);
+        expect(screen.getByText('Recovery panel')).toBeTruthy();
     });
     it('distinguishes loading from empty costs', () => {
         render(

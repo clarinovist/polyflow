@@ -31,6 +31,7 @@ import type { CustomerDestination } from '@/lib/production/order-context';
 interface PageProps {
     order: ExtendedProductionOrder;
     canEditCustomers?: boolean;
+    canRecoverCosts?: boolean;
     formData: {
         locations: Location[];
         operators: Employee[];
@@ -47,6 +48,7 @@ export function ProductionOrderDetail({
     order,
     formData,
     canEditCustomers = false,
+    canRecoverCosts = false,
 }: PageProps) {
     const getDefaultTab = (status: string) => {
         switch (status) {
@@ -167,6 +169,7 @@ export function ProductionOrderDetail({
                                 order={order}
                                 costingData={costingData}
                                 loadingCosting={loadingCosting}
+                                canRecoverCosts={canRecoverCosts}
                             />
                         </div>
                         <div className="min-w-0 xl:col-span-2">

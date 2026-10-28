@@ -257,6 +257,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                     },
                 ],
             },
+            { key: '/finance/production-cost-recovery', label: 'Pemulihan biaya SPK' },
             { key: '/finance/periods', label: 'Periode Fiskal' },
             { key: '/finance/opening-balance', label: 'Saldo Awal' },
             { key: '/finance/payment-banks', label: 'Bank Pembayaran' },

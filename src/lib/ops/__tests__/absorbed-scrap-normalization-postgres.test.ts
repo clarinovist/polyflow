@@ -9,6 +9,7 @@ import { voidProductionExecutionInTransaction } from '@/services/production/exec
 import { recordFinishedGoodsOutput } from '@/services/production/execution-output-posting';
 import type { ProductionExecutionOrder } from '@/services/production/execution-types';
 import { normalizeAbsorbedScrap, scanAbsorbedScrap } from '../absorbed-scrap-normalization';
+import { applyProductionCostRecovery, inspectProductionCostRecovery } from '@/services/production/cost-recovery-service';
 
 // Synthetic only: real PostgreSQL proves the normalized legacy rows are what the
 // WIP allocator, COGM and generic void already accept for post-fix automatic scrap.
@@ -186,5 +187,117 @@ describe.skipIf(!db)('absorbed legacy scrap normalization PostgreSQL contract', 
         expect(await scanAbsorbedScrap(db!, { database })).toEqual([expect.objectContaining({ orderId: 'wo', eligible: false, code: 'AFFAL_ONLY_DEFERRED' })]);
         await expect(scanAbsorbedScrap(db!, { database: 'another_tenant' })).rejects.toThrow('Database');
         expect(await db!.stockMovement.count({ where: { cost: null } })).toBe(2);
+    });
+});
+
+// Same CI-included PG contract, stricter web eligibility than legacy operator CLI.
+describe.skipIf(!db)('web production cost recovery PostgreSQL contract', () => {
+    beforeEach(seed);
+    afterAll(async () => { await db?.$disconnect(); });
+    const backup = { ready: () => true, save: async () => 'synthetic-readback-verified' };
+    async function candidate() {
+        await legacyOrder();
+        await db!.inventory.updateMany({ where: { productVariantId: { in: ['leaf', 'lump'] } }, data: { quantity: 2, averageCost: 0 } });
+        const inspected = await inspectProductionCostRecovery(db!, 'wo', true);
+        expect(inspected.status).toBe('eligible');
+        return { orderId: 'wo', fingerprint: inspected.proposal!.fingerprint, actorId: 'actor', reason: 'Synthetic verified metadata recovery' };
+    }
+    it('persists only metadata, verifies all financial/physical invariants and deduplicates retries', async () => {
+        const input = await candidate(), before = await snapshot();
+        const applied = await applyProductionCostRecovery(db!, input, backup);
+        expect(applied.alreadyApplied).toBe(false); expect(await snapshot()).toEqual(before);
+        expect((await run(tx => ProductionCostService.calculateRemainingOutputValuation('wo', 10, tx))).journalTotal).toBe(0);
+        expect(await applyProductionCostRecovery(db!, input, backup)).toEqual({ ...applied, alreadyApplied: true });
+        const audit = await db!.auditLog.findUniqueOrThrow({ where: { id: applied.auditId } });
+        expect(audit.changes).toMatchObject({ webFingerprint: input.fingerprint, postconditionsVerified: true });
+        expect((await inspectProductionCostRecovery(db!, 'wo', true)).status).toBe('already_applied');
+    });
+    it('rejects historical use/reset despite current zero WAC, and multi-output history', async () => {
+        await candidate();
+        await db!.stockMovement.create({ data: { type: 'OUT', productVariantId: 'leaf', fromLocationId: 'scrap-loc', quantity: 1, cost: 25, createdAt: new Date(at.getTime() - 60000) } });
+        expect((await inspectProductionCostRecovery(db!, 'wo', true)).status).toBe('needs_review');
+        await db!.productionExecution.create({ data: { productionOrderId: 'wo', quantityProduced: 5, startTime: at, endTime: at } });
+        expect((await inspectProductionCostRecovery(db!, 'wo', true)).status).toBe('unsupported');
+        expect(await db!.auditLog.count()).toBe(0);
+    });
+    it('rolls back metadata when atomic audit or verification fails', async () => {
+        const input = await candidate();
+        await db!.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION reject_web_recovery_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action = 'NORMALIZE_ABSORBED_PRODUCTION_SCRAP' THEN RAISE EXCEPTION 'synthetic audit rejection'; END IF; RETURN NEW; END $$`);
+        await db!.$executeRawUnsafe(`CREATE TRIGGER reject_web_recovery_audit BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION reject_web_recovery_audit()`);
+        try {
+            await expect(applyProductionCostRecovery(db!, input, backup)).rejects.toThrow();
+            expect(await db!.stockMovement.count({ where: { id: { in: ['legacy-leaf', 'legacy-lump'] }, cost: null } })).toBe(2);
+            expect(await db!.auditLog.count()).toBe(0);
+        } finally {
+            await db!.$executeRawUnsafe('DROP TRIGGER reject_web_recovery_audit ON "AuditLog"');
+            await db!.$executeRawUnsafe('DROP FUNCTION reject_web_recovery_audit()');
+        }
+        await db!.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION reject_web_recovery_poststate() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF OLD.id = 'legacy-leaf' THEN NEW.quantity = OLD.quantity + 1; END IF; RETURN NEW; END $$`);
+        await db!.$executeRawUnsafe(`CREATE TRIGGER reject_web_recovery_poststate BEFORE UPDATE ON "StockMovement" FOR EACH ROW EXECUTE FUNCTION reject_web_recovery_poststate()`);
+        try {
+            await expect(applyProductionCostRecovery(db!, input, backup)).rejects.toThrow('Verifikasi');
+            expect((await db!.stockMovement.findUniqueOrThrow({ where: { id: 'legacy-leaf' } })).quantity.toNumber()).toBe(2);
+            expect(await db!.auditLog.count()).toBe(0);
+        } finally {
+            await db!.$executeRawUnsafe('DROP TRIGGER reject_web_recovery_poststate ON "StockMovement"');
+            await db!.$executeRawUnsafe('DROP FUNCTION reject_web_recovery_poststate()');
+        }
+    });
+    it('serializes competing apply requests; failed contender retries only the exact receipt', async () => {
+        const input = await candidate();
+        const results = await Promise.allSettled([applyProductionCostRecovery(db!, input, backup), applyProductionCostRecovery(db!, input, backup)]);
+        expect(results.filter(r => r.status === 'fulfilled').length).toBeGreaterThanOrEqual(1);
+        expect(await db!.auditLog.count({ where: { action: 'NORMALIZE_ABSORBED_PRODUCTION_SCRAP' } })).toBe(1);
+        expect((await applyProductionCostRecovery(db!, input, backup)).alreadyApplied).toBe(true);
+    });
+    it.each(['output', 'void', 'inventory', 'journal'] as const)('serializes or rejects concurrent %s without hiding its changes', async kind => {
+        const input = await candidate();
+        let signalEntered!: () => void, releaseBackup!: () => void;
+        const entered = new Promise<void>(resolve => { signalEntered = resolve; });
+        const released = new Promise<void>(resolve => { releaseBackup = resolve; });
+        const applying = applyProductionCostRecovery(db!, input, { ready: () => true, save: async () => { signalEntered(); await released; return 'synthetic-race-backup'; } });
+        await entered;
+        const competing = run(async tx => {
+            if (kind === 'output' || kind === 'void') await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id='wo' FOR UPDATE`;
+            if (kind === 'output') {
+                await issue(tx, 50, new Date(at.getTime() + 600000));
+                await output(tx, 50, new Date(at.getTime() + 600000));
+            } else if (kind === 'void') {
+                await voidProductionExecutionInTransaction(tx, 'legacy-execution', { userId: 'actor' });
+            } else if (kind === 'inventory') {
+                await tx.inventory.updateMany({ where: { productVariantId: 'leaf' }, data: { averageCost: 25 } });
+            } else {
+                const journal = await tx.journalEntry.findFirstOrThrow({ where: { referenceId: { not: null } } });
+                await tx.journalEntry.update({ where: { id: journal.id }, data: { description: 'Synthetic concurrent source review' } });
+            }
+        });
+        releaseBackup();
+        const [recovery, other] = await Promise.allSettled([applying, competing]);
+        expect(recovery.status).toBe('fulfilled');
+        expect(['fulfilled', 'rejected']).toContain(other.status); // PG may serialize or abort the contender.
+        if (other.status === 'rejected') {
+            const error = other.reason as { code?: string; meta?: { code?: string } };
+            expect(error.code === 'P2034' || (error.code === 'P2010' && ['40001', '40P01'].includes(error.meta?.code ?? ''))).toBe(true);
+        }
+        expect(await db!.auditLog.count({ where: { action: 'NORMALIZE_ABSORBED_PRODUCTION_SCRAP' } })).toBe(1);
+        if (other.status === 'fulfilled' && kind === 'output') expect(await balance(accounts.wip)).toBe(0);
+        if (other.status === 'fulfilled' && kind === 'void') {
+            expect((await db!.productionExecution.findUniqueOrThrow({ where: { id: 'legacy-execution' } })).status).toBe('VOIDED');
+            expect(await balance(accounts.wip)).toBe(0);
+        }
+        if (other.status === 'fulfilled' && kind === 'inventory') {
+            expect((await db!.inventory.findUniqueOrThrow({ where: { locationId_productVariantId: { locationId: 'scrap-loc', productVariantId: 'leaf' } } })).averageCost?.toNumber()).toBe(25);
+        }
+    });
+    it('blocks stale source, failed backup and wrong actor without writes', async () => {
+        const input = await candidate();
+        await expect(applyProductionCostRecovery(db!, input, { ready: () => false, save: backup.save })).rejects.toThrow('Cadangan');
+        await expect(applyProductionCostRecovery(db!, input, { ready: () => true, save: async () => { throw new Error('synthetic storage failure'); } })).rejects.toThrow('storage failure');
+        await db!.user.create({ data: { id: 'warehouse', email: 'warehouse@example.invalid', password: 'synthetic', role: 'WAREHOUSE' } });
+        await expect(applyProductionCostRecovery(db!, { ...input, actorId: 'warehouse' }, backup)).rejects.toThrow('Aktor');
+        await db!.productionOrder.update({ where: { id: 'wo' }, data: { plannedQuantity: 101 } });
+        await expect(applyProductionCostRecovery(db!, input, backup)).rejects.toThrow('Data berubah');
+        expect(await db!.auditLog.count()).toBe(0);
+        expect(await db!.stockMovement.count({ where: { id: { in: ['legacy-leaf', 'legacy-lump'] }, cost: null } })).toBe(2);
     });
 });
