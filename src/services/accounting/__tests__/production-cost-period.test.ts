@@ -36,6 +36,12 @@ describe('explicit forward-only production cost boundary',()=>{
         const f=setup();f.ms.push(f.move('bad-new','OUT',null));
         await expect(allocateProductionWip(f.tx,f.move('next','IN',1),d(1))).rejects.toThrow('jurnal sumber');
     });
+    it('keeps unsigned v1 strict and accepts signed values only in complete v2 evidence',async()=>{
+        const f=setup(); f.data.historicalBalances[0].amount='-20.00';
+        await expect(readCostPeriod(f.tx,'wo')).rejects.toThrow('bukti');
+        f.db.auditLog.findUnique.mockResolvedValue({action:COST_PERIOD_ACTION,entityType:'ProductionOrder',entityId:'wo',changes:{...f.data,version:2,mode:'REVIEWED_LEGACY_SEAL',materialIssueIds:[],scrapRecordIds:[],supportHash:'d'.repeat(64),anomalies:[{category:'NEGATIVE_ACCOUNT_POOLS_RETAINED',count:1}],nonvoidOutput:'1',netOutput:'1'}} as never);
+        expect((await readCostPeriod(f.tx,'wo'))?.version).toBe(2);
+    });
     it('rejects invalid or wrong-order receipt',async()=>{
         const f=setup();f.db.auditLog.findUnique.mockResolvedValue({action:COST_PERIOD_ACTION,entityType:'ProductionOrder',entityId:'other',changes:f.data});
         await expect(readCostPeriod(f.tx,'wo')).rejects.toThrow('bukti');

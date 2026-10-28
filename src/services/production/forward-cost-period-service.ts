@@ -11,6 +11,9 @@ import {
     type CostPeriodEvidence,
 } from '@/services/accounting/production-cost-period';
 import type { RecoveryBackupStore } from './cost-recovery-service';
+import { inspectReviewedLegacySeal } from './reviewed-legacy-cost-seal';
+
+export type CostPeriodMode = 'STRICT' | 'REVIEWED_LEGACY_SEAL';
 
 type Tx = Prisma.TransactionClient;
 const zero = () => new Prisma.Decimal(0);
@@ -275,13 +278,17 @@ async function inspect(tx: Tx, orderId: string) {
 export async function previewForwardCostPeriod(
     db: PrismaClient,
     orderId: string,
+    mode: CostPeriodMode = 'STRICT',
 ) {
     return db.$transaction(
         async (tx) => {
             await tx.$executeRaw`SET TRANSACTION READ ONLY`;
             const existing = await readCostPeriod(tx, orderId);
             if (existing) return { alreadyApplied: true as const, ...existing };
-            const data = await inspect(tx, orderId);
+            const data =
+                mode === 'REVIEWED_LEGACY_SEAL'
+                    ? await inspectReviewedLegacySeal(tx, orderId)
+                    : await inspect(tx, orderId);
             return { alreadyApplied: false as const, ...data.evidence };
         },
         {
@@ -298,15 +305,23 @@ export async function startForwardCostPeriod(
         fingerprint: string;
         actorId: string;
         reason: string;
+        mode?: CostPeriodMode;
+        acknowledgeRetainedAnomalies?: boolean;
     },
     backup: RecoveryBackupStore,
 ) {
     if (
+        (input.mode !== undefined && !['STRICT', 'REVIEWED_LEGACY_SEAL'].includes(input.mode)) ||
         !/^[a-f0-9]{64}$/.test(input.fingerprint) ||
         input.reason.trim().length < 12 ||
         input.reason.length > 1000
     )
         periodFailure('preview dan alasan wajib lengkap');
+    if (
+        input.mode === 'REVIEWED_LEGACY_SEAL' &&
+        input.acknowledgeRetainedAnomalies !== true
+    )
+        periodFailure('persetujuan eksplisit atas anomali historis diperlukan');
     return db.$transaction(
         async (tx) => {
             const actor = await tx.user.findUnique({
@@ -336,7 +351,14 @@ export async function startForwardCostPeriod(
             await tx.$queryRaw`SELECT id FROM "ProductionExecution" WHERE "productionOrderId"=${input.orderId} ORDER BY id FOR UPDATE`;
             await tx.$queryRaw`SELECT j.id FROM "JournalEntry" j JOIN "StockMovement" m ON m.id=j."referenceId" WHERE m."productionOrderId"=${input.orderId} ORDER BY j.id FOR UPDATE OF j`;
             await tx.$queryRaw`SELECT l.id FROM "JournalLine" l JOIN "JournalEntry" j ON j.id=l."journalEntryId" JOIN "StockMovement" m ON m.id=j."referenceId" WHERE m."productionOrderId"=${input.orderId} ORDER BY l.id FOR UPDATE OF l`;
-            const data = await inspect(tx, input.orderId);
+            if (input.mode === 'REVIEWED_LEGACY_SEAL') {
+                await tx.$queryRaw`SELECT id FROM "MaterialIssue" WHERE "productionOrderId"=${input.orderId} ORDER BY id FOR UPDATE`;
+                await tx.$queryRaw`SELECT id FROM "ScrapRecord" WHERE "productionOrderId"=${input.orderId} ORDER BY id FOR UPDATE`;
+            }
+            const data =
+                input.mode === 'REVIEWED_LEGACY_SEAL'
+                    ? await inspectReviewedLegacySeal(tx, input.orderId)
+                    : await inspect(tx, input.orderId);
             if (data.evidence.fingerprint !== input.fingerprint)
                 periodFailure('sumber berubah setelah preview');
             if (!backup.ready())

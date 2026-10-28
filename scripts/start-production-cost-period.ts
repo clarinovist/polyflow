@@ -12,10 +12,13 @@ const schema = z.object({
     orderId: z.string().uuid(), orderNumber: z.string().min(1).max(80),
     actorId: z.string().min(1).max(100), reason: z.string().trim().min(12).max(1000),
     fingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    mode: z.enum(['STRICT', 'REVIEWED_LEGACY_SEAL']).optional(),
+    acknowledgeRetainedAnomalies: z.boolean().optional(),
 }).strict();
 export function parseCostPeriodRequest(value: unknown, execute: boolean) {
     const input = schema.parse(value);
     if (execute && !input.fingerprint) throw new Error('Reviewed fingerprint required.');
+    if (execute && input.mode === 'REVIEWED_LEGACY_SEAL' && !input.acknowledgeRetainedAnomalies) throw new Error('Explicit retained anomaly acknowledgment required.');
     return input;
 }
 /** A durable host-mounted backup, not an ephemeral container file. Exclusive
@@ -49,20 +52,20 @@ async function main() {
         const order = await db.productionOrder.findUnique({ where: { id: input.orderId }, select: { orderNumber: true } });
         if (order?.orderNumber !== input.orderNumber) throw new Error('Reviewed order identity differs.');
         if (execute) {
-            const applied = await startForwardCostPeriod(db, { orderId: input.orderId, actorId: input.actorId, reason: input.reason, fingerprint: input.fingerprint! }, {
+            const applied = await startForwardCostPeriod(db, { orderId: input.orderId, actorId: input.actorId, reason: input.reason, fingerprint: input.fingerprint!, mode: input.mode, acknowledgeRetainedAnomalies: input.acknowledgeRetainedAnomalies },  {
                 ready: () => true,
                 save: (evidence, fingerprint) => savePeriodBackup('/app/backups', tenant.id, evidence, fingerprint),
             });
             console.log(JSON.stringify({ phase: 'apply', ...applied }));
         }
-        const preview = await previewForwardCostPeriod(db, input.orderId);
+        const preview = await previewForwardCostPeriod(db, input.orderId, input.mode);
         const available = preview.alreadyApplied ? await db.$transaction(async tx => {
             await tx.$executeRaw`SET TRANSACTION READ ONLY`;
             return (await availableProductionWip(tx, input.orderId, { lock: false })).toFixed(2);
         }) : null;
         console.log(JSON.stringify({ phase: 'inspect', orderNumber: input.orderNumber, alreadyApplied: preview.alreadyApplied,
             fingerprint: preview.fingerprint, outputCount: preview.executionIds.length, movementCount: preview.movementIds.length,
-            historicalBalances: preview.historicalBalances, availableNewCost: available }));
+            version: preview.version, anomalies: preview.version === 2 ? preview.anomalies : [], historicalBalances: preview.historicalBalances, availableNewCost: available }));
     } finally { await db?.$disconnect(); await registry.$disconnect(); }
 }
 if (require.main === module) main().catch(error => {

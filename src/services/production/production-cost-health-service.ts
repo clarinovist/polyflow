@@ -33,7 +33,7 @@ export interface ProductionCostHealth {
     /** Non-affal stock adjusted in during the last 24h at Rp0: no entered, average, standard or buy cost. */
     zeroCostAdjustments: Array<{ skuCode: string; quantity: string }>;
     /** Explicitly retained historical WIP; NOT available to future production. */
-    retainedHistory?: Array<{ orderNumber: string; amount: string }>;
+    retainedHistory?: Array<{ orderNumber: string; amount: string; accounts?: Array<{ accountId: string; amount: string }>; anomalies?: Array<{ category: string; count: number }> }>;
     findings: number;
 }
 
@@ -59,7 +59,7 @@ async function inspectWipPools(tx: Tx, now: Date) {
         try {
             const residual = await availableProductionWip(tx, order.id, { lock: false });
             const period = await readCostPeriod(tx, order.id);
-            if (period) retainedHistory.push({ orderNumber: order.orderNumber, amount: period.historicalBalances.reduce((s,b)=>s.plus(b.amount), new Prisma.Decimal(0)).toFixed(2) });
+            if (period) retainedHistory.push({ orderNumber: order.orderNumber, amount: period.historicalBalances.reduce((s,b)=>s.plus(b.amount), new Prisma.Decimal(0)).toFixed(2), ...(period.version === 2 ? { accounts: period.historicalBalances, anomalies: period.anomalies } : {}) });
             if (order.status === 'COMPLETED' && residual.gt(VALUE_TOLERANCE)) {
                 completedResidual.push({ orderNumber: order.orderNumber, residual: residual.toFixed(2) });
             }
@@ -222,7 +222,7 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
 export function summarizeProductionCostHealth(tenant: string, health: ProductionCostHealth) {
     if (health.findings === 0) return `[ProductionCostHealth] ${tenant}: ok`;
     const parts = [
-        health.retainedHistory?.length && `biaya historis dipertahankan, bukan dana hasil baru (${health.retainedHistory.map(o=>`${o.orderNumber} Rp${o.amount}`).join(', ')})`,
+        health.retainedHistory?.length && `biaya historis dipertahankan, bukan dana hasil baru (${health.retainedHistory.map(o=>`${o.orderNumber} Rp${o.amount}${o.accounts ? ` [per akun: ${o.accounts.map(a=>a.amount).join(', ')}; ${o.anomalies?.map(a=>`${a.category}:${a.count}`).join(', ')}]` : ''}`).join(', ')})`,
         health.blockedOrders.length && `${health.blockedOrders.length} SPK terblokir (${health.blockedOrders.map((o) => `${o.orderNumber}: ${o.reason}`).join('; ')})`,
         health.completedResidual.length && `${health.completedResidual.length} SPK selesai bersisa WIP (${health.completedResidual.map((o) => `${o.orderNumber} Rp${o.residual}`).join(', ')})`,
         health.nullCostScrapOrders.length && `${health.nullCostScrapOrders.length} SPK affal NULL (${health.nullCostScrapOrders.join(', ')})`,

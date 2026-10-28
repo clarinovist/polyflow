@@ -162,6 +162,23 @@ import {
 import { validatePackagedOutput, postPackagedOutput } from '../packaging-output-service';
 import { logActivity } from '@/lib/tools/audit';
 
+describe('sealed or voided execution write protection', () => {
+    beforeEach(() => { vi.clearAllMocks(); tx.auditLog.findUnique.mockResolvedValue(null); });
+    it.each(['stop', 'log'] as const)('rejects %s of a VOIDED shell before even zero-output updates', async kind => {
+        tx.productionExecution.findUniqueOrThrow.mockResolvedValue({id:'frozen',productionOrderId:'po-1',status:'VOIDED'});
+        const operation = kind === 'stop' ? ProductionExecutionService.stopExecution({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never) : ProductionExecutionService.logRunningOutput({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never);
+        await expect(operation).rejects.toThrow('sudah dibatalkan');
+        expect(tx.productionExecution.update).not.toHaveBeenCalled(); expect(tx.productionExecution.create).not.toHaveBeenCalled();
+        expect(String(tx.$queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
+    });
+    it.each(['stop', 'log'] as const)('rejects %s against a frozen nonvoid record', async kind => {
+        tx.productionExecution.findUniqueOrThrow.mockResolvedValue({id:'frozen',productionOrderId:'po-1',status:'COMPLETED'});
+        tx.auditLog.findUnique.mockResolvedValueOnce({action:'START_PRODUCTION_COST_PERIOD',entityType:'ProductionOrder',entityId:'po-1',changes:{version:1,orderId:'po-1',movementIds:['m'],executionIds:['frozen'],sourceHash:'a'.repeat(64),executionHash:'b'.repeat(64),fingerprint:'c'.repeat(64),historicalBalances:[]}});
+        const operation = kind === 'stop' ? ProductionExecutionService.stopExecution({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never) : ProductionExecutionService.logRunningOutput({executionId:'frozen',quantityProduced:0,scrapQuantity:0} as never);
+        await expect(operation).rejects.toThrow('historis dibekukan'); expect(tx.productionExecution.update).not.toHaveBeenCalled();
+    });
+});
+
 describe('ProductionExecutionService.voidExecution', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -594,7 +611,8 @@ describe('ProductionExecutionService.stopExecution', () => {
             } as never),
         ).resolves.toBeTruthy();
 
-        expect(tx.$queryRaw).not.toHaveBeenCalled();
+        expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+        expect(String(tx.$queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
     });
 
     it('persists split scrap and normalizes duplicate kiosk scrap once', async () => {
@@ -1760,7 +1778,8 @@ describe('plain output submissions with a client request id post exactly once', 
     it('keeps submissions without a request id as before', async () => {
         await ProductionExecutionService.logRunningOutput({ ...kioskLog, clientRequestId: undefined });
 
-        expect(tx.$queryRaw).not.toHaveBeenCalled();
+        expect(tx.$queryRaw).toHaveBeenCalledTimes(1);
+        expect(String(tx.$queryRaw.mock.calls[0][0])).toContain('FOR UPDATE');
         expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({ clientRequestId: undefined, requestHash: undefined }),
         }));

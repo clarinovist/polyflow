@@ -38,6 +38,7 @@ import {
     syncProductionRunStatusFromOrders,
 } from './routing-execution-guard';
 import { voidProductionExecutionInTransaction } from './execution-void-helper';
+import { assertMutableCostExecution, readCostPeriod } from '@/services/accounting/production-cost-period';
 
 type ResolvedOutputQuantity = {
     baseQty: number;
@@ -412,6 +413,8 @@ export class ProductionExecutionService {
         const { productionOrderId, machineId, operatorId, shiftId } = data;
 
         return await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+            const costPeriod = await readCostPeriod(tx, productionOrderId);
             // Validate: shift must belong to the same production order
             if (shiftId) {
                 const shiftOk = await tx.productionShift.findFirst({
@@ -460,10 +463,11 @@ export class ProductionExecutionService {
 
             // Handover: if SPK still running (paused without full stop), reassign operator/shift
             const existing = await tx.productionExecution.findFirst({
-                where: { productionOrderId, endTime: null },
+                where: { productionOrderId, endTime: null, status: { not: 'VOIDED' }, ...(costPeriod ? { id: { notIn: costPeriod.executionIds } } : {}) },
                 orderBy: { startTime: 'desc' },
             });
             if (existing) {
+                await assertMutableCostExecution(tx, existing);
                 // I1: check capability if new machine assigned during handover
                 if (
                     machineId &&
@@ -547,10 +551,10 @@ export class ProductionExecutionService {
         let finalExecution!: ProductionExecution;
         let resolvedBaseQty = Number(quantityProduced);
         await prisma.$transaction(async (tx) => {
-            const existingExecution =
-                await tx.productionExecution.findUniqueOrThrow({
-                    where: { id: executionId },
-                });
+            const identity = await tx.productionExecution.findUniqueOrThrow({ where: { id: executionId }, select: { productionOrderId: true } });
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${identity.productionOrderId} FOR UPDATE`;
+            const existingExecution = await tx.productionExecution.findUniqueOrThrow({ where: { id: executionId } });
+            await assertMutableCostExecution(tx, existingExecution);
             const productionOrderId = existingExecution.productionOrderId;
             const orderState = await tx.productionOrder.findUniqueOrThrow({
                 where: { id: productionOrderId },
@@ -752,10 +756,10 @@ export class ProductionExecutionService {
 
         await prisma.$transaction(async (tx) => {
             // 1. Running shell = machine context; operator/shift prefer kiosk login
-            const runningExecution =
-                await tx.productionExecution.findUniqueOrThrow({
-                    where: { id: executionId },
-                });
+            const identity = await tx.productionExecution.findUniqueOrThrow({ where: { id: executionId }, select: { productionOrderId: true } });
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${identity.productionOrderId} FOR UPDATE`;
+            const runningExecution = await tx.productionExecution.findUniqueOrThrow({ where: { id: executionId } });
+            await assertMutableCostExecution(tx, runningExecution);
 
             const productionOrderId = runningExecution.productionOrderId;
             const operatorId = requestOperatorId || runningExecution.operatorId;
@@ -1231,6 +1235,7 @@ export class ProductionExecutionService {
         return await prisma.productionExecution.findMany({
             where: {
                 endTime: { equals: null },
+                status: { not: 'VOIDED' },
             },
             select: {
                 id: true,

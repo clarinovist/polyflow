@@ -247,6 +247,10 @@ export async function inspectProductionCostRecovery(
             if (period) {
                 result.status = 'already_applied';
                 result.findings.push(`Periode biaya baru aktif. Biaya historis Rp${period.historicalBalances.reduce((s,b)=>s.plus(b.amount),zero()).toFixed(2)} tetap dipertahankan, tidak membiayai hasil baru. Ini bukan koreksi atau pelunasan biaya lama.`);
+                if (period.version === 2) {
+                    result.findings.push(`Saldo historis per akun (tanda negatif dipertahankan): ${period.historicalBalances.map(b=>`${b.accountId}: Rp${b.amount}`).join('; ')}.`);
+                    result.findings.push(`Anomali historis yang tetap dicatat: ${period.anomalies.map(a=>`${a.category} (${a.count})`).join(', ')}.`);
+                }
             } else if (previous) {
                 result.status = 'already_applied';
                 result.findings.push(

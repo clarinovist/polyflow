@@ -61,6 +61,35 @@ bukti dan biaya periode baru. Tidak menerima nominal/jurnal atau path backup dar
 browser/input. Jalankan hanya artifact exact SHA yang sudah lolos gate rilis;
 backup dan input privat tetap disimpan untuk recovery, bukan dihapus otomatis.
 
+### Riwayat kompleks: mode tinjauan terpisah (CLI)
+
+`mode: "REVIEWED_LEGACY_SEAL"` adalah versi bukti kedua, bukan opsi paksa.
+Versi pertama tetap ketat dan tidak diubah/di-upgrade otomatis. Mode ini hanya
+untuk operator sistem setelah preview disetujui; execute wajib
+`acknowledgeRetainedAnomalies: true` beserta fingerprint yang sama.
+
+Saldo historis **bertanda per akun**, void lama, jurnal affal bernilai, dan
+catatan affal manual tetap disimpan apa adanya. Mode ini tidak mengisi biaya
+kosong, mengarang tautan pembalik, menghapus saldo negatif, atau membuat jurnal
+penyeimbang. Laporan menyebut kategori anomali yang dipertahankan dan saldo per
+akun, bukan hanya jumlah bersih yang bisa menyembunyikan tanda negatif.
+
+Syarat tetap wajib: tidak ada sesi nonvoid terbuka; total hasil nonvoid cocok
+dengan hasil bersih mutasi dan total SPK; jumlah bersih bahan/affal cocok dengan
+catatan pendukung; semua jurnal bahan/hasil tunggal, POSTED, seimbang, IDR dan
+bersumber valid. Pending/staged/manual-konsolidasi, pemilik asing, jurnal sumber
+hilang, pembalik lintas batas atau perubahan sumber membatalkan aktivasi.
+MaterialIssue dan ScrapRecord lama ikut dibekukan lewat ID+hash. Pembatalan lama
+yang sudah tertutup boleh tetap tanpa tautan, tetapi tidak boleh digunakan untuk
+membalik transaksi baru atau dianggap sebagai bukti pasangan individual.
+
+Start/handover mengecualikan VOIDED dan hasil beku; stop/log menolak keduanya
+sebelum update, termasuk jumlah nol, dengan lock WO. Sesi nonvoid berjumlah nol
+namun `endTime=NULL` **tetap dianggap sesi terbuka**; umur/status default
+COMPLETED tidak membuktikan ia tidak dipakai. Jangan menutupnya tanpa konfirmasi
+operasional. Pemeriksaan saldo GL agregat tetap aktif setelah batas—batas biaya
+bukan cara mendanai persediaan dari jurnal yang tidak ada.
+
 ## Mode koreksi metadata yang didukung
 
 Hanya normalisasi affal historis dengan biaya kosong menjadi biaya eksplisit nol

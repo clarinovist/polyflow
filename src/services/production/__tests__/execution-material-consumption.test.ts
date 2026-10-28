@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/core/prisma', () => {
     const mockTx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
         productionExecution: {
             findUnique: vi.fn(),
             findFirst: vi.fn(),

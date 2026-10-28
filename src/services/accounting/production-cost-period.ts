@@ -6,8 +6,8 @@ export const COST_PERIOD_ACTION = 'START_PRODUCTION_COST_PERIOD';
 export type PeriodJournal = Prisma.JournalEntryGetPayload<{
     include: { lines: { include: { account: true } } };
 }>;
-export interface CostPeriodEvidence {
-    version: 1;
+interface CostPeriodBase {
+    version: 1 | 2;
     orderId: string;
     movementIds: string[];
     executionIds: string[];
@@ -17,6 +17,18 @@ export interface CostPeriodEvidence {
     nullScrapCount: number;
     fingerprint: string;
 }
+export type CostPeriodEvidence =
+    | (CostPeriodBase & { version: 1 })
+    | (CostPeriodBase & {
+          version: 2;
+          mode: 'REVIEWED_LEGACY_SEAL';
+          materialIssueIds: string[];
+          scrapRecordIds: string[];
+          supportHash: string;
+          anomalies: Array<{ category: string; count: number }>;
+          nonvoidOutput: string;
+          netOutput: string;
+      });
 export function costPeriodHash(value: unknown): string {
     const canonical = (v: unknown): unknown =>
         Array.isArray(v)
@@ -78,7 +90,8 @@ export async function readCostPeriod(
         audit.action !== COST_PERIOD_ACTION ||
         audit.entityType !== 'ProductionOrder' ||
         audit.entityId !== orderId ||
-        data?.version !== 1 ||
+        !data ||
+        ![1, 2].includes(data.version) ||
         data.orderId !== orderId ||
         !Array.isArray(data.movementIds) ||
         !data.movementIds.length ||
@@ -99,11 +112,49 @@ export async function readCostPeriod(
                 !b ||
                 typeof b.accountId !== 'string' ||
                 typeof b.amount !== 'string' ||
-                !/^\d+\.\d{2}$/.test(b.amount),
+                !(data.version === 2 ? /^-?\d+\.\d{2}$/ : /^\d+\.\d{2}$/).test(
+                    b.amount,
+                ),
         )
     )
         periodFailure('bukti persetujuan tidak valid');
+    if (data.version === 2) {
+        const validIds = (ids: unknown): ids is string[] =>
+            Array.isArray(ids) &&
+            ids.length <= 2000 &&
+            ids.every((id) => typeof id === 'string' && id.length > 0) &&
+            new Set(ids).size === ids.length;
+        if (
+            data.mode !== 'REVIEWED_LEGACY_SEAL' ||
+            !validIds(data.materialIssueIds) ||
+            !validIds(data.scrapRecordIds) ||
+            !/^[a-f0-9]{64}$/.test(data.supportHash) ||
+            !Array.isArray(data.anomalies) ||
+            data.anomalies.some(
+                (a) =>
+                    !a ||
+                    typeof a.category !== 'string' ||
+                    !Number.isSafeInteger(a.count) ||
+                    a.count < 0,
+            ) ||
+            !/^\d+(\.\d+)?$/.test(data.netOutput) ||
+            data.netOutput !== data.nonvoidOutput
+        )
+            periodFailure('bukti penyegelan riwayat tidak valid');
+    }
     return data;
+}
+
+/** Run after the WO lock, before even zero-output or operator/shift updates. */
+export async function assertMutableCostExecution(
+    tx: Prisma.TransactionClient,
+    execution: { id: string; productionOrderId: string; status: string },
+) {
+    if (execution.status === 'VOIDED')
+        periodFailure('eksekusi sudah dibatalkan');
+    const period = await readCostPeriod(tx, execution.productionOrderId);
+    if (period?.executionIds.includes(execution.id))
+        periodFailure('eksekusi historis dibekukan; gunakan sesi baru');
 }
 
 /** Ignore no history implicitly: verify exact frozen sources before isolating new funding. */
@@ -134,6 +185,29 @@ export async function forwardCostMovements(
         costPeriodHash(executions) !== period.executionHash
     )
         periodFailure('hasil historis berubah setelah batas biaya');
+    if (period.version === 2) {
+        const materialIssues = await tx.materialIssue.findMany({
+            where: {
+                id: { in: period.materialIssueIds },
+                productionOrderId: orderId,
+            },
+            orderBy: { id: 'asc' },
+        });
+        const scrapRecords = await tx.scrapRecord.findMany({
+            where: {
+                id: { in: period.scrapRecordIds },
+                productionOrderId: orderId,
+            },
+            orderBy: { id: 'asc' },
+        });
+        if (
+            materialIssues.length !== period.materialIssueIds.length ||
+            scrapRecords.length !== period.scrapRecordIds.length ||
+            costPeriodHash({ materialIssues, scrapRecords }) !==
+                period.supportHash
+        )
+            periodFailure('catatan bahan atau affal historis berubah');
+    }
     const current = movements.filter((m) => !ids.has(m.id));
     if (current.some((m) => m.reversalOfId && ids.has(m.reversalOfId)))
         periodFailure('hasil historis tidak boleh dibalik lewat periode baru');

@@ -14,6 +14,13 @@ describe('operational forward-only cost wrapper',()=>{
         expect(()=>parseCostPeriodRequest({...input,amount:40},true)).toThrow();
         expect(()=>parseCostPeriodRequest({...input,tenant:'../other'},false)).toThrow();
     });
+    it('requires explicit anomaly acknowledgment for reviewed legacy execute',()=>{
+        const reviewed={...input,mode:'REVIEWED_LEGACY_SEAL',fingerprint:'a'.repeat(64)};
+        expect(parseCostPeriodRequest(reviewed,false).mode).toBe('REVIEWED_LEGACY_SEAL');
+        expect(()=>parseCostPeriodRequest(reviewed,true)).toThrow('acknowledgment');
+        expect(parseCostPeriodRequest({...reviewed,acknowledgeRetainedAnomalies:true},true).acknowledgeRetainedAnomalies).toBe(true);
+        expect(()=>parseCostPeriodRequest({...reviewed,mode:'FORCE'},true)).toThrow();
+    });
     it('creates an exclusive readback-verified durable evidence file',async()=>{
         const root=await mkdtemp(join(tmpdir(),'cost-period-cli-'));
         try{
