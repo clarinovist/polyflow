@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({inspect:vi.fn(),activate:vi.fn()}));
 vi.mock('@/actions/finance/production-cost-recovery',()=>({inspectForwardCostPeriod:m.inspect,activateForwardCostPeriod:m.activate}));
@@ -21,7 +21,13 @@ describe('forward-only cost period UI',()=>{
     it('never activates a blocked preview or unavailable backup',async()=>{
         m.inspect.mockResolvedValueOnce({success:false,error:'Manual issue history unsupported'});
         render(<ForwardCostPeriod orderId="wo"/>);fireEvent.click(screen.getByRole('button'));await screen.findByRole('status');expect(screen.queryByRole('checkbox')).toBeNull();
-        m.inspect.mockResolvedValueOnce({success:true,data:{...preview,storageReady:false}});fireEvent.click(screen.getByRole('button'));await screen.findByRole('alert');
+        // The status message can render before React finishes the transition.
+        // Wait for the actual retry control, not just the previous response.
+        const retry=screen.getByRole('button',{name:'Periksa kelayakan batas biaya'}) as HTMLButtonElement;
+        await waitFor(()=>expect(retry.disabled).toBe(false));
+        m.inspect.mockResolvedValueOnce({success:true,data:{...preview,storageReady:false}});fireEvent.click(retry);
+        await waitFor(()=>expect(m.inspect).toHaveBeenCalledTimes(2));
+        await screen.findByRole('alert');
         expect((screen.getByRole('button',{name:'Aktifkan batas biaya baru'}) as HTMLButtonElement).disabled).toBe(true);
     });
     it('retains same fingerprint/reason for retry after unknown response',async()=>{
