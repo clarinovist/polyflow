@@ -144,6 +144,7 @@ function fixture(inputs: readonly Input[], yieldQty = '711', conversion = '0', p
     const productVariant = { name: 'Synthetic output', product: { productType: 'INTERMEDIATE', inventoryAccountId: 'inventory', wipAccountId: 'wip' } };
     let output: Record<string, unknown> | null = null;
     const db = {
+        auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
         productionOrder: { findUnique: vi.fn(async () => order), findUniqueOrThrow: vi.fn(async () => order) },
         stockMovement: {
             findMany: vi.fn(async () => source),
