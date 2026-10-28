@@ -39,6 +39,8 @@ import {
     syncProductionRunStatusFromOrders,
 } from './routing-execution-guard';
 import { voidProductionExecutionInTransaction } from './execution-void-helper';
+import { closeOpenShellsForOrder } from './order-shell-closure';
+import { completionEndDate } from './order-end-date';
 import { assertMutableCostExecution, readCostPeriod } from '@/services/accounting/production-cost-period';
 
 type ResolvedOutputQuantity = {
@@ -559,7 +561,7 @@ export class ProductionExecutionService {
             const productionOrderId = existingExecution.productionOrderId;
             const orderState = await tx.productionOrder.findUniqueOrThrow({
                 where: { id: productionOrderId },
-                select: { actualPackagingEnabled: true, isMaklon: true, productionRunId: true },
+                select: { actualPackagingEnabled: true, isMaklon: true, productionRunId: true, status: true, actualEndDate: true },
             });
             const stopScrap = Number(scrapQuantity) + Number(scrapProngkolQty) + Number(scrapDaunQty);
             // Packaging is recorded per output in Catat Hasil; the stop dialog
@@ -651,10 +653,34 @@ export class ProductionExecutionService {
                         },
                     );
                 }
+                // Same completion contract as the admin "Selesai SPK" button.
+                const closure = await closeOpenShellsForOrder(tx, productionOrderId);
+                const completedAt = orderState.actualEndDate ? undefined : await completionEndDate(tx, productionOrderId);
                 await tx.productionOrder.update({
                     where: { id: productionOrderId },
-                    data: { status: ProductionStatus.COMPLETED },
+                    data: { status: ProductionStatus.COMPLETED, ...(completedAt ? { actualEndDate: completedAt } : {}) },
                 });
+                if (orderState.status !== ProductionStatus.COMPLETED) {
+                    await logActivity({
+                        userId: userId ?? 'system',
+                        action: 'UPDATE_PRODUCTION_ORDER_STATUS',
+                        entityType: 'ProductionOrder',
+                        entityId: productionOrderId,
+                        details: `${orderState.status} -> ${ProductionStatus.COMPLETED} (kiosk)`,
+                        fromStatus: orderState.status,
+                        toStatus: ProductionStatus.COMPLETED,
+                        changes: {
+                            via: 'kiosk',
+                            operatorId: finalExecution.operatorId,
+                            closedExecutions: closure.closed,
+                            skippedFrozen: closure.skippedFrozen,
+                            costPeriodUnreadable: closure.costPeriodUnreadable,
+                            atLastOutput: closure.atLastOutput,
+                            ...(completedAt ? { actualEndDate: completedAt } : {}),
+                        },
+                        tx,
+                    });
+                }
             }
 
             const order = orderState.actualPackagingEnabled

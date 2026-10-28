@@ -1947,7 +1947,29 @@ describe("ProductionOrderService", () => {
           skippedFrozen: [],
           costPeriodUnreadable: false,
           atLastOutput: true,
+          actualEndDate: lastOutput.toISOString(),
         });
+      });
+
+      it("records the last output as the actual end date of a completed SPK", async () => {
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.COMPLETED });
+
+        expect(prisma.productionOrder.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED", actualEndDate: lastOutput }) }),
+        );
+        expect(JSON.parse(vi.mocked(prisma.auditLog.create).mock.calls[0][0].data.changes).actualEndDate).toBe(lastOutput.toISOString());
+      });
+
+      it("keeps an end date the caller sent or the SPK already has", async () => {
+        const explicit = new Date("2026-10-21T00:00:00Z");
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.COMPLETED, actualEndDate: explicit });
+        expect(vi.mocked(prisma.productionOrder.update).mock.calls[0][0].data.actualEndDate).toBe(explicit);
+
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+          mockExistingOrder({ status: "IN_PROGRESS", actualEndDate: explicit }),
+        );
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.COMPLETED });
+        expect(vi.mocked(prisma.productionOrder.update).mock.calls[1][0].data).not.toHaveProperty("actualEndDate");
       });
 
       it("rolls back the completion when the audit cannot be written", async () => {

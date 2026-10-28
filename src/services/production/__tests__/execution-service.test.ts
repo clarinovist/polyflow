@@ -105,6 +105,10 @@ vi.mock('@/services/accounting/production-movement-reversal', () => ({
 }));
 vi.mock('@/lib/core/actor-context', () => ({ getActorUserId: vi.fn(() => 'actor') }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
+vi.mock('../order-shell-closure', () => ({
+    closeOpenShellsForOrder: vi.fn(async () => ({ closed: [{ id: 'exec-2', endTime: new Date('2026-10-20T02:00:00Z') }], skippedFrozen: [], costPeriodUnreadable: false, atLastOutput: true })),
+}));
+vi.mock('../order-end-date', () => ({ completionEndDate: vi.fn(async () => new Date('2026-10-20T02:08:00Z')) }));
 
 vi.mock('../material-service', () => ({
     ProductionMaterialService: {}
@@ -161,6 +165,8 @@ import {
 } from '../execution-helpers';
 import { validatePackagedOutput, postPackagedOutput } from '../packaging-output-service';
 import { logActivity } from '@/lib/tools/audit';
+import { closeOpenShellsForOrder } from '../order-shell-closure';
+import { completionEndDate } from '../order-end-date';
 
 describe('sealed or voided execution write protection', () => {
     beforeEach(() => { vi.clearAllMocks(); tx.auditLog.findUnique.mockResolvedValue(null); });
@@ -1786,5 +1792,70 @@ describe('plain output submissions with a client request id post exactly once', 
         expect(tx.productionExecution.create).toHaveBeenCalledWith(expect.objectContaining({
             data: expect.objectContaining({ clientRequestId: undefined, requestHash: undefined }),
         }));
+    });
+});
+
+describe('kiosk "SPK selesai" completes the SPK like the admin button', () => {
+    const lastOutput = new Date('2026-10-20T02:08:00Z');
+    const stop = (userId?: string) => ProductionExecutionService.stopExecution({
+        executionId: 'exec-1', quantityProduced: 0, scrapQuantity: 0, scrapProngkolQty: 0, scrapDaunQty: 0,
+        notes: '', completed: true, operatorId: 'op-1', userId,
+    } as never);
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(tx.$queryRaw).mockResolvedValue([{ count: BigInt(0) }] as never);
+        vi.mocked(tx.productionExecution.findUniqueOrThrow).mockResolvedValue({
+            id: 'exec-1', productionOrderId: 'po-1', operatorId: 'op-1', machineId: 'machine-1', status: 'COMPLETED',
+            enteredQuantity: null, enteredUnit: null, conversionFactorSnapshot: null,
+        } as never);
+        vi.mocked(tx.productionExecution.update).mockResolvedValue({
+            id: 'exec-1', productionOrderId: 'po-1', operatorId: 'op-1', machineId: 'machine-1', quantityProduced: 0,
+        } as never);
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            actualPackagingEnabled: false, isMaklon: false, productionRunId: null, status: 'IN_PROGRESS', actualEndDate: null,
+        } as never);
+        vi.mocked(tx.productionOrder.update).mockResolvedValue({
+            id: 'po-1', orderNumber: 'WO-001', status: 'COMPLETED', isMaklon: false, locationId: 'loc-1', productionRunId: null,
+            bom: { productVariantId: 'pv-1', items: [] }, plannedMaterials: [],
+        } as never);
+    });
+
+    it('closes the other running shells, stores the last output as end date and audits the transition', async () => {
+        await stop();
+
+        expect(closeOpenShellsForOrder).toHaveBeenCalledWith(tx, 'po-1');
+        expect(completionEndDate).toHaveBeenCalledWith(tx, 'po-1');
+        expect(tx.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'po-1' }, data: { status: 'COMPLETED', actualEndDate: lastOutput },
+        });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+            userId: 'system', action: 'UPDATE_PRODUCTION_ORDER_STATUS', entityType: 'ProductionOrder', entityId: 'po-1',
+            fromStatus: 'IN_PROGRESS', toStatus: 'COMPLETED', tx,
+            changes: expect.objectContaining({ via: 'kiosk', operatorId: 'op-1', actualEndDate: lastOutput }),
+        }));
+    });
+
+    it('keeps an existing end date and credits a signed-in user', async () => {
+        const existing = new Date('2026-10-19T00:00:00Z');
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            actualPackagingEnabled: false, isMaklon: false, productionRunId: null, status: 'IN_PROGRESS', actualEndDate: existing,
+        } as never);
+
+        await stop('user-1');
+
+        expect(completionEndDate).not.toHaveBeenCalled();
+        expect(tx.productionOrder.update).toHaveBeenCalledWith({ where: { id: 'po-1' }, data: { status: 'COMPLETED' } });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', toStatus: 'COMPLETED' }));
+    });
+
+    it('does not audit a second "SPK selesai" on an SPK that is already completed', async () => {
+        vi.mocked(tx.productionOrder.findUniqueOrThrow).mockResolvedValue({
+            actualPackagingEnabled: false, isMaklon: false, productionRunId: null, status: 'COMPLETED', actualEndDate: lastOutput,
+        } as never);
+
+        await stop();
+
+        expect(logActivity).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'UPDATE_PRODUCTION_ORDER_STATUS' }));
     });
 });

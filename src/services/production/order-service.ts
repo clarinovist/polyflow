@@ -45,6 +45,7 @@ import {
 } from '@/lib/production/machine-compatibility';
 import { getActorUserId } from '@/lib/core/actor-context';
 import { closeOpenShellsForOrder, type ShellClosureResult } from './order-shell-closure';
+import { completionEndDate } from './order-end-date';
 
 /**
  * Generic (non-routed) SPK: machine type must match the BOM category,
@@ -881,6 +882,7 @@ export class ProductionOrderService {
                     locationId: true,
                     machineId: true,
                     bomId: true,
+                    actualEndDate: true,
                 },
             });
             if (!existing) throw new NotFoundError('Production Order', id);
@@ -1054,9 +1056,13 @@ export class ProductionOrderService {
 
             const statusChanged = status !== undefined && status !== existing.status;
             let closure: ShellClosureResult | undefined;
+            let completedAt: Date | undefined;
             if (statusChanged && status === ProductionStatus.COMPLETED) {
                 // A finished SPK must not leave its machine shown as running.
                 closure = await closeOpenShellsForOrder(tx, id);
+                if (actualEndDate === undefined && !existing.actualEndDate) {
+                    completedAt = await completionEndDate(tx, id);
+                }
             }
 
             const updated = await tx.productionOrder.update({
@@ -1073,6 +1079,7 @@ export class ProductionOrderService {
                     ...(actualEndDate !== undefined
                         ? { actualEndDate }
                         : {}),
+                    ...(completedAt ? { actualEndDate: completedAt } : {}),
                     ...(machineId !== undefined ? { machineId } : {}),
                     ...(locationId !== undefined
                         ? { locationId }
@@ -1102,6 +1109,7 @@ export class ProductionOrderService {
                                   skippedFrozen: closure.skippedFrozen,
                                   costPeriodUnreadable: closure.costPeriodUnreadable,
                                   atLastOutput: closure.atLastOutput,
+                                  ...(completedAt ? { actualEndDate: completedAt } : {}),
                               },
                           }
                         : {}),
