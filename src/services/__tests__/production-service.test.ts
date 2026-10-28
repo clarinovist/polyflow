@@ -4,7 +4,8 @@ import { prisma } from "@/lib/core/prisma";
 
 vi.mock("@/lib/core/prisma", () => {
   const mockPrisma = {
-    auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
+    auditLog: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn() },
+    appSetting: { findUnique: vi.fn().mockResolvedValue(null) },
     $transaction: vi.fn(async (queries) => {
       if (Array.isArray(queries)) return Promise.all(queries);
       if (typeof queries === "function") {
@@ -23,6 +24,10 @@ vi.mock("@/lib/core/prisma", () => {
       update: vi.fn(),
       findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
+      // Completion closes other running shells and dates the SPK by its last output.
+      findMany: vi.fn().mockResolvedValue([]),
+      aggregate: vi.fn().mockResolvedValue({ _max: { endTime: null } }),
+      updateMany: vi.fn(),
     },
     inventory: {
       upsert: vi.fn(),
@@ -280,6 +285,7 @@ describe("ProductionService", () => {
           call[0].where.id === "po-1" && call[0].data.status === "COMPLETED",
       );
       expect(completionCall).toBeDefined();
+      expect(completionCall[0].data.actualEndDate).toBeInstanceOf(Date);
 
       // Find the update call that sets actualQuantity (from processOutputAndBackflush)
       const quantityCall = (
