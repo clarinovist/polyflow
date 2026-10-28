@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '../route';
+import { prisma } from '@/lib/core/prisma';
 import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { checkOverduePurchasingInvoices } from '@/services/purchasing/invoices-service';
@@ -119,6 +120,13 @@ describe('Cleanup Cron Route', () => {
             .mockReturnValue('[ProductionCostHealth] acme: ok');
     });
 
+    it('preserves live forward-cost boundary receipts beyond routine log retention', async () => {
+        mockRunForEachActiveTenant.mockImplementation(async fn => [{ tenant: 'acme', result: await fn({ id: 'tenant-1', subdomain: 'acme' }) }]);
+        await GET(new Request('http://localhost/api/cron/cleanup', { headers: { authorization: 'Bearer test-secret' } }));
+        expect(prisma.auditLog.deleteMany).toHaveBeenCalledWith({ where: {
+            createdAt: { lt: expect.any(Date) }, action: { not: 'START_PRODUCTION_COST_PERIOD' },
+        } });
+    });
     it('logs production cost findings as a failed check so the error monitor alerts ops', async () => {
         mockRunForEachActiveTenant.mockImplementation(
             async (fn: (tenant: { id: string; subdomain: string }) => unknown) => [

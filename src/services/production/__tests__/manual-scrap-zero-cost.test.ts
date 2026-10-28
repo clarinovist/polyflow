@@ -45,7 +45,7 @@ function setup(isMaklon = false) {
         scrapRecord: { create: vi.fn(async () => ({ id: 'manual-scrap' })), findUnique: vi.fn(), delete: vi.fn() },
         inventory: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
         journalEntry: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
-        auditLog: { create: vi.fn() },
+        auditLog: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn() },
     };
     const tx = db as unknown as Prisma.TransactionClient;
     const client = { $transaction: (fn: (inner: Prisma.TransactionClient) => Promise<unknown>) => fn(tx) };

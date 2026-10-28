@@ -3,6 +3,7 @@ import { getMainPrisma, prisma } from '@/lib/core/prisma';
 import { verifyCronAuth } from '@/lib/core/cron-auth';
 import { runForEachActiveTenant } from '@/lib/core/tenant-loop';
 import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
+import { COST_PERIOD_ACTION } from '@/services/accounting/production-cost-period';
 
 export async function GET(req: Request) {
     try {
@@ -60,7 +61,8 @@ export async function GET(req: Request) {
 
                 try {
                     const auditLogCleanup = await prisma.auditLog.deleteMany({
-                        where: { createdAt: { lt: ninetyDaysAgo } },
+                        // This receipt is a live accounting boundary, not an expiring log.
+                        where: { createdAt: { lt: ninetyDaysAgo }, action: { not: COST_PERIOD_ACTION } },
                     });
                     auditLogs = auditLogCleanup.count;
                 } catch (err) {

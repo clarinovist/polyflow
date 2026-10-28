@@ -1,4 +1,4 @@
-# Pemulihan biaya SPK — tahap metadata terbatas
+# Pemulihan biaya SPK — koreksi terbatas dan batas biaya ke depan
 
 ## UI dan batas akses
 
@@ -13,7 +13,39 @@ isi alasan dan persetujuan → **Setujui & terapkan koreksi**. Sesudah berhasil,
 periksa ulang kondisi SPK. Total hasil yang sudah tersimpan bukan jumlah untuk
 input ulang. Hasil baru tetap harus melewati validasi produksi normal.
 
-## Mode yang didukung
+## Melanjutkan produksi tanpa mengubah biaya historis
+
+Jika kebijakan owner adalah mempertahankan nilai lama, **jangan jalankan koreksi
+historis**. Pada hasil pemeriksaan yang perlu ditinjau, gunakan **Lanjutkan tanpa
+mengubah biaya lama → Periksa kelayakan batas biaya**. Admin/Finance meninjau
+jumlah hasil/mutasi lama dan sisa biaya historis, mengisi alasan, lalu menyetujui
+**Aktifkan batas biaya baru**.
+
+Ini bukan pemutihan biaya lama. Aktivasi hanya menyimpan bukti batas biaya dengan
+ID sumber persis; tidak mengubah stok, WAC, hasil, affal, jurnal atau HPP lama.
+Biaya yang tersisa sebelum batas tetap tercatat secara terpisah dan tidak boleh
+mendanai hasil berikutnya. Hasil baru hanya memakai jurnal bahan sesudah batas,
+dengan seluruh pemeriksaan stok dan jurnal normal tetap aktif.
+
+Mode ini memerlukan SPK non-maklon IN_PROGRESS, seluruh hasil lama sudah selesai,
+total hasil sesuai mutasi, sumber bahan/hasil valid, dan affal kosong yang
+teratribusi unik. Periode tidak dapat dimulai jika ada hasil berjalan/void,
+bahan manual/konsolidasi, staged/pending, pembalik sumber, atau saldo historis
+negatif per akun. Sistem memverifikasi ulang sumber saat membaca biaya baru;
+perubahan/penghapusan catatan lama mengakibatkan penolakan, bukan reinterpretasi.
+
+Hasil sebelum batas tidak dapat di-void otomatis. Pembatalan bahan terpisah pada
+SPK berbatas biaya juga memerlukan pemeriksaan khusus. Hasil setelah batas tetap
+mengikuti jalur void yang ada dan tidak boleh membalik sumber sebelum batas.
+
+Bukti `START_PRODUCTION_COST_PERIOD:<orderId>` adalah data pengendali pembukuan:
+**jangan hapus atau ubah**, termasuk sesudah 90 hari. Cron pembersihan audit
+mengecualikan action ini. Backup privat berisi bukti periode dan hash sumber;
+aktivasi gagal jika backup/readback gagal. Retry fingerprint yang sama tidak
+membuat batas kedua. Laporan kesehatan dan UI tetap menyebut biaya historis yang
+dipertahankan—bukan menyatakan seluruh biaya sudah direkonsiliasi.
+
+## Mode koreksi metadata yang didukung
 
 Hanya normalisasi affal historis dengan biaya kosong menjadi biaya eksplisit nol
 serta tautan execution/kepemilikan, bila seluruh bukti berikut tersedia:

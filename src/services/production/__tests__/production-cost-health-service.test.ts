@@ -7,6 +7,7 @@ const { tx, available, basis } = vi.hoisted(() => ({
         $executeRaw: vi.fn(),
         $queryRaw: vi.fn(),
         productionOrder: { findMany: vi.fn() },
+        auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
         stockMovement: { groupBy: vi.fn() },
     },
     available: vi.fn(),
@@ -28,6 +29,7 @@ describe('checkProductionCostHealth', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         tx.productionOrder.findMany.mockResolvedValue([]);
+        tx.auditLog.findUnique.mockResolvedValue(null);
         tx.$queryRaw.mockResolvedValue([]);
         tx.stockMovement.groupBy.mockResolvedValue([]);
     });
@@ -130,6 +132,15 @@ describe('checkProductionCostHealth', () => {
         expect(summarizeProductionCostHealth('acme', health)).toContain('penyesuaian masuk Rp0 tanpa sumber harga 24 jam (FG-9 12.5)');
     });
 
+    it('keeps retained historical cost visible even when new funding has no blocker', async () => {
+        tx.productionOrder.findMany.mockResolvedValue([{ id: 'wo', orderNumber: 'WO-1', status: 'IN_PROGRESS' }]);
+        available.mockResolvedValue(d(0));
+        tx.auditLog.findUnique.mockResolvedValue({action:'START_PRODUCTION_COST_PERIOD',entityId:'wo',entityType:'ProductionOrder',changes:{version:1,orderId:'wo',movementIds:['m'],executionIds:['e'],sourceHash:'a'.repeat(64),executionHash:'b'.repeat(64),fingerprint:'c'.repeat(64),historicalBalances:[{accountId:'wip',amount:'40.00'}]}});
+        const health = await checkProductionCostHealth(NOW);
+        expect(health.retainedHistory).toEqual([{orderNumber:'WO-1',amount:'40.00'}]);
+        expect(health.findings).toBe(1);
+        expect(summarizeProductionCostHealth('acme',health)).toContain('biaya historis dipertahankan, bukan dana hasil baru (WO-1 Rp40.00)');
+    });
     it('does not hide an unexpected failure as a finding', async () => {
         tx.productionOrder.findMany.mockResolvedValue([{ id: 'a', orderNumber: 'WO-A', status: 'IN_PROGRESS' }]);
         available.mockRejectedValue(new Error('connection lost'));

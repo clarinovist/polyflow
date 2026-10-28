@@ -6,6 +6,7 @@ import {
 } from '@/lib/errors/errors';
 import { InventoryCoreService } from '@/services/inventory/core-service';
 import { reverseProductionMovementJournal } from '@/services/accounting/production-movement-reversal';
+import { readCostPeriod, periodFailure } from '@/services/accounting/production-cost-period';
 import { getActorUserId } from '@/lib/core/actor-context';
 import { logActivity } from '@/lib/tools/audit';
 import {
@@ -55,6 +56,8 @@ export async function voidProductionExecutionInTransaction(
   });
   if (!execution) throw new NotFoundError('ProductionExecution', executionId);
   if (execution.status === 'VOIDED') throw new ConflictError('Eksekusi sudah di-void');
+  const costPeriod = await readCostPeriod(tx, execution.productionOrderId);
+  if (costPeriod?.executionIds.includes(executionId)) periodFailure('hasil sebelum batas biaya harus tetap utuh; pembatalan memerlukan pemeriksaan khusus');
 
   // A targeted accounting/inventory correction may be linked to this exact
   // execution. Generic void cannot safely reverse the correction movement and
@@ -109,6 +112,10 @@ export async function voidProductionExecutionInTransaction(
         { createdAt: range, productionExecutionId: null },
         { productionExecutionId: executionId, reversalOfId: null },
       ] } });
+
+  if (costPeriod && movements.some(m => costPeriod.movementIds.includes(m.id))) {
+    periodFailure('jendela pembatalan menyentuh mutasi sebelum batas biaya');
+  }
 
   // Restore output WIP before crediting it back to raw inventory. The original
   // posting order is usually the opposite, and would falsely fail a zero WIP pool.

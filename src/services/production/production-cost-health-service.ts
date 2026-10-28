@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { ApplicationError } from '@/lib/errors/errors';
 import { availableProductionWip } from '@/services/accounting/production-wip-provenance';
+import { readCostPeriod } from '@/services/accounting/production-cost-period';
 import { skuInventoryBasis } from '@/services/inventory/internal-usage-accounting';
 
 // Daily cron: report what changed in the last day, not every legacy record.
@@ -31,6 +32,8 @@ export interface ProductionCostHealth {
     revisionShortfalls: Array<{ orderNumber: string; changes: string[] }>;
     /** Non-affal stock adjusted in during the last 24h at Rp0: no entered, average, standard or buy cost. */
     zeroCostAdjustments: Array<{ skuCode: string; quantity: string }>;
+    /** Explicitly retained historical WIP; NOT available to future production. */
+    retainedHistory?: Array<{ orderNumber: string; amount: string }>;
     findings: number;
 }
 
@@ -51,20 +54,23 @@ async function inspectWipPools(tx: Tx, now: Date) {
     });
     const blockedOrders: ProductionCostHealth['blockedOrders'] = [];
     const completedResidual: ProductionCostHealth['completedResidual'] = [];
+    const retainedHistory: NonNullable<ProductionCostHealth['retainedHistory']> = [];
     for (const order of orders) {
         try {
             const residual = await availableProductionWip(tx, order.id, { lock: false });
+            const period = await readCostPeriod(tx, order.id);
+            if (period) retainedHistory.push({ orderNumber: order.orderNumber, amount: period.historicalBalances.reduce((s,b)=>s.plus(b.amount), new Prisma.Decimal(0)).toFixed(2) });
             if (order.status === 'COMPLETED' && residual.gt(VALUE_TOLERANCE)) {
                 completedResidual.push({ orderNumber: order.orderNumber, residual: residual.toFixed(2) });
             }
         } catch (error) {
-            if (!(error instanceof ApplicationError) || error.code !== 'PRODUCTION_WIP_UNRESOLVED') throw error;
+            if (!(error instanceof ApplicationError) || !['PRODUCTION_WIP_UNRESOLVED', 'PRODUCTION_COST_PERIOD_INVALID'].includes(error.code)) throw error;
             // A completed WO takes no more output; its legacy history is WS4 scope.
             if (order.status === 'COMPLETED') continue;
             blockedOrders.push({ orderNumber: order.orderNumber, reason: String(error.details?.reason ?? error.message) });
         }
     }
-    return { blockedOrders, completedResidual };
+    return { blockedOrders, completedResidual, retainedHistory };
 }
 
 async function findNullCostScrapOrders(tx: Tx) {
@@ -197,7 +203,7 @@ async function findZeroCostAdjustments(tx: Tx, now: Date) {
 export async function checkProductionCostHealth(now = new Date()): Promise<ProductionCostHealth> {
     return prisma.$transaction(async (tx) => {
         await tx.$executeRaw`SET TRANSACTION READ ONLY`;
-        const { blockedOrders, completedResidual } = await inspectWipPools(tx, now);
+        const { blockedOrders, completedResidual, retainedHistory } = await inspectWipPools(tx, now);
         const nullCostScrapOrders = await findNullCostScrapOrders(tx);
         const uncostedMovements = await countUncostedMovements(tx, now);
         const zeroCostOutputs = await findZeroCostOutputs(tx, now);
@@ -206,8 +212,8 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const zeroCostAdjustments = await findZeroCostAdjustments(tx, now);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
             uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length +
-            revisionShortfalls.length + zeroCostAdjustments.length;
-        return { blockedOrders, completedResidual, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis,
+            revisionShortfalls.length + zeroCostAdjustments.length + retainedHistory.length;
+        return { blockedOrders, completedResidual, retainedHistory, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis,
             revisionShortfalls, zeroCostAdjustments, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
@@ -216,6 +222,7 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
 export function summarizeProductionCostHealth(tenant: string, health: ProductionCostHealth) {
     if (health.findings === 0) return `[ProductionCostHealth] ${tenant}: ok`;
     const parts = [
+        health.retainedHistory?.length && `biaya historis dipertahankan, bukan dana hasil baru (${health.retainedHistory.map(o=>`${o.orderNumber} Rp${o.amount}`).join(', ')})`,
         health.blockedOrders.length && `${health.blockedOrders.length} SPK terblokir (${health.blockedOrders.map((o) => `${o.orderNumber}: ${o.reason}`).join('; ')})`,
         health.completedResidual.length && `${health.completedResidual.length} SPK selesai bersisa WIP (${health.completedResidual.map((o) => `${o.orderNumber} Rp${o.residual}`).join(', ')})`,
         health.nullCostScrapOrders.length && `${health.nullCostScrapOrders.length} SPK affal NULL (${health.nullCostScrapOrders.join(', ')})`,

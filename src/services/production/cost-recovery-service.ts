@@ -14,6 +14,7 @@ import {
     normalizeAbsorbedScrapInTransaction,
 } from '@/lib/ops/absorbed-scrap-normalization';
 import { availableProductionWip } from '@/services/accounting/production-wip-provenance';
+import { readCostPeriod } from '@/services/accounting/production-cost-period';
 import type {
     ProductionCostRecoveryInspection,
     ProductionCostRecoveryResult,
@@ -173,7 +174,7 @@ async function inspectWip(
     } catch (error) {
         if (
             !(error instanceof ApplicationError) ||
-            error.code !== 'PRODUCTION_WIP_UNRESOLVED'
+            !['PRODUCTION_WIP_UNRESOLVED', 'PRODUCTION_COST_PERIOD_INVALID'].includes(error.code)
         )
             throw error;
         return {
@@ -242,7 +243,11 @@ export async function inspectProductionCostRecovery(
                 previousAuditId: previous?.id ?? null,
                 proposal: null,
             };
-            if (previous) {
+            const period = await readCostPeriod(tx, orderId);
+            if (period) {
+                result.status = 'already_applied';
+                result.findings.push(`Periode biaya baru aktif. Biaya historis Rp${period.historicalBalances.reduce((s,b)=>s.plus(b.amount),zero()).toFixed(2)} tetap dipertahankan, tidak membiayai hasil baru. Ini bukan koreksi atau pelunasan biaya lama.`);
+            } else if (previous) {
                 result.status = 'already_applied';
                 result.findings.push(
                     'Ada koreksi terdahulu. Pemeriksaan saat ini tidak membuktikan seluruh riwayat biaya sudah direkonsiliasi.',
@@ -371,6 +376,7 @@ export async function applyProductionCostRecovery(
             await tx.$queryRaw`SELECT j.id FROM "JournalEntry" j JOIN "StockMovement" m ON m.id = j."referenceId" WHERE m."productionOrderId" = ${order.id} ORDER BY j.id FOR UPDATE OF j`;
             await tx.$queryRaw`SELECT l.id FROM "JournalLine" l JOIN "JournalEntry" j ON j.id=l."journalEntryId" JOIN "StockMovement" m ON m.id=j."referenceId" WHERE m."productionOrderId"=${order.id} ORDER BY l.id FOR UPDATE OF l`;
             await tx.$queryRaw`SELECT i.id FROM "Inventory" i WHERE i."productVariantId" IN (SELECT m."productVariantId" FROM "StockMovement" m JOIN "ProductVariant" v ON v.id=m."productVariantId" JOIN "Product" p ON p.id=v."productId" WHERE m."productionOrderId"=${order.id} AND p."productType"='SCRAP') ORDER BY i.id FOR UPDATE`;
+            if (await readCostPeriod(tx, order.id)) reject('Nilai historis sudah dipertahankan oleh batas biaya. Koreksi lama tidak diizinkan melalui mode ini.');
             const candidate = await inspectWebCandidate(
                 tx,
                 order.id,

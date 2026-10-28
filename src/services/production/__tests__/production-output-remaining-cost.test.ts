@@ -26,6 +26,7 @@ const line = (accountId: string, debit: Prisma.Decimal.Value, credit: Prisma.Dec
     accountId, debit: d(debit), credit: d(credit), currency: 'IDR', exchangeRate: d(1), account: { type: 'ASSET' },
 });
 const tx = {
+    auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
     $queryRaw: vi.fn(),
     productionOrder: {
         findUnique: vi.fn(async () => state.order),

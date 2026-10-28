@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { inputFailure, interruptedInput } from '../input-failure';
 
 describe('input failure presentation', () => {
+    it('explains a changed forward-cost boundary without suggesting altered quantities', () => {
+        const result = inputFailure({code:'PRODUCTION_COST_PERIOD_INVALID',error:'private source hash'},'production');
+        expect(result.title).toBe('Hasil belum tersimpan');
+        expect(result.message).toContain('Catatan lama harus tetap utuh');
+        expect(result.message).not.toContain('private');
+    });
     it('keeps WIP internals out of the operator message and preserves a support code', () => {
         const result = inputFailure({ code: 'PRODUCTION_WIP_UNRESOLVED', error: 'vektor jurnal tidak valid' }, 'production');
         expect(result.title).toBe('Hasil belum tersimpan');

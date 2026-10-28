@@ -6,6 +6,7 @@ import { InventoryCoreService } from "@/services/inventory/core-service";
 // Mock prisma
 vi.mock("@/lib/core/prisma", () => ({
   prisma: {
+    auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
     productionOrder: {
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
@@ -171,10 +172,22 @@ describe("ProductionMaterialService", () => {
   });
 
   describe("deleteMaterialIssue", () => {
+    it('blocks separate material refund after a forward-only boundary', async () => {
+      vi.mocked(prisma.materialIssue.findUnique).mockResolvedValue({ id:'issue-1', productionOrderId:'po-1' } as never);
+      vi.mocked(prisma.auditLog.findUnique).mockResolvedValueOnce({ action:'START_PRODUCTION_COST_PERIOD',entityId:'po-1',entityType:'ProductionOrder',changes:{version:1,orderId:'po-1',movementIds:['m'],executionIds:['e'],sourceHash:'a'.repeat(64),executionHash:'b'.repeat(64),fingerprint:'c'.repeat(64),historicalBalances:[]} } as never);
+      await expect(ProductionMaterialService.deleteMaterialIssue('issue-1','po-1')).rejects.toThrow('pembatalan bahan');
+      expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
+    it('rejects using another order to bypass the cost boundary', async () => {
+      vi.mocked(prisma.materialIssue.findUnique).mockResolvedValue({ id:'issue-1', productionOrderId:'actual-order' } as never);
+      await expect(ProductionMaterialService.deleteMaterialIssue('issue-1','different-order')).rejects.toThrow('bukan milik');
+      expect(InventoryCoreService.incrementStock).not.toHaveBeenCalled();
+    });
     it("should delete material issue and reverse stock", async () => {
       // Arrange
       const mockIssue = {
         id: "issue-1",
+        productionOrderId: "po-1",
         productVariantId: "pv-1",
         quantity: decimal(50),
         batchId: null,

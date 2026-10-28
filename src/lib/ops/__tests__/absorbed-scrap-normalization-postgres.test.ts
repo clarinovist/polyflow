@@ -10,6 +10,9 @@ import { recordFinishedGoodsOutput } from '@/services/production/execution-outpu
 import type { ProductionExecutionOrder } from '@/services/production/execution-types';
 import { normalizeAbsorbedScrap, scanAbsorbedScrap } from '../absorbed-scrap-normalization';
 import { applyProductionCostRecovery, inspectProductionCostRecovery } from '@/services/production/cost-recovery-service';
+import { previewForwardCostPeriod, startForwardCostPeriod } from '@/services/production/forward-cost-period-service';
+import { availableProductionWip } from '@/services/accounting/production-wip-provenance';
+import { readCostPeriod, COST_PERIOD_ACTION } from '@/services/accounting/production-cost-period';
 
 // Synthetic only: real PostgreSQL proves the normalized legacy rows are what the
 // WIP allocator, COGM and generic void already accept for post-fix automatic scrap.
@@ -299,5 +302,105 @@ describe.skipIf(!db)('web production cost recovery PostgreSQL contract', () => {
         await expect(applyProductionCostRecovery(db!, input, backup)).rejects.toThrow('Data berubah');
         expect(await db!.auditLog.count()).toBe(0);
         expect(await db!.stockMovement.count({ where: { id: { in: ['legacy-leaf', 'legacy-lump'] }, cost: null } })).toBe(2);
+    });
+});
+
+describe.skipIf(!db)('forward-only cost period PostgreSQL contract', () => {
+    beforeEach(seed);
+    afterAll(async () => { await db?.$disconnect(); });
+    const backup = { ready: () => true, save: async () => 'verified-synthetic-period' };
+    async function legacy() {
+        await legacyOrder();
+        // Older result underabsorbed Rp40. Preserve this original state, do not fix it.
+        const out = await db!.stockMovement.findFirstOrThrow({ where: { productionOrderId: 'wo', productVariantId: 'output', type: 'IN' } });
+        await db!.stockMovement.update({ where: { id: out.id }, data: { cost: 10 } });
+        const j = await db!.journalEntry.findFirstOrThrow({ where: { referenceId: out.id } });
+        await db!.journalLine.updateMany({ where: { journalEntryId: j.id, debit: { gt: 0 } }, data: { debit: 100 } });
+        await db!.journalLine.updateMany({ where: { journalEntryId: j.id, credit: { gt: 0 } }, data: { credit: 100 } });
+        const preview = await previewForwardCostPeriod(db!, 'wo');
+        return { orderId: 'wo', fingerprint: preview.fingerprint, actorId: 'actor', reason: 'Preserve synthetic history; future-only cost' };
+    }
+    it('activates with audit only, funds next output from new material and keeps historical Rp40', async () => {
+        const input = await legacy(), before = await snapshot();
+        const originals = await db!.stockMovement.findMany({ orderBy: { id: 'asc' } });
+        expect((await previewForwardCostPeriod(db!, 'wo')).historicalBalances).toEqual([{ accountId: accounts.wip, amount: '40.00' }]);
+        await startForwardCostPeriod(db!, input, backup);
+        expect(await snapshot()).toEqual(before);
+        expect(await db!.stockMovement.findMany({ orderBy: { id: 'asc' } })).toEqual(originals);
+        expect((await run(tx => availableProductionWip(tx, 'wo', { lock: false }))).toString()).toBe('0');
+        await run(async tx => { await issue(tx, 50, new Date(at.getTime() + 600000)); await output(tx, 50, new Date(at.getTime() + 600000)); });
+        expect(await balance(accounts.wip)).toBe(40);
+        expect((await run(tx => availableProductionWip(tx, 'wo', { lock: false }))).toString()).toBe('0');
+        expect((await startForwardCostPeriod(db!, input, backup)).alreadyApplied).toBe(true);
+        await expect(run(tx => voidProductionExecutionInTransaction(tx, 'legacy-execution', { userId: 'actor' }))).rejects.toThrow('hasil sebelum batas');
+        expect((await run(tx => readCostPeriod(tx, 'wo')))?.historicalBalances[0].amount).toBe('40.00');
+    });
+    it('voids a post-boundary result without touching frozen history', async () => {
+        const input = await legacy(); await startForwardCostPeriod(db!, input, backup);
+        const later = new Date(at.getTime() + 600000);
+        await run(async tx => {
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id='wo' FOR UPDATE`;
+            await tx.productionExecution.create({data:{id:'later-execution',productionOrderId:'wo',quantityProduced:10,startTime:later,endTime:later,createdAt:later}});
+            await tx.productionOrder.update({where:{id:'wo'},data:{actualQuantity:20}});
+            await issue(tx,50,later); await output(tx,50,later);
+        });
+        await run(tx => voidProductionExecutionInTransaction(tx,'later-execution',{userId:'actor'}));
+        expect(await balance(accounts.wip)).toBe(40);
+        expect((await run(tx => availableProductionWip(tx,'wo',{lock:false}))).toString()).toBe('0');
+        expect((await db!.productionExecution.findUniqueOrThrow({where:{id:'legacy-execution'}})).status).toBe('COMPLETED');
+        expect((await db!.stockMovement.findUniqueOrThrow({where:{id:'legacy-leaf'}})).cost).toBeNull();
+    });
+    it('serializes activation against a new output writer under the WO lock', async () => {
+        const input = await legacy();
+        let enter!:()=>void,release!:()=>void;
+        const entered=new Promise<void>(resolve=>{enter=resolve;}),released=new Promise<void>(resolve=>{release=resolve;});
+        const activating=startForwardCostPeriod(db!,input,{ready:()=>true,save:async()=>{enter();await released;return 'verified-concurrent-backup';}});
+        await entered;
+        const outputAttempt=run(async tx=>{
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id='wo' FOR UPDATE`;
+            await issue(tx,50,new Date(at.getTime()+600000));await output(tx,50,new Date(at.getTime()+600000));
+        });
+        release();
+        const [boundary,outputResult]=await Promise.allSettled([activating,outputAttempt]);
+        expect(boundary.status).toBe('fulfilled');
+        if(outputResult.status==='rejected'){
+            const error=outputResult.reason as {code?:string;meta?:{code?:string}};
+            expect(error.code==='P2034'||(error.code==='P2010'&&['40001','40P01'].includes(error.meta?.code??''))).toBe(true);
+        }
+        expect(await db!.auditLog.count({where:{action:COST_PERIOD_ACTION}})).toBe(1);
+        expect(await balance(accounts.wip)).toBe(40);
+    });
+    it('rejects changed historical sources and new unfunded result', async () => {
+        const input = await legacy(); await startForwardCostPeriod(db!, input, backup);
+        await expect(run(tx => output(tx, 1, new Date(at.getTime() + 600000)))).rejects.toThrow('tidak cukup');
+        await db!.stockMovement.update({ where: { id: 'legacy-leaf' }, data: { quantity: 3 } });
+        await expect(run(tx => availableProductionWip(tx, 'wo', { lock: false }))).rejects.toThrow('historis berubah');
+    });
+    it('does not activate on stale preview, failed backup or audit rollback', async () => {
+        const input = await legacy();
+        await expect(startForwardCostPeriod(db!, { ...input, fingerprint: 'b'.repeat(64) }, backup)).rejects.toThrow('preview');
+        await expect(startForwardCostPeriod(db!, input, { ready: () => false, save: backup.save })).rejects.toThrow('cadangan');
+        await db!.$executeRawUnsafe(`CREATE FUNCTION period_reject_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action='START_PRODUCTION_COST_PERIOD' THEN RAISE EXCEPTION 'synthetic audit failure'; END IF; RETURN NEW; END $$`);
+        await db!.$executeRawUnsafe('CREATE TRIGGER period_reject_audit BEFORE INSERT ON "AuditLog" FOR EACH ROW EXECUTE FUNCTION period_reject_audit()');
+        try { await expect(startForwardCostPeriod(db!, input, backup)).rejects.toThrow(); }
+        finally { await db!.$executeRawUnsafe('DROP TRIGGER period_reject_audit ON "AuditLog"'); await db!.$executeRawUnsafe('DROP FUNCTION period_reject_audit()'); }
+        expect(await db!.auditLog.count({ where: { action: COST_PERIOD_ACTION } })).toBe(0);
+        expect((await db!.stockMovement.findUniqueOrThrow({ where: { id: 'legacy-leaf' } })).cost).toBeNull();
+    });
+    it('does not create two boundaries from concurrent activation', async () => {
+        const input = await legacy();
+        const results = await Promise.allSettled([startForwardCostPeriod(db!, input, backup), startForwardCostPeriod(db!, input, backup)]);
+        expect(results.some(r => r.status === 'fulfilled')).toBe(true);
+        expect(await db!.auditLog.count({ where: { action: COST_PERIOD_ACTION } })).toBe(1);
+        expect((await startForwardCostPeriod(db!, input, backup)).alreadyApplied).toBe(true);
+    });
+    it('rejects staged/manual material and running historical execution', async () => {
+        const input = await legacy();
+        const m = await db!.stockMovement.findFirstOrThrow({ where: { productionOrderId: 'wo', type: 'OUT' } });
+        await db!.stockMovement.update({ where: { id: m.id }, data: { reference: 'PROD-ISSUE-synthetic' } });
+        await expect(startForwardCostPeriod(db!, input, backup)).rejects.toThrow('manual');
+        await db!.stockMovement.update({ where: { id: m.id }, data: { reference: 'Synthetic issue' } });
+        await db!.productionExecution.update({ where: { id: 'legacy-execution' }, data: { endTime: null } });
+        await expect(previewForwardCostPeriod(db!, 'wo')).rejects.toThrow('selesai');
     });
 });

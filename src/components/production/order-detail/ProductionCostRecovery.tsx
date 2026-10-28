@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { ForwardCostPeriod } from './ForwardCostPeriod';
 const rupiah = (value: string) =>
     new Intl.NumberFormat('id-ID', {
         style: 'currency',
@@ -201,7 +202,8 @@ export function ProductionCostRecovery({ orderId }: { orderId?: string }) {
                                 Audit terdahulu: {inspection.previousAuditId}
                             </p>
                         )}
-                        {inspection.proposal && (
+                        {['unsupported', 'needs_review'].includes(inspection.status) && <ForwardCostPeriod key={inspection.orderId} orderId={inspection.orderId} />}
+                    {inspection.proposal && (
                             <div className="space-y-3 rounded-md border p-4">
                                 <h4 className="font-medium">
                                     Preview: biaya affal kosong → Rp0

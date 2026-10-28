@@ -20,7 +20,7 @@ it('voids output before material and stores unique source edges for both reversa
     const issue = { ...base, id: 'issue', type: 'OUT', productVariantId: 'raw', fromLocationId: 'raw-stock' };
     const output = { ...base, id: 'output', type: 'IN', productVariantId: 'finished', toLocationId: 'output-stock' };
     const db = {
-        $queryRaw: vi.fn(), auditLog: { findFirst: vi.fn().mockResolvedValue(null) },
+        $queryRaw: vi.fn(), auditLog: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
         productionExecution: { findUnique: vi.fn().mockResolvedValue(execution), findMany: vi.fn().mockResolvedValue([]),
             count: vi.fn().mockResolvedValue(0), update: vi.fn() },
         productionOrder: { findUniqueOrThrow: vi.fn().mockResolvedValue({ actualQuantity: 10, plannedQuantity: 10 }), update: vi.fn() },
@@ -45,7 +45,7 @@ describe('automatic zero-cost scrap reversal', () => {
             type: 'IN', productVariantId: 'scrap-sku', toLocationId: 'scrap-stock', quantity: new Prisma.Decimal(2),
             cost: new Prisma.Decimal(0), createdAt: at, reference: 'Production Scrap' };
         const db = {
-            $queryRaw: vi.fn(), auditLog: { findFirst: vi.fn().mockResolvedValue(null) },
+            $queryRaw: vi.fn(), auditLog: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
             productionExecution: { findUnique: vi.fn().mockResolvedValue(execution), findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0), update: vi.fn() },
             productionOrder: { findUniqueOrThrow: vi.fn().mockResolvedValue({ actualQuantity: 10, plannedQuantity: 20 }), update: vi.fn() },
             stockMovement: { findMany: vi.fn().mockResolvedValue([scrap]), findFirst: vi.fn(async ({ where }) => where.fromLocationId && downstream ? { id: 'downstream' } : null),
@@ -78,6 +78,13 @@ describe('automatic zero-cost scrap reversal', () => {
         await voidProductionExecutionInTransaction(tx, 'execution');
         expect(reversePackagedExecution).toHaveBeenCalledWith(tx, 'execution', 'wo');
         expect(db.stockMovement.findMany).not.toHaveBeenCalled();
+    });
+    it('rejects a new execution whose legacy time window overlaps a frozen movement', async () => {
+        const { db, tx } = fixture();
+        db.auditLog.findUnique.mockResolvedValue({ action:'START_PRODUCTION_COST_PERIOD',entityType:'ProductionOrder',entityId:'wo',changes:{version:1,orderId:'wo',movementIds:['scrap'],executionIds:['older-execution'],sourceHash:'a'.repeat(64),executionHash:'b'.repeat(64),fingerprint:'c'.repeat(64),historicalBalances:[]} } as never);
+        await expect(voidProductionExecutionInTransaction(tx,'execution')).rejects.toThrow('jendela pembatalan');
+        expect(db.stockMovement.create).not.toHaveBeenCalled();
+        expect(db.inventory.update).not.toHaveBeenCalled();
     });
     it('rejects consumed scrap before valuation/reversal changes', async () => {
         const { db, tx } = fixture(true);

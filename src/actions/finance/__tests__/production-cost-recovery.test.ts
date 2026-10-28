@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthorizationError } from '@/lib/errors/errors';
-const m = vi.hoisted(() => ({ read: vi.fn(), approve: vi.fn(), inspect: vi.fn(), apply: vi.fn(), order: vi.fn(), tenant: vi.fn(), db: vi.fn() }));
+const m = vi.hoisted(() => ({ read: vi.fn(), approve: vi.fn(), inspect: vi.fn(), apply: vi.fn(), order: vi.fn(), tenant: vi.fn(), db: vi.fn(), previewPeriod: vi.fn(), startPeriod: vi.fn() }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: m.db, getTenantIdFromContext: m.tenant }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: m.read, requireFinanceApprover: m.approve }));
 vi.mock('@/services/production/cost-recovery-service', () => ({ inspectProductionCostRecovery: m.inspect, applyProductionCostRecovery: m.apply }));
 vi.mock('@/services/production/cost-recovery-backup', () => ({ productionRecoveryBackup: () => ({ ready: () => true }) }));
-import { applyProductionCost, inspectProductionCost } from '../production-cost-recovery';
+vi.mock('@/services/production/forward-cost-period-service', () => ({ previewForwardCostPeriod: m.previewPeriod, startForwardCostPeriod: m.startPeriod }));
+import { applyProductionCost, inspectProductionCost, inspectForwardCostPeriod, activateForwardCostPeriod } from '../production-cost-recovery';
 const id = '11111111-1111-4111-8111-111111111111';
 const input = { orderId: id, fingerprint: 'a'.repeat(64), reason: 'Verified synthetic source', confirmed: true };
 
@@ -39,6 +40,16 @@ describe('production cost recovery action boundary', () => {
         expect(m.order).not.toHaveBeenCalled(); expect(m.apply).not.toHaveBeenCalled();
         m.read.mockResolvedValue({ user: { id: 'reader' } }); m.tenant.mockReturnValue(undefined);
         expect(await inspectProductionCost({ orderId: id })).toMatchObject({ success: false, code: 'AUTHORIZATION_ERROR' });
+    });
+    it('authorizes and validates forward-only preview and activation separately', async () => {
+        m.previewPeriod.mockResolvedValue({alreadyApplied:false,fingerprint:'a'.repeat(64),historicalBalances:[{accountId:'wip',amount:'40.00'}],movementIds:['m'],executionIds:['e']});
+        m.startPeriod.mockResolvedValue({alreadyApplied:false,auditId:'period'});
+        expect(await inspectForwardCostPeriod({orderId:id})).toMatchObject({success:true,data:{historicalAmount:'40.00'}});
+        expect(await activateForwardCostPeriod(input)).toMatchObject({success:true});
+        expect(m.startPeriod).toHaveBeenCalledWith(m.db(),expect.objectContaining({actorId:'server-actor'}),expect.anything());
+        expect(await activateForwardCostPeriod({...input,database:'other'})).toMatchObject({success:false});
+        m.approve.mockRejectedValue(new AuthorizationError());
+        expect(await activateForwardCostPeriod(input)).toMatchObject({success:false,code:'AUTHORIZATION_ERROR'});
     });
     it('returns not found without trying another tenant', async () => {
         m.order.mockResolvedValue(null);

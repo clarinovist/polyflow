@@ -1,6 +1,7 @@
 'use server';
 
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { withTenant } from '@/lib/core/tenant';
 import {
     getTenantDbFromContext,
@@ -23,6 +24,10 @@ import {
     inspectProductionCostRecovery,
 } from '@/services/production/cost-recovery-service';
 import { productionRecoveryBackup } from '@/services/production/cost-recovery-backup';
+import {
+    previewForwardCostPeriod,
+    startForwardCostPeriod,
+} from '@/services/production/forward-cost-period-service';
 
 const lookupSchema = z
     .object({
@@ -67,6 +72,54 @@ export const inspectProductionCost = withTenant(
             });
             if (!order) throw new NotFoundError('Production Order');
             return inspectProductionCostRecovery(db, order.id, backup.ready());
+        });
+    },
+);
+
+export const inspectForwardCostPeriod = withTenant(
+    async function inspectForwardCostPeriod(input: unknown) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const parsed = z
+                .object({ orderId: z.string().uuid() })
+                .strict()
+                .safeParse(input);
+            if (!parsed.success)
+                throw new ValidationError('ID SPK tidak valid.');
+            const { db, backup } = context();
+            const preview = await previewForwardCostPeriod(
+                db,
+                parsed.data.orderId,
+            );
+            return {
+                alreadyApplied: preview.alreadyApplied,
+                fingerprint: preview.fingerprint,
+                historicalAmount: preview.historicalBalances
+                    .reduce((s, b) => s.plus(b.amount), new Prisma.Decimal(0))
+                    .toFixed(2),
+                movementCount: preview.movementIds.length,
+                outputCount: preview.executionIds.length,
+                storageReady: backup.ready(),
+            };
+        });
+    },
+);
+
+export const activateForwardCostPeriod = withTenant(
+    async function activateForwardCostPeriod(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireFinanceApprover();
+            const parsed = applySchema.safeParse(input);
+            if (!parsed.success)
+                throw new ValidationError(
+                    'Preview, alasan dan persetujuan wajib diisi.',
+                );
+            const { db, backup } = context();
+            return startForwardCostPeriod(
+                db,
+                { ...parsed.data, actorId: session.user.id },
+                backup,
+            );
         });
     },
 );

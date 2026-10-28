@@ -36,6 +36,7 @@ vi.mock('@/lib/core/prisma', () => {
             updateMany: vi.fn(),
         },
         auditLog: {
+            findUnique: vi.fn().mockResolvedValue(null),
             findFirst: vi.fn(),
         },
         machineDowntime: {

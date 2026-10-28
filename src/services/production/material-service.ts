@@ -13,6 +13,7 @@ import { InventoryCoreService } from '@/services/inventory/core-service';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { reverseProductionMovementJournal } from '../accounting/production-movement-reversal';
+import { readCostPeriod, periodFailure } from '../accounting/production-cost-period';
 import { logActivity } from '@/lib/tools/audit';
 import { removeZeroCostScrapReceipt } from './zero-cost-scrap-removal';
 import { WAREHOUSE_SLUGS } from '@/lib/constants/locations';
@@ -1048,6 +1049,9 @@ export class ProductionMaterialService {
                 where: { id: issueId },
             });
             if (!issue) throw new NotFoundError('MaterialIssue', issueId);
+            if (issue.productionOrderId !== productionOrderId) throw new ProductionRuleViolationError('Pengeluaran bahan bukan milik SPK ini.');
+            await tx.$queryRaw`SELECT id FROM "ProductionOrder" WHERE id = ${productionOrderId} FOR UPDATE`;
+            if (await readCostPeriod(tx, productionOrderId)) periodFailure('pembatalan bahan pada SPK berbatas biaya memerlukan pemeriksaan khusus');
 
             // ROBUST: Use saved locationId or fallback to rm_warehouse slug only if record is old (NULL locationId)
             let refundLocationId = issue.locationId;

@@ -26,6 +26,8 @@ const history: Record<InputScope, string> = {
 // Only codes with a known business rejection get an explicit "not saved" title.
 // Other errors can follow a committed transaction (e.g. revalidation failure).
 const messages: Record<string, string> = {
+    PRODUCTION_COST_PERIOD_INVALID:
+        'Batas biaya SPK perlu diperiksa Finance. Catatan lama harus tetap utuh; jangan mengubah jumlah hasil atau mengulang dengan angka berbeda.',
     PRODUCTION_WIP_UNRESOLVED:
         'Catatan biaya SPK ini belum cocok. Minta admin meneruskan nomor SPK ke Finance untuk diperiksa. Tetap gunakan jumlah hasil sesuai produksi sebenarnya.',
     PRODUCTION_CONVERSION_UNFUNDED:

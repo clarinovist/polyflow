@@ -23,7 +23,7 @@ function fixture() {
         stockMovement: { count: vi.fn().mockResolvedValue(1), findMany: vi.fn(async () => state.movements) },
         inventory: { findMany: vi.fn(async () => state.inventories) },
         journalEntry: { findMany: vi.fn().mockResolvedValue([]) },
-        auditLog: { findUnique: vi.fn(async () => state.audit), findUniqueOrThrow: vi.fn(async () => state.audit), update: vi.fn() },
+        auditLog: { findUnique: vi.fn(async ({ where }) => where.dedupeKey.startsWith('START_PRODUCTION_COST_PERIOD:') ? null : state.audit), findUniqueOrThrow: vi.fn(async () => state.audit), update: vi.fn() },
     };
     mocks.inspect.mockResolvedValue({ order, scraps: [scrap], scrapOwner: new Map([['scrap', 'execution']]), absorbedValue: d(140), fingerprint: 'base' });
     mocks.wip.mockResolvedValue(d(0));

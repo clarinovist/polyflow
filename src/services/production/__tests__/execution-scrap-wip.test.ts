@@ -16,6 +16,7 @@ const d = (value: number) => new Prisma.Decimal(value);
 function setup(isMaklon = false) {
     const movements: StockMovement[] = [];
     const db = {
+        auditLog: { findUnique: vi.fn().mockResolvedValue(null) },
         $queryRaw: vi.fn(),
         productionOrder: { findUnique: vi.fn().mockResolvedValue({ orderNumber: 'WO-SYNTHETIC', isMaklon }) },
         productionExecution: { findUnique: vi.fn().mockResolvedValue({ productionOrderId: 'wo', status: 'COMPLETED' }) },

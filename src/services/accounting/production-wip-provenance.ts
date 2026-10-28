@@ -1,5 +1,6 @@
 import { Prisma, type StockMovement } from '@prisma/client';
 import { BusinessRuleError } from '@/lib/errors/errors';
+import { forwardCostMovements } from './production-cost-period';
 
 type Source = Prisma.JournalEntryGetPayload<{
     include: { lines: { include: { account: true } } };
@@ -75,9 +76,10 @@ async function readProductionWipBalances(
         select: { id: true },
     });
     if (reversedJournals) unresolved('jurnal sumber telah dibalik di luar mutasi produksi');
-    const movementById = new Map(movements.map(m => [m.id, m]));
+    const fundedMovements = await forwardCostMovements(tx, productionOrderId, movements, sources);
+    const movementById = new Map(fundedMovements.map(m => [m.id, m]));
     const balances = new Map<string, Prisma.Decimal>();
-    for (const movement of movements) {
+    for (const movement of fundedMovements) {
         if (movement.goodsReceiptId || movement.salesOrderId || movement.companyOwned === false) {
             unresolved('kepemilikan atau sumber bukan produksi perusahaan');
         }
