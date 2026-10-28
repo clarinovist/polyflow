@@ -32,6 +32,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/production/__tests__/order-context-postgres.test.ts \
   src/services/production/__tests__/material-order-postgres.test.ts \
   src/services/production/__tests__/packaging-postgres.test.ts \
+  src/services/production/__tests__/scrap-void-postgres.test.ts \
   src/services/sales/__tests__/trip-distance-postgres.test.ts \
   src/actions/inventory/__tests__/deliveries-postgres.test.ts \
   src/actions/finance/__tests__/mobile-readiness-postgres.test.ts \
