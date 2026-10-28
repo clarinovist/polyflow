@@ -26,6 +26,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/recover-return-credit.js',
             '/app/ops-dist/scripts/reconcile-production-scrap.js',
             '/app/ops-dist/scripts/normalize-absorbed-scrap.js',
+            '/app/ops-dist/scripts/start-production-cost-period.js',
             '/app/ops-dist/scripts/attribute-operational-opening.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',

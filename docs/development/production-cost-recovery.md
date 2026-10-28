@@ -45,6 +45,22 @@ aktivasi gagal jika backup/readback gagal. Retry fingerprint yang sama tidak
 membuat batas kedua. Laporan kesehatan dan UI tetap menyebut biaya historis yang
 dipertahankan—bukan menyatakan seluruh biaya sudah direkonsiliasi.
 
+### Aktivasi operasional melalui artifact terverifikasi
+
+Untuk operator sistem tanpa sesi browser Finance, image CI juga menyertakan
+`scripts/start-production-cost-period.js`. CLI memakai service yang sama, bukan
+SQL patch alternatif. Gunakan `--input=/absolute/reviewed.json` untuk preview;
+`--execute --yes` hanya setelah fingerprint preview ditinjau. Input memuat tenant,
+database, ID+nomor SPK persis, aktor Finance/Admin, alasan dan (untuk execute)
+fingerprint. Jangan simpan input produksi di repo.
+
+CLI memverifikasi registry tenant dan identitas order, lalu menyimpan bukti ke
+`/app/backups/production-cost-period/` (mount backup host yang sudah ada), dengan
+exclusive create, fsync dan SHA-256 readback. Sesudah apply, CLI membaca kembali
+bukti dan biaya periode baru. Tidak menerima nominal/jurnal atau path backup dari
+browser/input. Jalankan hanya artifact exact SHA yang sudah lolos gate rilis;
+backup dan input privat tetap disimpan untuk recovery, bukan dihapus otomatis.
+
 ## Mode koreksi metadata yang didukung
 
 Hanya normalisasi affal historis dengan biaya kosong menjadi biaya eksplisit nol
