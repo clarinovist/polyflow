@@ -19,7 +19,8 @@ export interface ShellClosureResult {
     atLastOutput: boolean;
 }
 
-async function frozenExecutionIds(
+/** Executions sealed by the WO's cost boundary; `null` when its receipt is unreadable. */
+export async function frozenExecutionIds(
     tx: Prisma.TransactionClient,
     orderId: string,
 ) {
@@ -44,9 +45,16 @@ async function readAtLastOutput(tx: Prisma.TransactionClient) {
     return isShellCloseAtLastOutput(row?.value);
 }
 
-async function shellEndTime(
+/**
+ * Where a shell ends under the given rule. Takes no lock, so a read-only
+ * dry-run can plan the exact end that `closeOpenShellsForOrder` will write.
+ */
+export async function resolveShellEndTime(
     tx: Prisma.TransactionClient,
-    shell: ProductionExecution,
+    shell: Pick<
+        ProductionExecution,
+        'id' | 'productionOrderId' | 'machineId' | 'startTime'
+    >,
     atLastOutput: boolean,
 ): Promise<Date> {
     if (!atLastOutput) return shell.startTime;
@@ -98,7 +106,11 @@ export async function closeOpenShellsForOrder(
             result.skippedFrozen.push(shell.id);
             continue;
         }
-        const endTime = await shellEndTime(tx, shell, result.atLastOutput);
+        const endTime = await resolveShellEndTime(
+            tx,
+            shell,
+            result.atLastOutput,
+        );
         const pieceSnapshot = await buildPieceSnapshotForOperator(tx, {
             operatorId: shell.operatorId,
             machineId: shell.machineId,

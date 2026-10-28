@@ -57,6 +57,8 @@ RUN npx tsc \
 # Bundle the thin operational wrapper with the same service code as the UI.
 RUN ./node_modules/.bin/esbuild scripts/start-production-cost-period.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/start-production-cost-period.js
 RUN node /app/ops-dist/scripts/start-production-cost-period.js --help
+RUN ./node_modules/.bin/esbuild scripts/close-stale-shells.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/close-stale-shells.js
+RUN node /app/ops-dist/scripts/close-stale-shells.js --help
 
 # The TypeScript worker exceeds Node's ~2 GiB default heap on CI.
 # Scope the larger heap to this build command; do not change runtime limits.
@@ -107,6 +109,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/reconcile-production-scrap.js \
   /app/ops-dist/scripts/normalize-absorbed-scrap.js \
   /app/ops-dist/scripts/start-production-cost-period.js \
+  /app/ops-dist/scripts/close-stale-shells.js \
   /app/ops-dist/scripts/attribute-operational-opening.js \
   /app/scripts/audit-duplicate-production-voids.js \
   /app/scripts/check-ob.js \
@@ -150,6 +153,7 @@ COPY --from=builder --chown=nextjs:nodejs \
 USER nextjs
 # Test the final runtime layer, not merely the dependency-rich build stage.
 RUN node scripts/start-production-cost-period.js --help
+RUN node scripts/close-stale-shells.js --help
 
 EXPOSE 3000
 

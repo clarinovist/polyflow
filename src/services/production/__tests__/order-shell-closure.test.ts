@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { closeOpenShellsForOrder, AUTO_CLOSE_NOTE } from '../order-shell-closure';
+import { closeOpenShellsForOrder, AUTO_CLOSE_NOTE, resolveShellEndTime } from '../order-shell-closure';
 import { buildPieceSnapshotForOperator } from '@/services/hrd/piece-rate-helpers';
 import { SHELL_CLOSE_SETTING_KEY } from '@/services/settings/shell-close-setting-service';
 
@@ -153,5 +153,37 @@ describe('closeOpenShellsForOrder', () => {
         const result = await closeOpenShellsForOrder(tx as never, 'po-1');
 
         expect(result.closed).toEqual([]);
+    });
+});
+
+describe('resolveShellEndTime', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it('plans the last-output end without locking, so a read-only dry-run can use it', async () => {
+        const tx = fakeTx();
+
+        const end = await resolveShellEndTime(tx as never, shell(), true);
+
+        expect(end).toEqual(lastOutput);
+        expect(tx.$queryRaw).not.toHaveBeenCalled();
+        expect(tx.productionExecution.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('ends at the start without reading outputs when the zero-length rule applies', async () => {
+        const tx = fakeTx();
+
+        const end = await resolveShellEndTime(tx as never, shell(), false);
+
+        expect(end).toEqual(start);
+        expect(tx.productionExecution.aggregate).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the start when the last output is not after it', async () => {
+        const tx = fakeTx();
+        tx.productionExecution.aggregate = mockFn({ _max: { endTime: start } });
+
+        const end = await resolveShellEndTime(tx as never, shell(), true);
+
+        expect(end).toEqual(start);
     });
 });
