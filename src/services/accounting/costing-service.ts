@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import type { Prisma } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
+import { executionCostHours } from '@/lib/production/execution-running';
 
 export interface ProductionCost {
     productionOrderId: string;
@@ -163,14 +164,7 @@ export class CostingService {
 
         for (const exec of order.executions) {
             if (exec.status === 'VOIDED') continue;
-            const endTime = exec.endTime ? new Date(exec.endTime) : new Date();
-            const startTime = new Date(exec.startTime);
-            const durationMilliseconds =
-                endTime.getTime() - startTime.getTime();
-            const durationHours =
-                durationMilliseconds > 0
-                    ? durationMilliseconds / (1000 * 60 * 60)
-                    : 0;
+            const durationHours = executionCostHours(exec, order.status);
 
             if (exec.machine) {
                 machineCost +=

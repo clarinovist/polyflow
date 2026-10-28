@@ -27,7 +27,10 @@ export type RunTerminalPatchDecision =
     | { kind: 'CANCELLED' }
     | { kind: 'COMPLETED'; actualEndDate: Date | null };
 
-const TERMINAL_STATUSES = new Set(['COMPLETED', 'CANCELLED']);
+export const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+    'COMPLETED',
+    'CANCELLED',
+]);
 
 /**
  * Decide what a run's status should be, given a snapshot of its orders.

@@ -268,6 +268,63 @@ describe("CostingService", () => {
       expect(result.quantityProduced).toBe(10);
     });
 
+    it("does not accrue cost for an open shell on a completed order", async () => {
+      vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
+        id: "po-9",
+        orderNumber: "MO-009",
+        status: "COMPLETED",
+        actualQuantity: 10,
+        materialIssues: [],
+        stockMovements: [],
+        executions: [
+          {
+            id: "exec-stale-shell",
+            status: "COMPLETED",
+            startTime: new Date("2026-07-20T03:00:00Z"),
+            endTime: null,
+            machine: { costPerHour: dec(100) },
+            operator: { dailyRate: dec(400), standardDayHours: dec(8) },
+          },
+        ],
+      } as never);
+
+      const result = await CostingService.calculateOrderCost("po-9");
+
+      expect(result.machineCost).toBe(0);
+      expect(result.laborCost).toBe(0);
+    });
+
+    it("accrues an open session on an in-progress order up to now", async () => {
+      vi.useFakeTimers({ now: new Date("2026-10-28T10:00:00Z") });
+      try {
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
+          id: "po-10",
+          orderNumber: "MO-010",
+          status: "IN_PROGRESS",
+          actualQuantity: 10,
+          materialIssues: [],
+          stockMovements: [],
+          executions: [
+            {
+              id: "exec-running",
+              status: "COMPLETED",
+              startTime: new Date("2026-10-28T08:00:00Z"),
+              endTime: null,
+              machine: { costPerHour: dec(100) },
+              operator: { dailyRate: dec(400), standardDayHours: dec(8) },
+            },
+          ],
+        } as never);
+
+        const result = await CostingService.calculateOrderCost("po-10");
+
+        expect(result.machineCost).toBe(200); // 2 hours * 100
+        expect(result.laborCost).toBe(100); // (2/8 day) * 400 daily rate
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it("returns zero unitCost when quantityProduced is 0", async () => {
       vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue({
         id: "po-8",

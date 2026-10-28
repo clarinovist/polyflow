@@ -289,4 +289,39 @@ describe('RoutingCostService', () => {
     expect(result.outputMovementValuation).toBe(150);
     expect(result.totalHppNoDoubleCount).toBe(5);
   });
+
+  it('charges no conversion for an open shell on a completed order', async () => {
+    const hour = new Date('2026-07-29T08:00:00.000Z');
+    const hourLater = new Date('2026-07-29T09:00:00.000Z');
+    const operator = { dailyRate: 80, standardDayHours: 8, payType: 'TIME' };
+    mockPrisma.productionRun.findUnique.mockResolvedValue({
+      id: 'run-stale',
+      runNumber: 'RUN-STALE',
+      orders: [{
+        id: 'order-1', orderNumber: 'WO-1', status: 'COMPLETED', routeSequenceSnapshot: 0,
+        processCodeSnapshot: 'EXT', processNameSnapshot: 'Extrusion',
+        plannedQuantity: 1, actualQuantity: 1,
+        bom: { productVariantId: 'fg', outputQuantity: 1 },
+        plannedMaterials: [],
+        materialIssues: [],
+        stockMovements: [],
+        executions: [
+          {
+            status: 'COMPLETED', startTime: hour, endTime: hourLater,
+            pieceEarnings: null, scrapQuantity: 0,
+            machine: { costPerHour: 0 }, operator,
+          },
+          {
+            status: 'COMPLETED', startTime: hour, endTime: null,
+            pieceEarnings: null, scrapQuantity: 0,
+            machine: { costPerHour: 0 }, operator,
+          },
+        ],
+      }],
+    } as never);
+
+    const result = await RoutingCostService.computeRunCost('run-stale');
+
+    expect(result.conversionCost).toBe(10); // closed hour only: 1h / 8h * 80
+  });
 });
