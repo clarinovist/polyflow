@@ -112,8 +112,14 @@ describe.skipIf(!db)('stale shell closure PostgreSQL contracts', () => {
         expect(await db!.auditLog.count({ where: { action: 'CLOSE_STALE_SHELLS', dedupeKey: `CLOSE_STALE_SHELLS:${plan.fingerprint}` } })).toBe(1);
         expect(await db!.stockMovement.count()).toBe(0);
         expect(await db!.journalEntry.count()).toBe(0);
-        await expect(applyStaleShellClosure(db!, input, async () => 'again')).rejects.toThrow('dry-run');
-        expect((await previewStaleShellClosure(db!, request)).shells).toEqual([]);
+        // A second run fails closed: the zero-hour SPK no longer has a stale shell.
+        await expect(applyStaleShellClosure(db!, input, async () => 'again')).rejects.toThrow('no stale shell');
+        const remaining = await previewStaleShellClosure(db!, { ...request, zeroHourOrderNumbers: [] });
+        expect(remaining.shells).toEqual([]);
+        await expect(
+            applyStaleShellClosure(db!, { ...request, zeroHourOrderNumbers: [], fingerprint: remaining.fingerprint }, async () => 'again'),
+        ).rejects.toThrow('No stale shell');
+        expect(await db!.auditLog.count({ where: { action: 'CLOSE_STALE_SHELLS' } })).toBe(1);
     });
 
     it('refuses a plan that changed after review and writes nothing', async () => {

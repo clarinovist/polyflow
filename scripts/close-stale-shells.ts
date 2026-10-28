@@ -57,6 +57,8 @@ async function main() {
                 saveStaleShellEvidence('/app/backups', tenant.id, plan),
             );
             console.log(JSON.stringify({ phase: 'apply', ...applied }));
+            // Verify read-only afterwards; a zero-hour list no longer matches once applied.
+            return;
         }
         const plan = await previewStaleShellClosure(db, input);
         console.log(
