@@ -26,7 +26,8 @@ describe('operational forward-only cost wrapper',()=>{
     });
     it('is deliberately bundled, smoke-tested and shipped by the CI image build',()=>{
         const docker=readFileSync('Dockerfile','utf8');
-        expect(docker).toContain('esbuild scripts/start-production-cost-period.ts --bundle');
+        expect(docker).toContain('esbuild scripts/start-production-cost-period.ts --bundle --platform=node --external:@prisma/client');
+        expect(docker.slice(docker.indexOf('USER nextjs'))).toContain('RUN node scripts/start-production-cost-period.js --help');
         expect(docker).toContain('node /app/ops-dist/scripts/start-production-cost-period.js --help');
         expect(docker).toContain('/app/ops-dist/scripts/start-production-cost-period.js \\');
     });

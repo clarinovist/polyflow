@@ -55,7 +55,7 @@ RUN npx tsc \
   --rootDir . --outDir /app/ops-dist
 
 # Bundle the thin operational wrapper with the same service code as the UI.
-RUN ./node_modules/.bin/esbuild scripts/start-production-cost-period.ts --bundle --platform=node --packages=external --format=cjs --outfile=/app/ops-dist/scripts/start-production-cost-period.js
+RUN ./node_modules/.bin/esbuild scripts/start-production-cost-period.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/start-production-cost-period.js
 RUN node /app/ops-dist/scripts/start-production-cost-period.js --help
 
 # The TypeScript worker exceeds Node's ~2 GiB default heap on CI.
@@ -148,6 +148,8 @@ COPY --from=builder --chown=nextjs:nodejs \
   ./prisma/
 
 USER nextjs
+# Test the final runtime layer, not merely the dependency-rich build stage.
+RUN node scripts/start-production-cost-period.js --help
 
 EXPOSE 3000
 
