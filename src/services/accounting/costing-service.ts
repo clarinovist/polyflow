@@ -221,13 +221,17 @@ export class CostingService {
             endDate = new Date();
         }
 
+        const range = { gte: startDate, lte: endDate };
+        // updatedAt moves whenever an old SPK is touched, so a finished SPK
+        // belongs to the period it ended in. Running SPKs stay activity-based.
         const orders = await prisma.productionOrder.findMany({
             where: {
-                status: { in: ['COMPLETED', 'IN_PROGRESS'] }, // Analyze In Progress too
-                updatedAt: {
-                    gte: startDate,
-                    lte: endDate,
-                },
+                OR: [
+                    { status: 'IN_PROGRESS', updatedAt: range },
+                    { status: 'COMPLETED', actualEndDate: range },
+                    // Completed before end dates were recorded: old selection until backfilled.
+                    { status: 'COMPLETED', actualEndDate: null, updatedAt: range },
+                ],
             },
             select: { id: true },
         });

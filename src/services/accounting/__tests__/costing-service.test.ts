@@ -351,18 +351,24 @@ describe("CostingService", () => {
       expect(prisma.productionOrder.findMany).toHaveBeenCalled();
     });
 
-    it("filters orders by date range", async () => {
+    it("places completed SPKs in the period they finished, running ones by activity", async () => {
       const start = new Date("2026-01-01");
       const end = new Date("2026-01-31");
       vi.mocked(prisma.productionOrder.findMany).mockResolvedValue([]);
 
       await CostingService.getPeriodCosts(start, end);
 
+      const range = { gte: start, lte: end };
       expect(prisma.productionOrder.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({
-            updatedAt: { gte: start, lte: end },
-          }),
+          where: {
+            OR: [
+              { status: "IN_PROGRESS", updatedAt: range },
+              { status: "COMPLETED", actualEndDate: range },
+              // Completed before end dates were recorded: old selection until backfilled.
+              { status: "COMPLETED", actualEndDate: null, updatedAt: range },
+            ],
+          },
         }),
       );
     });
