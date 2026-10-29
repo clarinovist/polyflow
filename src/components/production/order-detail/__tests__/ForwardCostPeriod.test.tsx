@@ -33,7 +33,9 @@ describe('forward-only cost period UI',()=>{
     it('retains same fingerprint/reason for retry after unknown response',async()=>{
         m.activate.mockRejectedValueOnce(new Error('lost'));render(<ForwardCostPeriod orderId="wo"/>);fireEvent.click(screen.getByRole('button'));await screen.findByRole('checkbox');
         fireEvent.change(screen.getByRole('textbox'),{target:{value:'Preserve historic values only'}});fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'Aktifkan batas biaya baru'}));
-        await screen.findByRole('button',{name:'Ulangi aktivasi yang sama'});fireEvent.click(screen.getByRole('button',{name:'Ulangi aktivasi yang sama'}));
+        const retry = await screen.findByRole('button',{name:'Ulangi aktivasi yang sama'}) as HTMLButtonElement;
+        await waitFor(() => expect(retry.disabled).toBe(false));
+        fireEvent.click(retry);
         await screen.findByText(/Batas biaya sudah tercatat/);expect(m.activate.mock.calls[0]).toEqual(m.activate.mock.calls[1]);
     });
 });
