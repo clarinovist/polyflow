@@ -1017,6 +1017,41 @@ describe("ProductionOrderService", () => {
       });
     });
 
+    it("should zero estimatedConversionCost when not maklon and preserve it when isMaklon", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", ...a.data }) as any,
+      );
+
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-NON-MAKLON",
+        isMaklon: false,
+        estimatedConversionCost: 150000,
+      });
+      expect(prisma.productionOrder.create).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({
+          isMaklon: false,
+          estimatedConversionCost: 0,
+        }),
+      });
+
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-MAKLON",
+        isMaklon: true,
+        maklonCustomerId: "c-m",
+        estimatedConversionCost: 150000,
+      });
+      expect(prisma.productionOrder.create).toHaveBeenLastCalledWith({
+        data: expect.objectContaining({
+          isMaklon: true,
+          estimatedConversionCost: 150000,
+        }),
+      });
+    });
+
     it("should persist materialSourceLocationId and materialConsumptionLocationId separately from the output location", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);

@@ -669,6 +669,9 @@ export function ProductionOrderForm({
     const handleMaklonChange = useCallback(
         (checked: boolean) => {
             form.setValue('isMaklon', checked);
+            if (!checked) {
+                form.setValue('estimatedConversionCost', 0);
+            }
             setSourceOverrideId(null);
             setOutputManuallyOverridden(false);
             const newOutput = resolveOutputLocationId(

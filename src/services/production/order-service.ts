@@ -468,7 +468,7 @@ export class ProductionOrderService {
                 maklonCustomer: maklonCustomerId
                     ? { connect: { id: maklonCustomerId } }
                     : undefined,
-                estimatedConversionCost: estimatedConversionCost,
+                estimatedConversionCost: isMaklon ? estimatedConversionCost : 0,
                 clientRequestId: clientRequestId,
                 ...(data.materialConsumptionMode ? { materialConsumptionMode: data.materialConsumptionMode } : {}),
                 ...(materialSourceLocationId

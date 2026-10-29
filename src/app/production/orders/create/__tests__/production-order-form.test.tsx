@@ -525,6 +525,60 @@ describe('ProductionOrderForm — redesigned target and review', () => {
         expect(screen.getByText('Bahan & tujuan')).toBeTruthy();
         expect(screen.getByText('Periksa & buat')).toBeTruthy();
     });
+
+    it('resets estimatedConversionCost to 0 when maklon is unchecked before submitting', async () => {
+        vi.mocked(createProductionOrder).mockReset();
+        vi.mocked(createProductionOrder).mockResolvedValue({
+            success: true,
+            data: {
+                id: 'po',
+                orderNumber: 'WO-TEST',
+                plannedQuantity: 300,
+            },
+        } as never);
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut: Bahan/ }));
+
+        const maklonSwitch = screen.getByRole('switch', {
+            name: 'Order Maklon',
+        });
+        fireEvent.click(maklonSwitch);
+
+        const conversionCostInput = document.querySelector(
+            'input[name="estimatedConversionCost"]',
+        ) as HTMLInputElement;
+        fireEvent.change(conversionCostInput, {
+            target: { value: '150000' },
+        });
+
+        fireEvent.click(maklonSwitch);
+
+        fireEvent.click(
+            screen.getByRole('button', { name: /Lanjut: Periksa/ }),
+        );
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Buat SPK' }));
+        });
+
+        expect(createProductionOrder).toHaveBeenCalledWith(
+            expect.objectContaining({
+                isMaklon: false,
+                estimatedConversionCost: 0,
+            }),
+        );
+    });
 });
 
 describe('ProductionOrderForm — editable material list (step 3)', () => {
