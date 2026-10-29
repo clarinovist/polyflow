@@ -96,6 +96,11 @@ const warehouseLinks = [
                 label: warehouseSidebarLabels.stockOverview,
             },
             {
+                href: '/warehouse/inventory/ledger-gaps',
+                icon: ClipboardList,
+                label: 'Selisih Kartu Stok',
+            },
+            {
                 href: '/warehouse/locations',
                 icon: Warehouse,
                 label: warehouseSidebarLabels.locations,

@@ -39,6 +39,7 @@ describe('permission-catalog', () => {
         '/warehouse/inventory/adjustment',
         '/warehouse/inventory/aging',
         '/warehouse/inventory/history',
+        '/warehouse/inventory/ledger-gaps',
       ]),
     );
   });

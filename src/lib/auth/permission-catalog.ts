@@ -161,6 +161,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                         key: '/warehouse/inventory/history',
                         label: 'Riwayat Mutasi',
                     },
+                    { key: '/warehouse/inventory/ledger-gaps', label: 'Selisih Kartu Stok' },
                 ],
             },
             { key: '/warehouse/locations', label: 'Lokasi Gudang' },
