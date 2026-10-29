@@ -21,7 +21,7 @@ CREATE TABLE "AtkCostCorrection" (
     "evidenceSnapshot" JSONB NOT NULL,
     CONSTRAINT "AtkCostCorrection_sourceMovementId_kind_key" UNIQUE ("sourceMovementId", "kind"),
     CONSTRAINT "AtkCostCorrection_kind_reversal_check" CHECK (("kind" = 'REFUND' AND "reversalOfId" IS NULL) OR ("kind" = 'COMPENSATION' AND "reversalOfId" IS NOT NULL)),
-    CONSTRAINT "AtkCostCorrection_amount_check" CHECK ("originalLoss" > "expectedLoss" AND "expectedLoss" > 0 AND "amount" = "originalLoss" - "expectedLoss")
+    CONSTRAINT "AtkCostCorrection_source_delta_check" CHECK ("originalLoss" > "expectedLoss" AND "expectedLoss" > 0 AND "amount" = "originalLoss" - "expectedLoss")
 );
 CREATE TABLE "AtkCostEvidence" (
     "id" TEXT PRIMARY KEY,
