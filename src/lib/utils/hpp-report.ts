@@ -2,6 +2,7 @@ import type {
     ConversionCostSummary,
     ProductionCost,
 } from '@/services/accounting/costing-service';
+import type { HppPeriodLockInfo } from '@/lib/finance/hpp-period-snapshot';
 
 // ---- Types ----
 
@@ -31,7 +32,7 @@ export interface HppProductRow {
     variancePercent: number;
 }
 
-interface HppOrderRow {
+export interface HppOrderRow {
     orderId: string;
     orderNumber: string;
     bomId: string;
@@ -46,7 +47,7 @@ interface HppOrderRow {
     unitCost: number;
 }
 
-interface HppSummary {
+export interface HppSummary {
     totalCogm: number;
     totalQuantity: number;
     materialShare: number;
@@ -62,6 +63,7 @@ export interface HppReportData {
     products: HppProductRow[];
     orders: HppOrderRow[];
     conversion: ConversionCostSummary;
+    lock?: HppPeriodLockInfo | null;
 }
 
 // Enriched type from server action

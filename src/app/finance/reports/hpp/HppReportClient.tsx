@@ -26,8 +26,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatRupiah } from '@/lib/utils/utils';
 import {
-    startOfMonth,
-    endOfMonth,
     addMonths,
     subMonths,
     format,
@@ -55,11 +53,12 @@ import {
 } from '@/lib/utils/csv-export';
 import { toast } from 'sonner';
 import type { HppReportData, HppProductRow } from '@/lib/utils/hpp-report';
-
-interface PeriodLockInfo {
-    lockedAt: string;
-    lockedBy: { name: string | null; email: string } | null;
-}
+import {
+    buildHppPeriodSnapshot,
+    type HppPeriodLockInfo,
+} from '@/lib/finance/hpp-period-snapshot';
+import { getWibMonthBounds } from '@/lib/utils/timezone';
+import { HppLockChangeNotice } from './HppLockChangeNotice';
 
 export default function HppReportClient() {
     const [data, setData] = useState<HppReportData | null>(null);
@@ -67,7 +66,7 @@ export default function HppReportClient() {
     const [date, setDate] = useState<Date>(new Date());
     const [search, setSearch] = useState('');
     const [expandedProduct, setExpandedProduct] = useState<string | null>(null);
-    const [periodLock, setPeriodLock] = useState<PeriodLockInfo | null>(null);
+    const [periodLock, setPeriodLock] = useState<HppPeriodLockInfo | null>(null);
     const [locking, setLocking] = useState(false);
 
     const year = date.getFullYear();
@@ -76,22 +75,28 @@ export default function HppReportClient() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const startDate = startOfMonth(date);
-            const endDate = endOfMonth(date);
+            const { start: startDate, end: endDate } = getWibMonthBounds(
+                date.getFullYear(),
+                date.getMonth() + 1,
+            );
 
             const result = await getHppReportData(startDate, endDate);
             if (result && 'success' in result && result.success) {
-                setData(result.data as HppReportData);
+                const reportData = result.data as HppReportData;
+                setData(reportData);
+                setPeriodLock(reportData.lock ?? null);
             } else {
                 console.error(
                     'Failed to load HPP report:',
                     result && 'error' in result ? result.error : 'Unknown',
                 );
                 setData(null);
+                setPeriodLock(null);
             }
         } catch (error) {
             console.error('Failed to load HPP report', error);
             setData(null);
+            setPeriodLock(null);
         } finally {
             setLoading(false);
         }
@@ -111,10 +116,17 @@ export default function HppReportClient() {
             const result = await lockPeriod(year, month);
             if (result && 'success' in result && result.success) {
                 toast.success('Periode berhasil dikunci');
-                setPeriodLock({
-                    lockedAt: new Date().toISOString(),
-                    lockedBy: null,
-                });
+                const payload = result.data as {
+                    lock?: HppPeriodLockInfo | null;
+                };
+                setPeriodLock(
+                    payload?.lock ?? {
+                        lockedAt: new Date().toISOString(),
+                        lockedByName: null,
+                        notes: null,
+                        snapshot: data ? buildHppPeriodSnapshot(data) : null,
+                    },
+                );
             } else {
                 toast.error(
                     result && 'error' in result
@@ -320,6 +332,9 @@ export default function HppReportClient() {
                 </div>
             </div>
 
+            {/* Lock change warning banner */}
+            <HppLockChangeNotice lock={periodLock} liveReport={data} />
+
             {/* KPI Cards */}
             {data && (
                 <div className="grid gap-4 md:grid-cols-4">
@@ -501,7 +516,7 @@ export default function HppReportClient() {
                                             Periode Terkunci
                                         </p>
                                         <p className="text-xs text-muted-foreground">
-                                            {periodLock.lockedBy?.name ??
+                                            {periodLock.lockedByName ??
                                                 'Admin'}{' '}
                                             •{' '}
                                             {new Date(

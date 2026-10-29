@@ -3897,6 +3897,7 @@ model PeriodLock {
   lockedById String?
   lockedBy   User?    @relation(fields: [lockedById], references: [id])
   notes      String?
+  snapshot   Json?
 
   @@unique([year, month])
   @@map("period_locks")
