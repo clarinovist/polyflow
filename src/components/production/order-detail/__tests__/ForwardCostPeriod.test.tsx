@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 const m=vi.hoisted(()=>({inspect:vi.fn(),activate:vi.fn()}));
 vi.mock('@/actions/finance/production-cost-recovery',()=>({inspectForwardCostPeriod:m.inspect,activateForwardCostPeriod:m.activate}));
@@ -70,8 +70,9 @@ describe('forward-only cost period UI',()=>{
             balances:[{accountId:'acc-wip',code:'1140',name:'Barang Dalam Proses',amount:'-85.50'}],
             anomalies:[{category:'VOIDED_EXECUTIONS',count:1},{category:'CUSTOM_ANOMALY',count:2}],
         };
+        const strictError='Batas biaya SPK belum dapat digunakan: hasil lama harus sudah selesai dan cocok dengan total SPK.';
         m.inspect
-            .mockResolvedValueOnce({success:false,error:'Hasil pernah di-void',code:'PRODUCTION_COST_PERIOD_INVALID'})
+            .mockResolvedValueOnce({success:false,error:strictError,code:'PRODUCTION_COST_PERIOD_INVALID'})
             .mockResolvedValueOnce({success:true,data:{...v2Preview,storageReady:false}});
         render(<ForwardCostPeriod orderId="wo"/>);
         fireEvent.click(screen.getByRole('button',{name:'Periksa kelayakan batas biaya'}));
@@ -79,11 +80,13 @@ describe('forward-only cost period UI',()=>{
         await waitFor(()=>expect(legacyBtn.disabled).toBe(false));
         fireEvent.click(legacyBtn);
         await screen.findByRole('alert');
+        await waitFor(()=>expect(screen.queryByRole('status')).toBeNull());
         expect(m.inspect).toHaveBeenLastCalledWith({orderId:'wo',mode:'REVIEWED_LEGACY_SEAL'});
         expect(screen.getByText(/1140 — Barang Dalam Proses/)).toBeTruthy();
         expect(screen.getByText(/-Rp\s*85,50 \(negatif\)/)).toBeTruthy();
-        expect(screen.getByText(/hasil pernah di-void/i)).toBeTruthy();
-        expect(screen.getByText(/CUSTOM_ANOMALY/)).toBeTruthy();
+        const anomalySection=screen.getByText('Anomali historis yang dipertahankan:').parentElement!;
+        expect(within(anomalySection).getByText(/hasil pernah di-void/i)).toBeTruthy();
+        expect(within(anomalySection).getByText(/CUSTOM_ANOMALY/)).toBeTruthy();
 
         const longReason='Menyegel riwayat SPK lama yang memiliki hasil void setelah ditinjau Finance';
         fireEvent.change(screen.getByRole('textbox'),{target:{value:longReason}});
@@ -93,7 +96,7 @@ describe('forward-only cost period UI',()=>{
 
         cleanup();
         render(<ForwardCostPeriod orderId="wo"/>);
-        m.inspect.mockResolvedValueOnce({success:false,error:'Hasil pernah di-void',code:'PRODUCTION_COST_PERIOD_INVALID'}).mockResolvedValueOnce({success:true,data:v2Preview});
+        m.inspect.mockResolvedValueOnce({success:false,error:strictError,code:'PRODUCTION_COST_PERIOD_INVALID'}).mockResolvedValueOnce({success:true,data:v2Preview});
         fireEvent.click(screen.getByRole('button',{name:'Periksa kelayakan batas biaya'}));
         const legacyBtn2=await screen.findByRole('button',{name:'Periksa mode riwayat khusus'}) as HTMLButtonElement;
         await waitFor(()=>expect(legacyBtn2.disabled).toBe(false));
