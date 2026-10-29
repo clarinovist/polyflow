@@ -15,6 +15,7 @@ import { logActivity } from "@/lib/tools/audit";
 import { createDraftBillFromPo } from "@/services/purchasing/invoices-service";
 import { NotificationService } from "@/services/core/notification-service";
 import { MovementType, PurchaseOrderStatus } from "@prisma/client";
+import { BusinessRuleError } from '@/lib/errors/errors';
 
 // Mock prisma
 const { mockPrisma } = vi.hoisted(() => ({
@@ -2055,133 +2056,130 @@ describe("receipts-service", () => {
     const userId = "user-1";
     const grId = "gr-1";
 
-    it("should decrement inventory and delete stock movements + journal entries", async () => {
-      const mockGR = {
-        id: grId,
-        receiptNumber: "GR-2026-0001",
-        purchaseOrderId: "po-1",
-        purchaseOrder: {
-          orderNumber: "PO-2026-0001",
-          items: [
-            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
-          ],
-        },
-        items: [
-          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
-        ],
-        movements: [
-          {
-            id: "mov-1",
-            productVariantId: "pv-1",
-            toLocationId: "loc-1",
-            quantity: 50,
-            goodsReceiptId: grId,
-          },
-        ],
-      };
-
-      let usedTx: Record<string, unknown> | undefined;
-      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
-        const tx = {
-          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
-          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
-          goodsReceipt: {
-            findUnique: vi.fn().mockResolvedValue(mockGR),
-            delete: vi.fn(),
-          },
-          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
-          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
-          journalEntry: {
-            findFirst: vi.fn().mockResolvedValue({ id: "je-1" }),
-            findMany: vi.fn().mockResolvedValue([]),
-            delete: vi.fn(),
-          },
-          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
-          costHistory: { deleteMany: vi.fn() },
-          inventory: {
-            findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
-            update: vi.fn(),
-          },
-          purchaseOrderItem: {
-            findMany: vi.fn().mockResolvedValue([
-              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
-            ]),
-            update: vi.fn(),
-          },
-          purchaseOrder: { update: vi.fn() },
+    function reversalFixture(available: string | null, quantities = ['12.3456']) {
+        let balance = available === null ? null : new Prisma.Decimal(available);
+        const total = quantities.reduce((sum, qty) => sum.plus(qty), new Prisma.Decimal(0));
+        const gr = {
+            id: grId,
+            receiptNumber: 'GR-SYNTHETIC',
+            purchaseOrderId: 'po-1',
+            purchaseOrder: {
+                orderNumber: 'PO-SYNTHETIC',
+                items: [{ id: 'poi-1', productVariantId: 'pv-1', quantity: total, receivedQty: total }],
+            },
+            items: [{ purchaseOrderItemId: 'poi-1', productVariantId: 'pv-1', receivedQty: total }],
+            movements: quantities.map((quantity, index) => ({
+                id: 'mov-' + (index + 1),
+                productVariantId: 'pv-1',
+                toLocationId: 'loc-1',
+                quantity: new Prisma.Decimal(quantity),
+                goodsReceiptId: grId,
+            })),
         };
-        usedTx = tx;
-        return cb(withReceiptAggregate(tx));
-      });
+        const tx = {
+            $queryRaw: vi.fn().mockResolvedValue([]),
+            productVariant: { findUnique: vi.fn().mockResolvedValue({ skuCode: 'SYNTHETIC-SKU' }) },
+            location: { findUnique: vi.fn().mockResolvedValue({ name: 'Gudang Sintetis' }) },
+            fixedAsset: { findMany: vi.fn().mockResolvedValue([]) },
+            goodsReceipt: { findUnique: vi.fn().mockResolvedValue(gr), delete: vi.fn() },
+            goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+            stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
+            journalEntry: {
+                findFirst: vi.fn().mockResolvedValue({ id: 'je-1', lines: [] }),
+                delete: vi.fn(),
+            },
+            journalLine: {
+                deleteMany: vi.fn(),
+                aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }),
+            },
+            costHistory: { deleteMany: vi.fn() },
+            inventory: {
+                findUnique: vi.fn(async () => balance === null ? null : { quantity: balance }),
+                update: vi.fn(),
+                updateMany: vi.fn(async ({ where, data }: {
+                    where: { quantity: { gte: Prisma.Decimal } };
+                    data: { quantity: { decrement: Prisma.Decimal } };
+                }) => {
+                    if (balance === null || balance.lt(where.quantity.gte)) return { count: 0 };
+                    balance = balance.minus(data.quantity.decrement);
+                    return { count: 1 };
+                }),
+            },
+            purchaseOrderItem: {
+                findMany: vi.fn().mockResolvedValue([{ quantity: total, receivedQty: 0 }]),
+                update: vi.fn(),
+            },
+            purchaseOrder: { update: vi.fn() },
+        };
+        vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(tx));
+        return { tx, balance: () => balance };
+    }
 
-      const result = await reverseGoodsReceipt(grId, userId);
+    it.each(['12.3456', '20'])('decrements the exact Decimal quantity with %s available before deleting evidence', async (available) => {
+        const { tx, balance } = reversalFixture(available);
+        const result = await reverseGoodsReceipt(grId, userId);
 
-      expect(result.success).toBe(true);
-      expect(result.receiptNumber).toBe("GR-2026-0001");
-      expect(createDraftBillFromPo).toHaveBeenCalledWith("po-1", userId, {
-        tx: usedTx,
-      });
+        expect(result).toMatchObject({ success: true, receiptNumber: 'GR-SYNTHETIC' });
+        expect(tx.inventory.updateMany).toHaveBeenCalledExactlyOnceWith({
+            where: { locationId: 'loc-1', productVariantId: 'pv-1', quantity: { gte: new Prisma.Decimal('12.3456') } },
+            data: { quantity: { decrement: new Prisma.Decimal('12.3456') } },
+        });
+        const args = tx.inventory.updateMany.mock.calls[0][0];
+        expect(args.where.quantity.gte).toBeInstanceOf(Prisma.Decimal);
+        expect(args.data.quantity.decrement).toBeInstanceOf(Prisma.Decimal);
+        expect(balance()?.equals(new Prisma.Decimal(available).minus('12.3456'))).toBe(true);
+        expect(tx.inventory.update).not.toHaveBeenCalled();
+        expect(tx.inventory.findUnique).not.toHaveBeenCalled();
+        expect(tx.productVariant.findUnique).not.toHaveBeenCalled();
+        expect(tx.location.findUnique).not.toHaveBeenCalled();
+        expect(tx.stockMovement.delete).toHaveBeenCalledExactlyOnceWith({ where: { id: 'mov-1' } });
+        expect(tx.journalEntry.delete).toHaveBeenCalledExactlyOnceWith({ where: { id: 'je-1' } });
+        expect(tx.inventory.updateMany.mock.invocationCallOrder[0]).toBeLessThan(tx.journalEntry.delete.mock.invocationCallOrder[0]);
+        expect(tx.inventory.updateMany.mock.invocationCallOrder[0]).toBeLessThan(tx.stockMovement.delete.mock.invocationCallOrder[0]);
+        expect(createDraftBillFromPo).toHaveBeenCalledWith('po-1', userId, { tx });
     });
 
-    it("should set inventory to 0 when current qty < reversal qty", async () => {
-      const mockGR = {
-        id: grId,
-        receiptNumber: "GR-2026-0001",
-        purchaseOrderId: "po-1",
-        purchaseOrder: {
-          orderNumber: "PO-2026-0001",
-          items: [
-            { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
-          ],
-        },
-        items: [
-          { id: "gri-1", productVariantId: "pv-1", receivedQty: 50, unitCost: 10000 },
-        ],
-        movements: [
-          {
-            id: "mov-1",
-            productVariantId: "pv-1",
-            toLocationId: "loc-1",
-            quantity: 50,
-            goodsReceiptId: grId,
-          },
-        ],
-      };
+    it.each(['10', '12.3455', null])('rejects insufficient or missing inventory (%s) without deleting evidence', async (available) => {
+        const { tx, balance } = reversalFixture(available);
+        const reversal = reverseGoodsReceipt(grId, userId);
+        await expect(reversal).rejects.toBeInstanceOf(BusinessRuleError);
+        await expect(reversal).rejects.toMatchObject({
+            code: 'GR_REVERSAL_STOCK_CONSUMED',
+            details: {
+                goodsReceiptId: grId,
+                productVariantId: 'pv-1',
+                locationId: 'loc-1',
+                available: available ?? '0',
+                required: '12.3456',
+            },
+            message: 'Penerimaan GR-SYNTHETIC tidak dapat dibatalkan: SYNTHETIC-SKU di Gudang Sintetis tersisa ' + (available ?? '0') + ' dari 12.3456 karena sebagian sudah terpakai atau dipindah. Tagihan pembelian terkait tidak dapat dihapus; minta Finance melakukan koreksi.',
+        });
+        expect(balance()?.toString() ?? null).toBe(available);
+        expect(tx.inventory.updateMany).toHaveBeenCalledTimes(1);
+        expect(tx.inventory.update).not.toHaveBeenCalled();
+        expect(tx.productVariant.findUnique).toHaveBeenCalledExactlyOnceWith({ where: { id: 'pv-1' }, select: { skuCode: true } });
+        expect(tx.location.findUnique).toHaveBeenCalledExactlyOnceWith({ where: { id: 'loc-1' }, select: { name: true } });
+        expect(tx.stockMovement.delete).not.toHaveBeenCalled();
+        expect(tx.journalEntry.delete).not.toHaveBeenCalled();
+        expect(tx.journalLine.deleteMany).not.toHaveBeenCalled();
+        expect(tx.goodsReceipt.delete).not.toHaveBeenCalled();
+        expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+        expect(createDraftBillFromPo).not.toHaveBeenCalled();
+    });
 
-      vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => {
-        const tx = {
-          productVariant: { findUnique: vi.fn().mockResolvedValue({ id: "pv-1", product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" } }) },
-          fixedAsset: { findMany: vi.fn().mockResolvedValue([]), deleteMany: vi.fn() },
-          goodsReceipt: {
-            findUnique: vi.fn().mockResolvedValue(mockGR),
-            delete: vi.fn(),
-          },
-          goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
-          stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
-          journalEntry: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            findMany: vi.fn().mockResolvedValue([]),
-            delete: vi.fn(),
-          },
-          journalLine: { deleteMany: vi.fn(), aggregate: vi.fn().mockResolvedValue({ _sum: { debit: 0, credit: 0 } }) },
-          costHistory: { deleteMany: vi.fn() },
-          inventory: {
-            findUnique: vi.fn().mockResolvedValue({ quantity: 10 }), // less than 50
-            update: vi.fn(),
-          },
-          purchaseOrderItem: {
-            findMany: vi.fn().mockResolvedValue([
-              { id: "poi-1", productVariantId: "pv-1", quantity: 100, receivedQty: 50 },
-            ]),
-            update: vi.fn(),
-          },
-          purchaseOrder: { update: vi.fn() },
-        };
-        return cb(withReceiptAggregate(tx));
-      });
-
-      const result = await reverseGoodsReceipt(grId, userId);
-      expect(result.success).toBe(true);
+    it('rejects the second movement for the same variant and location when only one can be reversed', async () => {
+        const { tx, balance } = reversalFixture('12.3456', ['12.3456', '12.3456']);
+        await expect(reverseGoodsReceipt(grId, userId)).rejects.toMatchObject({
+            code: 'GR_REVERSAL_STOCK_CONSUMED',
+            details: { available: '0', required: '12.3456' },
+        });
+        expect(tx.inventory.updateMany).toHaveBeenCalledTimes(2);
+        expect(balance()?.toFixed(4)).toBe('0.0000');
+        // Mock transactions do not roll back; PostgreSQL contracts verify atomicity.
+        expect(tx.stockMovement.delete).toHaveBeenCalledExactlyOnceWith({ where: { id: 'mov-1' } });
+        expect(tx.journalEntry.delete).toHaveBeenCalledTimes(1);
+        expect(tx.goodsReceipt.delete).not.toHaveBeenCalled();
+        expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
     });
 
     it("should revert PO status to SENT when all items receivedQty become 0", async () => {
@@ -2330,7 +2328,7 @@ describe("receipts-service", () => {
           costHistory: { deleteMany: vi.fn() },
           inventory: {
             findUnique: vi.fn().mockResolvedValue({ quantity: 100 }),
-            update: vi.fn(),
+            updateMany: vi.fn().mockResolvedValue({ count: 1 }),
           },
           purchaseOrderItem: { findMany: vi.fn(), update: vi.fn() },
           purchaseOrder: { update: vi.fn() },

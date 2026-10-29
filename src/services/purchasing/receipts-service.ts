@@ -1,7 +1,6 @@
 import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
-import { toStockQuantity } from '@/services/inventory/stock-quantity';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import {
     JournalStatus,
@@ -702,6 +701,51 @@ export async function reverseGoodsReceipt(
         // 1. Reverse inventory + delete stock movements + journal entries
         let reversalInventoryAccountId: string | null = null;
         for (const movement of gr.movements) {
+            // Decrement atomically before deleting the movement's evidence.
+            if (movement.toLocationId) {
+                const qty = new Prisma.Decimal(movement.quantity);
+                if (qty.gt(0)) {
+                    const locationId = movement.toLocationId;
+                    const productVariantId = movement.productVariantId;
+                    const updated = await db.inventory.updateMany({
+                        where: {
+                            locationId,
+                            productVariantId,
+                            quantity: { gte: qty },
+                        },
+                        data: { quantity: { decrement: qty } },
+                    });
+                    if (updated.count !== 1) {
+                        const [inventory, variant, location] = await Promise.all([
+                            db.inventory.findUnique({
+                                where: {
+                                    locationId_productVariantId: {
+                                        locationId,
+                                        productVariantId,
+                                    },
+                                },
+                                select: { quantity: true },
+                            }),
+                            db.productVariant.findUnique({
+                                where: { id: productVariantId },
+                                select: { skuCode: true },
+                            }),
+                            db.location.findUnique({
+                                where: { id: locationId },
+                                select: { name: true },
+                            }),
+                        ]);
+                        const available = inventory?.quantity.toString() ?? '0';
+                        const required = qty.toString();
+                        throw new BusinessRuleError(
+                            `Penerimaan ${gr.receiptNumber} tidak dapat dibatalkan: ${variant?.skuCode ?? productVariantId} di ${location?.name ?? locationId} tersisa ${available} dari ${required} karena sebagian sudah terpakai atau dipindah. Tagihan pembelian terkait tidak dapat dihapus; minta Finance melakukan koreksi.`,
+                            { goodsReceiptId, productVariantId, locationId, available, required },
+                            'GR_REVERSAL_STOCK_CONSUMED',
+                        );
+                    }
+                }
+            }
+
             // Find and delete the journal entry created by recordInventoryMovement
             // (referenceType: 'GOODS_RECEIPT', referenceId: movement.id)
             const journalEntry = await db.journalEntry.findFirst({
@@ -730,56 +774,6 @@ export async function reverseGoodsReceipt(
             await db.costHistory.deleteMany({
                 where: { referenceId: goodsReceiptId },
             });
-
-            // Decrement inventory
-            if (movement.toLocationId) {
-                const qty = Number(movement.quantity);
-                if (qty > 0) {
-                    const inv = await db.inventory.findUnique({
-                        where: {
-                            locationId_productVariantId: {
-                                locationId: movement.toLocationId,
-                                productVariantId: movement.productVariantId,
-                            },
-                        },
-                    });
-
-                    if (inv) {
-                        const currentQty = Number(inv.quantity);
-                        if (currentQty < qty) {
-                            logger.warn(
-                                `Cannot fully reverse stock movement: current qty ${currentQty} < reversal qty ${qty}`,
-                                {
-                                    movementId: movement.id,
-                                    module: 'ReverseGR',
-                                },
-                            );
-                            // Set to 0 instead of going negative
-                            await db.inventory.update({
-                                where: {
-                                    locationId_productVariantId: {
-                                        locationId: movement.toLocationId,
-                                        productVariantId:
-                                            movement.productVariantId,
-                                    },
-                                },
-                                data: { quantity: 0 },
-                            });
-                        } else {
-                            await db.inventory.update({
-                                where: {
-                                    locationId_productVariantId: {
-                                        locationId: movement.toLocationId,
-                                        productVariantId:
-                                            movement.productVariantId,
-                                    },
-                                },
-                                data: { quantity: { decrement: toStockQuantity(qty) } },
-                            });
-                        }
-                    }
-                }
-            }
 
             // Delete the stock movement
             await db.stockMovement.delete({
