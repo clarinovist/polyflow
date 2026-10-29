@@ -81,7 +81,11 @@ export function inputFailure(result: Rejection, scope: InputScope): InputFailure
     }
     if (code && messages[code]) {
         const item = result.details?.productName ?? result.details?.skuCode;
-        return { title: titles[scope], message: `${typeof item === 'string' ? `Barang: ${item}. ` : ''}${messages[code]}`, code };
+        const atkGuidance = code.startsWith('INTERNAL_USAGE_') ||
+            code === 'OPERATIONAL_STOCK_COST_REQUIRED' || code === 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS'
+            ? ' Teruskan SKU dan lokasi ke Finance → Akuntansi → Rekonsiliasi nilai ATK untuk diagnosis; halaman tersebut belum menerapkan koreksi.'
+            : '';
+        return { title: titles[scope], message: `${typeof item === 'string' ? `Barang: ${item}. ` : ''}${messages[code]}${atkGuidance}`, code };
     }
     return {
         title: 'Proses belum dapat dilanjutkan',

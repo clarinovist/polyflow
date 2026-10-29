@@ -11,6 +11,7 @@ import { getStockBalance } from '../stock-balance-service';
 import { diagnoseInventoryEconomicCompleteness } from '@/services/finance/inventory-economic-diagnosis-service';
 import { recordInventoryMovement } from '@/services/accounting/inventory-link-service';
 import { InventoryMovementService } from '../movement-service';
+import { inspectInventoryReconciliation, listReconciliationCatalog } from '../reconciliation-diagnosis-service';
 
 // Only MAIN mapping lookup is supplied; stock, GL proof, source, journal, sequence,
 // period and audit execute on real isolated PostgreSQL (no domain mocks).
@@ -57,6 +58,30 @@ async function stock() { return Number((await db!.inventory.findFirstOrThrow()).
 describe.skipIf(!db)('internal usage real PostgreSQL contract', () => {
     beforeEach(async () => seed(db!));
     afterAll(async () => { await Promise.all([db?.$disconnect(), other?.$disconnect()]); });
+    it('diagnoses actual posted basis without changing inventory, journals, movements or audit', async () => {
+        const before = {
+            stock: await db!.inventory.findMany(),
+            journals: await db!.journalEntry.count(),
+            movements: await db!.stockMovement.count(),
+            audits: await db!.auditLog.count(),
+        };
+        const catalog = await listReconciliationCatalog(db!, 'USAGE-PEN', 1);
+        expect(catalog.items.map(item => item.id)).toEqual(['usage-pen']);
+        const result = await inspectInventoryReconciliation(db!, 'usage-pen');
+        expect(result).toMatchObject({ stockValue: '48000.0000', basisTotal: '48000.00', difference: '0.0000', healthFlagged: false });
+        expect(result.basis).toEqual([{ accountId: 'usage-inventory', code: '11370', name: 'Synthetic supplies', value: '48000.00' }]);
+        expect(result.movements).toHaveLength(1);
+        expect(result.journals).toHaveLength(1);
+        expect(await db!.inventory.findMany()).toEqual(before.stock);
+        expect(await db!.journalEntry.count()).toBe(before.journals);
+        expect(await db!.stockMovement.count()).toBe(before.movements);
+        expect(await db!.auditLog.count()).toBe(before.audits);
+        await expect(inspectInventoryReconciliation(db!, 'missing-sku')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await db!.journalEntry.update({ where: { id: 'usage-opening' }, data: { status: 'VOIDED' } });
+        const voided = await inspectInventoryReconciliation(db!, 'usage-pen');
+        expect(voided).toMatchObject({ basisTotal: '0.00', healthFlagged: true });
+        expect(voided.journals[0].status).toBe('VOIDED');
+    });
     it('posts once under concurrent replay, preserving exact GL/ledger/source/audit', async () => {
         const input = payload();
         const [a, b] = await run(db!, () => Promise.all([createInternalUsage(input, actor), createInternalUsage(input, actor)]));

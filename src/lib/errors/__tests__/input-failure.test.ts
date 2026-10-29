@@ -36,6 +36,15 @@ describe('input failure presentation', () => {
         },
     );
 
+    it.each(['INTERNAL_USAGE_MISSING_COST', 'OPERATIONAL_STOCK_COST_REQUIRED', 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS'])(
+        'routes %s to the actual read-only Finance screen without promising a repair', code => {
+            const result = inputFailure({ code, details: { skuCode: 'TEST-ATK', accountBalance: 999 } }, 'usage');
+            expect(result.message).toContain('Finance → Akuntansi → Rekonsiliasi nilai ATK');
+            expect(result.message).toContain('belum menerapkan koreksi');
+            expect(result.message).not.toContain('999');
+        },
+    );
+
     it('keeps the affected item in a bulk error, but does not expose other details', () => {
         const result = inputFailure({ code: 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS', details: { productName: 'Barang contoh', accountBalance: 999, reason: 'internal' } }, 'opname');
         expect(result.message).toContain('Barang contoh');
