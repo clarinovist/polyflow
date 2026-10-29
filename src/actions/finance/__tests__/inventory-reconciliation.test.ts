@@ -1,15 +1,31 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthorizationError } from '@/lib/errors/errors';
-const m = vi.hoisted(() => ({ read: vi.fn(), tenant: vi.fn(), db: vi.fn(), list: vi.fn(), inspect: vi.fn() }));
+const m = vi.hoisted(() => ({ read: vi.fn(), approve: vi.fn(), tenant: vi.fn(), db: vi.fn(), list: vi.fn(), inspect: vi.fn(), preview: vi.fn(), apply: vi.fn(), receipt: vi.fn() }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: m.db, getTenantIdFromContext: m.tenant }));
-vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: m.read }));
+vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: m.read, requireFinanceApprover: m.approve }));
+vi.mock('@/services/inventory/atk-recovery-service', () => ({ previewAtkRecovery: m.preview, applyAtkRecovery: m.apply, getAtkRecoveryReceipt: m.receipt }));
+vi.mock('@/services/inventory/atk-recovery-backup', () => ({ atkRecoveryBackup: () => ({ ready: () => true }) }));
 vi.mock('@/services/inventory/reconciliation-diagnosis-service', () => ({ listReconciliationCatalog: m.list, inspectInventoryReconciliation: m.inspect }));
-import { listInventoryReconciliation, inspectInventoryReconciliationAction } from '../inventory-reconciliation';
+import { listInventoryReconciliation, inspectInventoryReconciliationAction, previewAtkRecoveryAction, applyAtkRecoveryAction, getAtkRecoveryReceiptAction } from '../inventory-reconciliation';
 const db = { scoped: true };
 beforeEach(() => { vi.resetAllMocks(); m.db.mockReturnValue(db); m.tenant.mockReturnValue('tenant-context'); m.read.mockResolvedValue({ user: { role: 'FINANCE' } }); m.list.mockResolvedValue({ items: [], page: 1, hasMore: false }); m.inspect.mockResolvedValue({ variant: { id: 'sku' } }); });
 
 describe('Finance ATK diagnosis action boundary', () => {
+    const input = { sourceMovementId: 'loss', kind: 'REFUND', requestId: '11111111-1111-4111-8111-111111111111', fingerprint: 'a'.repeat(64), postingDate: '2026-01-15', reason: 'Synthetic verified source', confirmed: true };
+    it('guards recovery actions and derives actor/tenant from server, rejecting arbitrary amounts', async () => {
+        m.approve.mockResolvedValue({ user: { id: 'server-actor' } });
+        expect(await previewAtkRecoveryAction({ sourceMovementId: 'loss', kind: 'REFUND' })).toMatchObject({ success: true });
+        expect(await applyAtkRecoveryAction(input)).toMatchObject({ success: true });
+        expect(m.apply).toHaveBeenCalledWith(db, input, 'server-actor', expect.anything());
+        expect(await applyAtkRecoveryAction({ ...input, amount: 999 })).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
+        expect(await applyAtkRecoveryAction({ ...input, confirmed: false })).toMatchObject({ success: false });
+        expect(await getAtkRecoveryReceiptAction({ requestId: input.requestId })).toMatchObject({ success: true });
+        expect(m.receipt).toHaveBeenCalledWith(db, input.requestId);
+        m.approve.mockRejectedValue(new AuthorizationError());
+        expect(await applyAtkRecoveryAction(input)).toMatchObject({ success: false, code: 'AUTHORIZATION_ERROR' });
+        expect(m.apply).toHaveBeenCalledTimes(1);
+    });
     it('authorizes before read and derives database from server context', async () => {
         expect(await listInventoryReconciliation({ query: ' TEST ', page: 1 })).toMatchObject({ success: true });
         expect(m.list).toHaveBeenCalledWith(db, 'TEST', 1);

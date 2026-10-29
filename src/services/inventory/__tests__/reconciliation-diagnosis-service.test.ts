@@ -18,6 +18,7 @@ function fixture() {
         account: { findMany: vi.fn().mockResolvedValue([{ id: 'inv', code: 'INV', name: 'Inventory' }]) },
         stockMovement: { count: vi.fn().mockResolvedValue(1), findMany: vi.fn().mockResolvedValue([movement]) },
         journalEntry: { findMany: vi.fn().mockResolvedValue([journal]) },
+        atkCostCorrection: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const transaction = vi.fn(async (fn: (client: typeof tx) => unknown) => fn(tx));
     const db = { $transaction: transaction } as unknown as PrismaClient;
@@ -68,7 +69,7 @@ describe('ATK reconciliation diagnosis', () => {
         const f = fixture(); f.tx.stockMovement.count.mockResolvedValue(101);
         f.tx.journalEntry.findMany.mockResolvedValue(Array.from({ length: 101 }, (_, i) => ({ ...journal, id: `j${i}`, description: 'private narrative', createdById: 'private actor', lines: Array.from({ length: 21 }, () => line) })));
         const result = await f.inspect();
-        expect(result.coverage).toEqual({ movementCount: 101, movementsTruncated: true, journalsTruncated: true });
+        expect(result.coverage).toEqual({ movementCount: 101, movementsTruncated: true, journalsTruncated: true, correctionsTruncated: false });
         expect(result.journals).toHaveLength(100); expect(result.journals[0].lines).toHaveLength(20); expect(result.journals[0].linesTruncated).toBe(true);
         expect(JSON.stringify(result)).not.toContain('private');
         expect(f.tx.journalEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { referenceId: { in: ['movement'] } }, take: 101 }));

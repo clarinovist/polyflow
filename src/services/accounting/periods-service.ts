@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
+import { BusinessRuleError } from '@/lib/errors/errors';
+import { logActivity } from '@/lib/tools/audit';
 import { toBusinessDateString, getWibMonthBounds } from '@/lib/utils/timezone';
 
 export async function getFiscalPeriods() {
@@ -27,16 +29,16 @@ export async function createFiscalPeriod(year: number, month: number) {
 }
 
 export async function closeFiscalPeriod(id: string, userId: string) {
-    // Generate Closing Journal Entries
-    await generateClosingEntries(id, userId);
-
-    return await prisma.fiscalPeriod.update({
-        where: { id },
-        data: {
-            status: 'CLOSED',
-            closedById: userId,
-            closedAt: new Date(),
-        },
+    return prisma.$transaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE id = ${id} FOR UPDATE`;
+        const period = await tx.fiscalPeriod.findUnique({ where: { id } });
+        if (!period || period.status !== 'OPEN') throw new BusinessRuleError('Hanya periode OPEN yang dapat ditutup');
+        await createClosingJournalEntry(id, userId, tx);
+        const result = await tx.fiscalPeriod.update({
+            where: { id }, data: { status: 'CLOSED', closedById: userId, closedAt: new Date() },
+        });
+        await logActivity({ userId, action: 'CLOSE_FISCAL_PERIOD', entityType: 'FiscalPeriod', entityId: id, tx });
+        return result;
     });
 }
 

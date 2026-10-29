@@ -19,6 +19,7 @@ import { MovementType, PurchaseOrderStatus } from "@prisma/client";
 // Mock prisma
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    atkCostEvidence: { count: vi.fn().mockResolvedValue(0) },
     $queryRaw: vi.fn().mockResolvedValue([]),
     goodsReceipt: {
       findUnique: vi.fn(),
@@ -98,6 +99,7 @@ vi.mock("@/services/accounting/account-resolver", () => ({
 // These unit fixtures have no prior GR rows; mirror the nested rows just created.
 function withReceiptAggregate(tx: any) {
   tx.$queryRaw ??= vi.fn().mockResolvedValue([]);
+  tx.atkCostEvidence ??= { count: vi.fn().mockResolvedValue(0) };
   if (!tx.goodsReceipt?.create) return tx;
   return {
     ...tx,
@@ -2052,6 +2054,16 @@ describe("receipts-service", () => {
   });
 
   describe("reverseGoodsReceipt", () => {
+    it("rejects protected ATK evidence before inventory or journal deletion", async () => {
+      const tx = {
+        $queryRaw: vi.fn().mockResolvedValue([]),
+        goodsReceipt: { findUnique: vi.fn().mockResolvedValue({ id: "gr-protected", movements: [{ id: "source-movement" }] }) },
+        atkCostEvidence: { count: vi.fn().mockResolvedValue(1) },
+        inventory: { update: vi.fn() }, journalEntry: { delete: vi.fn() },
+      };
+      await expect(reverseGoodsReceipt("gr-protected", "actor", tx as never)).rejects.toMatchObject({ code: "ATK_EVIDENCE_PROTECTED" });
+      expect(tx.inventory.update).not.toHaveBeenCalled(); expect(tx.journalEntry.delete).not.toHaveBeenCalled();
+    });
     const userId = "user-1";
     const grId = "gr-1";
 

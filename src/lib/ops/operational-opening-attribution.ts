@@ -82,6 +82,7 @@ async function loadCandidates(tx: Tx) {
         LEFT JOIN funded ON funded.vid = v.id
         WHERE p."productType" = 'OPERATIONAL' AND p."inventoryAccountId" IS NULL
           AND v."archivedAt" IS NULL AND stock.qty > 0
+          AND NOT EXISTS (SELECT 1 FROM "AtkCostCorrection" c JOIN "StockMovement" cm ON cm.id = c."sourceMovementId" WHERE cm."productVariantId" = v.id)
         ORDER BY v."skuCode"`;
 }
 

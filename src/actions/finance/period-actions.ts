@@ -4,7 +4,7 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { PeriodStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import { createClosingJournalEntry } from '@/services/accounting/journals-service';
+import { closeFiscalPeriod } from '@/services/accounting/periods-service';
 import { getIncomeStatement } from '@/services/accounting/reports-service';
 import {
     safeAction,
@@ -109,41 +109,8 @@ export const generatePeriodsForYear = withTenant(
 
 export const closePeriod = withTenant(async function closePeriod(id: string) {
     return safeAction(async () => {
-        const { logActivity } = await import('@/lib/tools/audit');
-
         const session = await requireFinanceApprover();
-
-        const period = await prisma.fiscalPeriod.findUnique({ where: { id } });
-        if (!period) throw new NotFoundError('Fiscal Period', id);
-        if (period.status !== PeriodStatus.OPEN) {
-            throw new BusinessRuleError(
-                'Hanya periode OPEN yang dapat ditutup',
-            );
-        }
-
-        const userId = session.user.id;
-        await prisma.$transaction(async (tx) => {
-            // 1. Generate Closing Journal Entry
-            await createClosingJournalEntry(id, userId, tx);
-
-            // 2. Mark period as CLOSED
-            await tx.fiscalPeriod.update({
-                where: { id },
-                data: {
-                    status: PeriodStatus.CLOSED,
-                    closedById: userId,
-                    closedAt: new Date(),
-                },
-            });
-        });
-
-        await logActivity({
-            userId,
-            action: 'CLOSE_FISCAL_PERIOD',
-            entityType: 'FiscalPeriod',
-            entityId: id,
-            details: `Closed fiscal period ${period.name}`,
-        });
+        await closeFiscalPeriod(id, session.user.id);
 
         revalidatePath('/finance/periods');
         return { message: 'Period closed successfully' };
@@ -166,6 +133,9 @@ export const reopenPeriod = withTenant(async function reopenPeriod(id: string) {
 
         // Wrap in transaction to ensure atomicity of journal deletion + period update
         await prisma.$transaction(async (tx) => {
+            await tx.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE id = ${id} FOR UPDATE`;
+            const current = await tx.fiscalPeriod.findUnique({ where: { id } });
+            if (!current || current.status === 'LOCKED') throw new BusinessRuleError('Periode tidak dapat dibuka kembali.');
             // Delete the closing journal entry for this period before reopening
             const closingReference = `CLOSING-${period.name.replace(/\s+/g, '-')}`;
             const closingEntry = await tx.journalEntry.findFirst({

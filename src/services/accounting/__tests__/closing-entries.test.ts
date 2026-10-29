@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         fiscalPeriod: { findUnique: vi.fn() },
         journalEntry: { findFirst: vi.fn(), findUnique: vi.fn().mockResolvedValue(null), deleteMany: vi.fn(), delete: vi.fn(), create: vi.fn().mockResolvedValue({ id: 'je-new', lines: [] }) },
         journalLine: { findMany: vi.fn() },

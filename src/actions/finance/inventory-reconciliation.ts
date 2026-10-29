@@ -6,7 +6,20 @@ import {
     getTenantDbFromContext,
     getTenantIdFromContext,
 } from '@/lib/core/prisma';
-import { requireFinanceAccess } from '@/lib/auth/finance-access';
+import {
+    requireFinanceAccess,
+    requireFinanceApprover,
+} from '@/lib/auth/finance-access';
+import {
+    atkRecoveryIntentSchema,
+    atkRecoveryApplySchema,
+} from '@/lib/schemas/atk-recovery';
+import {
+    previewAtkRecovery,
+    applyAtkRecovery,
+    getAtkRecoveryReceipt,
+} from '@/services/inventory/atk-recovery-service';
+import { atkRecoveryBackup } from '@/services/inventory/atk-recovery-backup';
 import {
     AuthorizationError,
     safeAction,
@@ -33,6 +46,64 @@ function tenantDatabase() {
         throw new AuthorizationError('Ruang kerja tenant diperlukan.');
     return db;
 }
+
+export const previewAtkRecoveryAction = withTenant(
+    async function previewAtkRecoveryAction(input: unknown) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const parsed = atkRecoveryIntentSchema.safeParse(input);
+            if (!parsed.success)
+                throw new ValidationError(
+                    'Sumber atau jenis koreksi tidak valid.',
+                );
+            const db = tenantDatabase();
+            return previewAtkRecovery(
+                db,
+                parsed.data,
+                atkRecoveryBackup(getTenantIdFromContext()!),
+            );
+        });
+    },
+);
+
+export const applyAtkRecoveryAction = withTenant(
+    async function applyAtkRecoveryAction(input: unknown) {
+        return safeAction(async () => {
+            const session = await requireFinanceApprover();
+            const parsed = atkRecoveryApplySchema.safeParse(input);
+            if (!parsed.success)
+                throw new ValidationError(
+                    'Preview, alasan, dan persetujuan eksplisit diperlukan.',
+                );
+            const db = tenantDatabase();
+            // No postcommit side effects that could disguise a committed correction as a failure.
+            return applyAtkRecovery(
+                db,
+                parsed.data,
+                session.user.id,
+                atkRecoveryBackup(getTenantIdFromContext()!),
+            );
+        });
+    },
+);
+
+export const getAtkRecoveryReceiptAction = withTenant(
+    async function getAtkRecoveryReceiptAction(input: unknown) {
+        return safeAction(async () => {
+            await requireFinanceAccess();
+            const parsed = z
+                .object({ requestId: z.string().uuid() })
+                .strict()
+                .safeParse(input);
+            if (!parsed.success)
+                throw new ValidationError('Nomor permintaan tidak valid.');
+            return getAtkRecoveryReceipt(
+                tenantDatabase(),
+                parsed.data.requestId,
+            );
+        });
+    },
+);
 
 export const listInventoryReconciliation = withTenant(
     async function listInventoryReconciliation(input: unknown) {

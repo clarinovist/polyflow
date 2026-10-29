@@ -652,6 +652,10 @@ export async function reverseGoodsReceipt(
             );
         }
 
+        if (await db.atkCostEvidence.count({ where: { movementId: { in: gr.movements.map(m => m.id) } } })) {
+            throw new BusinessRuleError('Penerimaan dipakai sebagai bukti koreksi ATK. Minta Finance memeriksa recovery; bukti tidak boleh dihapus.', undefined, 'ATK_EVIDENCE_PROTECTED');
+        }
+
         // 0. Reverse FIXED_ASSET path: delete FixedAsset cards + journal for this GR
         const linkedAssets = await db.fixedAsset.findMany({
             where: { goodsReceiptId },

@@ -250,6 +250,11 @@ export async function inspectInventoryReconciliation(
                 },
             },
         });
+        const corrections = await tx.atkCostCorrection.findMany({
+            where: { sourceMovement: { productVariantId: variant.id } },
+            select: { id: true, kind: true, amount: true, postingDate: true, sourceMovementId: true, journal: { select: { entryNumber: true } } },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: EVIDENCE_LIMIT + 1,
+        });
         return {
             variant: {
                 id: variant.id,
@@ -307,7 +312,9 @@ export async function inspectInventoryReconciliation(
                     currency: line.currency,
                 })),
             })),
+            corrections: corrections.slice(0, EVIDENCE_LIMIT).map(row => ({ id: row.id, kind: row.kind, amount: row.amount.toFixed(2), postingDate: row.postingDate.toISOString(), journalNumber: row.journal.entryNumber, sourceMovementId: row.sourceMovementId })),
             coverage: {
+                correctionsTruncated: corrections.length > EVIDENCE_LIMIT,
                 movementCount,
                 movementsTruncated: movementCount > movements.length,
                 journalsTruncated: journals.length > EVIDENCE_LIMIT,

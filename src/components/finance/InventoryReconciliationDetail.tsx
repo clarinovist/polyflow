@@ -344,6 +344,17 @@ export function InventoryReconciliationDetail({
                     )}
                 </CardContent>
             </Card>
+            {!!data.corrections?.length && <Card>
+                <CardHeader><CardTitle>Riwayat koreksi nilai</CardTitle></CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                    <p>Nilai jurnal koreksi ikut basis SKU pada tanggal postingnya. Jurnal loss asli tetap utuh; pembalikan dicatat terpisah.</p>
+                    {data.corrections.map(row => <div key={row.id} className="rounded-md border p-3 break-words">
+                        <p>{row.kind} · Rp{number(row.amount)} · {date(row.postingDate)} WIB</p>
+                        <p>Jurnal {row.journalNumber}</p><p className="break-all">Bukti {row.id} · sumber {row.sourceMovementId}</p>
+                    </div>)}
+                    {data.coverage.correctionsTruncated && <p>Riwayat koreksi dibatasi 100 catatan.</p>}
+                </CardContent>
+            </Card>}
             <Card>
                 <CardHeader>
                     <CardTitle>Langkah penyelesaian</CardTitle>
@@ -351,12 +362,11 @@ export function InventoryReconciliationDetail({
                 <CardContent className="space-y-2 text-sm">
                     <p>
                         <strong>
-                            Tahap diagnosis saja — koreksi belum tersedia di
-                            halaman ini.
+                            Diagnosis tidak otomatis memperbaiki catatan.
                         </strong>{' '}
-                        Siapkan dokumen penerimaan/saldo awal dan jurnal
-                        terkait, lalu minta Finance bersama tim sistem memeriksa
-                        jenis koreksi yang sah.
+                        Gunakan panel pemulihan untuk memeriksa kelayakan
+                        koreksi loss terbatas. Saldo awal, biaya nol, dan sumber
+                        ambigu tetap memerlukan bukti serta review Finance.
                     </p>
                     <p>
                         Jangan membuat penerimaan, mengubah jumlah opname, atau
@@ -365,9 +375,10 @@ export function InventoryReconciliationDetail({
                         ini tidak mengubah keputusan atau guard transaksi.
                     </p>
                     <p>
-                        Penerapan koreksi menunggu verifikasi aturan periode,
-                        perlindungan bukti, dan jalur pembalikan. Tidak ada
-                        perubahan stok atau jurnal dari pemeriksaan ini.
+                        Tidak ada perubahan stok atau jurnal dari diagnosis.
+                        Koreksi hanya disimpan setelah preview dan persetujuan;
+                        jika tidak memenuhi syarat, jangan mengubah jumlah agar
+                        lolos.
                     </p>
                 </CardContent>
             </Card>

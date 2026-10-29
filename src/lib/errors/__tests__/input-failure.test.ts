@@ -40,7 +40,7 @@ describe('input failure presentation', () => {
         'routes %s to the actual read-only Finance screen without promising a repair', code => {
             const result = inputFailure({ code, details: { skuCode: 'TEST-ATK', accountBalance: 999 } }, 'usage');
             expect(result.message).toContain('Finance → Akuntansi → Rekonsiliasi nilai ATK');
-            expect(result.message).toContain('belum menerapkan koreksi');
+            expect(result.message).toContain('Tidak semua kasus dapat diperbaiki otomatis');
             expect(result.message).not.toContain('999');
         },
     );

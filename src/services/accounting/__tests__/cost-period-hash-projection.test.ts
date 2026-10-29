@@ -128,6 +128,11 @@ describe('immutable cost seal projections', () => {
                     record.futureNullable = null;
                     record.futureDefault = 'new';
                     record.futureRelation = { id: 'unrelated' };
+                    // ATK additions are inverse relations, never part of scalar seals.
+                    record.atkCorrections = [{ id: 'synthetic-correction' }];
+                    record.atkEvidence = [{ id: 'synthetic-evidence' }];
+                    record.atkSourceCorrections = [];
+                    record.atkCorrectionPosting = null;
                 }
                 await expect(f.verify()).resolves.toEqual([]);
             });

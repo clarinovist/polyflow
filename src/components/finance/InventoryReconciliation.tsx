@@ -13,8 +13,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { InventoryReconciliationDetail } from './InventoryReconciliationDetail';
+import { AtkCostRecovery } from './AtkCostRecovery';
+import { AtkPendingRecovery } from './AtkPendingRecovery';
+import { usePendingAtkRecovery } from './atk-recovery-pending';
 
-export function InventoryReconciliation() {
+export function InventoryReconciliation({ recoveryScope }: { recoveryScope: string }) {
+    const recovery = usePendingAtkRecovery(recoveryScope);
     const [query, setQuery] = useState('');
     const [searchedQuery, setSearchedQuery] = useState('');
     const [catalog, setCatalog] = useState<ReconciliationCatalog | null>(null);
@@ -23,8 +27,10 @@ export function InventoryReconciliation() {
     const [error, setError] = useState('');
     const [pending, startTransition] = useTransition();
     const request = useRef(0);
+    const blocked = pending || recovery.blocked;
 
     function search(page: number, searchQuery = query) {
+        if (blocked) return;
         const current = ++request.current;
         setDiagnosis(null);
         setError('');
@@ -49,6 +55,7 @@ export function InventoryReconciliation() {
         });
     }
     function inspect(variantId: string) {
+        if (blocked) return;
         const current = ++request.current;
         setDiagnosis(null);
         setError('');
@@ -72,9 +79,12 @@ export function InventoryReconciliation() {
     return (
         <div className="space-y-6" aria-busy={pending}>
             <p className="rounded-md border p-3 text-sm">
-                Read-only: halaman ini membantu Finance menelusuri nilai ATK.
-                Belum menyediakan penerapan koreksi atau persetujuan pemakaian.
+                Pencarian dan diagnosis tidak mengubah data. Koreksi terbatas
+                hanya melalui preview dan persetujuan eksplisit Finance; bukan
+                persetujuan pemakaian barang.
             </p>
+            <AtkPendingRecovery scope={recoveryScope} />
+            <fieldset disabled={blocked} className="space-y-6 min-w-0">
             <form
                 className="space-y-2"
                 onSubmit={(event) => {
@@ -93,6 +103,7 @@ export function InventoryReconciliation() {
                         disabled={pending}
                         className="min-h-11 sm:max-w-md"
                         onChange={(event) => {
+                            if (blocked) return;
                             ++request.current;
                             setQuery(event.target.value);
                             setCatalog(null);
@@ -183,19 +194,21 @@ export function InventoryReconciliation() {
                     </nav>
                 </section>
             )}
+            </fieldset>
             {diagnosis && (
                 <>
                     <Button
                         type="button"
                         variant="outline"
                         className="min-h-11"
-                        disabled={pending}
+                        disabled={blocked}
                         onClick={() => inspect(diagnosis.variant.id)}
                     >
                         Periksa ulang SKU
                     </Button>
                     <p role="status" className="text-sm">Diagnosis {diagnosis.variant.skuCode} tersedia di bawah.</p>
                     <InventoryReconciliationDetail data={diagnosis} />
+                    <AtkCostRecovery key={`${diagnosis.variant.id}:${diagnosis.checkedAt}`} data={diagnosis} recoveryScope={recoveryScope} />
                 </>
             )}
         </div>

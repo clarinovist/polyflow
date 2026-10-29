@@ -83,7 +83,7 @@ export function inputFailure(result: Rejection, scope: InputScope): InputFailure
         const item = result.details?.productName ?? result.details?.skuCode;
         const atkGuidance = code.startsWith('INTERNAL_USAGE_') ||
             code === 'OPERATIONAL_STOCK_COST_REQUIRED' || code === 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS'
-            ? ' Teruskan SKU dan lokasi ke Finance → Akuntansi → Rekonsiliasi nilai ATK untuk diagnosis; halaman tersebut belum menerapkan koreksi.'
+            ? ' Teruskan SKU dan lokasi ke Finance → Akuntansi → Rekonsiliasi nilai ATK untuk diagnosis dan pemeriksaan kelayakan koreksi. Tidak semua kasus dapat diperbaiki otomatis.'
             : '';
         return { title: titles[scope], message: `${typeof item === 'string' ? `Barang: ${item}. ` : ''}${messages[code]}${atkGuidance}`, code };
     }

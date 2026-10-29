@@ -66,7 +66,9 @@ export interface InventoryReconciliationDiagnosis {
             currency: string;
         }>;
     }>;
+    corrections?: Array<{ id: string; kind: string; amount: string; postingDate: string; journalNumber: string; sourceMovementId: string }>;
     coverage: {
+        correctionsTruncated?: boolean;
         movementCount: number;
         movementsTruncated: boolean;
         journalsTruncated: boolean;

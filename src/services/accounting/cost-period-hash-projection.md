@@ -71,6 +71,21 @@ in CI. A pre-patch binary cannot read COST_V1 receipts correctly: after the firs
 new receipt, rollback must retain this verifier or roll forward. Do not roll back
 to an incompatible writer/verifier or remove an audit receipt as recovery.
 
+## ATK correction relation additions (2026-10-29)
+
+`StockMovement.atkCorrections/atkEvidence` and
+`JournalEntry.atkSourceCorrections/atkCorrectionPosting/atkEvidence` are inverse
+relations, not new scalar cost fields. Keep them outside **both** frozen hash
+projections; no historical hash or receipt is rewritten. Only the complete-schema
+snapshot changes. Existing scalar-projection and synthetic receipt hash snapshots
+must remain byte-identical.
+
+ATK correction values live in new typed documents and separate journals, never by
+editing the original movement/journal. The bounded writer rejects movements with
+production order/execution identity, returns, or mixed history. It is not a way to
+change sealed production WIP. Supporting production-linked corrections later would
+require a separate cost/evidence policy and is not covered by this exclusion.
+
 ## Decision history
 
 - 2026-10-29: freeze original v1/v2 scalar shape; introduce COST_V1 using the
