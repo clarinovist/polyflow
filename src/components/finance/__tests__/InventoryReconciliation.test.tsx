@@ -64,6 +64,7 @@ describe('ATK reconciliation read-only UI', () => {
         expect(screen.getByText(/Daftar jurnal dibatasi/)).toBeTruthy();
         expect(screen.getAllByText('Belum diketahui')).toHaveLength(2);
         expect(screen.queryByRole('button', { name: /Terapkan|Setujui/ })).toBeNull();
+        await waitFor(() => expect((screen.getByLabelText('Cari SKU atau nama barang') as HTMLInputElement).matches(':disabled')).toBe(false));
         fireEvent.change(screen.getByLabelText('Cari SKU atau nama barang'), { target: { value: 'OTHER' } });
         expect(screen.queryByRole('region', { name: 'Diagnosis nilai ATK' })).toBeNull();
     });
