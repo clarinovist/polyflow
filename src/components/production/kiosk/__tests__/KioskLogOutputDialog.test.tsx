@@ -91,8 +91,11 @@ describe('KioskLogOutputDialog', () => {
         }
     });
 
-    it('keeps a readable rejection in the form, retains the request on retry and clears after success', async () => {
-        mocks.logRunningOutput.mockResolvedValueOnce({ success: false, code: 'PRODUCTION_WIP_UNRESOLVED', error: 'vektor jurnal tidak valid' });
+    it.each([
+        ['PRODUCTION_WIP_UNRESOLVED', 'Finance'],
+        ['PRODUCTION_WIP_MATERIAL_SHORTAGE', 'Gudang → Bahan Produksi'],
+    ])('keeps %s readable, retains the request on retry and clears after success', async (code, guidance) => {
+        mocks.logRunningOutput.mockResolvedValueOnce({ success: false, code, error: 'vektor jurnal tidak valid' });
         renderWizard();
         fireEvent.change(qty(), { target: { value: '25' } });
         next();
@@ -100,7 +103,11 @@ describe('KioskLogOutputDialog', () => {
         await submitAndWait();
         const alert = await screen.findByRole('alert');
         expect(alert.textContent).toContain('Hasil belum tersimpan');
-        expect(alert.textContent).toContain('Finance');
+        expect(alert.textContent).toContain(guidance);
+        if (code === 'PRODUCTION_WIP_MATERIAL_SHORTAGE') {
+            expect(alert.textContent).toContain('jangan keluarkan lagi');
+            expect(alert.textContent).not.toContain('Finance');
+        }
         expect(alert.textContent).not.toContain('vektor');
         expect(document.activeElement).toBe(alert);
         expect(screen.getAllByText('25 KG').length).toBeGreaterThan(0);

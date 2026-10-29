@@ -401,8 +401,21 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
     });
     it('does not borrow another WO funds and rolls back a rejected movement', async () => {
         await run(db!, tx => issue(tx, 100, 'other-wo'));
-        await expect(run(db!, tx => output(tx))).rejects.toThrow('tidak cukup');
+        const before = {
+            journals: await db!.journalEntry.count(), lines: await db!.journalLine.count(),
+            inventories: await db!.inventory.findMany({ orderBy: { id: 'asc' } }),
+            order: await db!.productionOrder.findUniqueOrThrow({ where: { id: 'wo' } }),
+        };
+        await expect(run(db!, async tx => {
+            await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: { increment: 10 } } });
+            await tx.inventory.create({ data: { locationId: 'loc', productVariantId: 'output', quantity: 10, averageCost: 10 } });
+            return output(tx);
+        })).rejects.toMatchObject({ code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE' });
         expect(await db!.stockMovement.count({ where: { productionOrderId: 'wo' } })).toBe(0);
+        expect(await db!.journalEntry.count()).toBe(before.journals);
+        expect(await db!.journalLine.count()).toBe(before.lines);
+        expect(await db!.inventory.findMany({ orderBy: { id: 'asc' } })).toEqual(before.inventories);
+        expect(await db!.productionOrder.findUniqueOrThrow({ where: { id: 'wo' } })).toEqual(before.order);
     });
     it('serializes concurrent output claims so only one consumes the same WIP', async () => {
         await run(db!, tx => issue(tx));
@@ -437,7 +450,7 @@ describe.skipIf(!db)('production WIP PostgreSQL contracts', () => {
             await issue(tx, 250); await tx.productionOrder.update({ where: { id: 'wo' }, data: { actualQuantity: 20 } });
             const cost = await ProductionCostService.calculateBatchCOGM('wo', tx);
             expect(cost).toBe(37.5); await output(tx, cost * 10);
-        })).rejects.toThrow('tidak cukup');
+        })).rejects.toMatchObject({ code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE' });
         expect(await db!.stockMovement.count()).toBe(2);
     });
     it('resolves same account codes independently across two databases with different UUIDs', async () => {

@@ -149,7 +149,13 @@ export async function allocateProductionWip(
     }
     const balances = await readProductionWipBalances(tx, output.productionOrderId, output.id);
     const available = total(balances);
-    if (available.lt(amount)) unresolved('debit bahan WO tidak cukup untuk nilai hasil kumulatif');
+    if (available.lt(amount)) {
+        throw new BusinessRuleError(
+            'Hasil belum disimpan. Nilai bahan yang tercatat di SPK tidak cukup untuk hasil ini. Minta gudang/admin memeriksa catatan bahan di Gudang → Bahan Produksi; catat hanya pemakaian nyata yang belum tercatat. Jika bahan sudah tercatat atau dipotong otomatis saat catat hasil, jangan keluarkan lagi; minta admin memeriksa. Tetap gunakan jumlah hasil sebenarnya.',
+            { reason: 'debit bahan WO tidak cukup untuk nilai hasil kumulatif' },
+            'PRODUCTION_WIP_MATERIAL_SHORTAGE',
+        );
+    }
     let remaining = amount;
     const allocation: Array<{ accountId: string; credit: Prisma.Decimal }> = [];
     // Stable first-source order; each positive pool is consumed at most once.

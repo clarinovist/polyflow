@@ -28,6 +28,8 @@ const history: Record<InputScope, string> = {
 const messages: Record<string, string> = {
     PRODUCTION_COST_PERIOD_INVALID:
         'Batas biaya SPK perlu diperiksa Finance. Catatan lama harus tetap utuh; jangan mengubah jumlah hasil atau mengulang dengan angka berbeda.',
+    PRODUCTION_WIP_MATERIAL_SHORTAGE:
+        'Nilai bahan yang tercatat untuk SPK ini belum cukup untuk hasil ini. Minta gudang/admin memeriksa catatan bahan di Gudang → Bahan Produksi. Catat hanya bahan yang benar-benar dipakai tetapi belum tercatat ke SPK ini, lalu simpan hasil kembali. Jika bahan sudah tercatat atau dipotong otomatis saat catat hasil, jangan keluarkan lagi; minta admin memeriksa. Tetap gunakan jumlah hasil sebenarnya.',
     PRODUCTION_WIP_UNRESOLVED:
         'Catatan biaya SPK ini belum cocok. Minta admin meneruskan nomor SPK ke Finance untuk diperiksa. Tetap gunakan jumlah hasil sesuai produksi sebenarnya.',
     PRODUCTION_CONVERSION_UNFUNDED:

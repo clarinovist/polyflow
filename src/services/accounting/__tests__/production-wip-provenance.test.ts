@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma, type StockMovement } from '@prisma/client';
-import { allocateProductionWip } from '../production-wip-provenance';
+import { allocateProductionWip, availableProductionWip } from '../production-wip-provenance';
+import { safeAction } from '@/lib/errors/errors';
+import { inputFailure } from '@/lib/errors/input-failure';
 
 const d = (n: string | number) => new Prisma.Decimal(n);
 function movement(id: string, type: 'IN' | 'OUT', extra: Partial<StockMovement> = {}): StockMovement {
@@ -44,8 +46,39 @@ describe('allocateProductionWip', () => {
         const issue = movement('issue', 'OUT'), prior = movement('prior', 'IN');
         seed([issue, prior], [journal(issue, 'wip', 'raw'), journal(prior, 'wip', 'wip', '60')]);
         expect(await allocateProductionWip(tx, output, d(40))).toEqual([{ accountId: 'wip', credit: d(40) }]);
-        await expect(allocateProductionWip(tx, output, d('40.01'))).rejects.toThrow('tidak cukup');
+        await expect(allocateProductionWip(tx, output, d('40.01'))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE' });
     });
+    it.each(['no issue', 'partially funded', 'fully relieved'])(
+        'returns an actionable, traceable shortage for %s without changing sources', async kind => {
+            const issue = movement('issue', 'OUT'), prior = movement('prior', 'IN');
+            const ms = kind === 'no issue' ? [] : kind === 'fully relieved' ? [issue, prior] : [issue];
+            const js = ms.map(m => m.type === 'OUT' ? journal(m, 'wip', 'raw') : journal(m, 'stock', 'wip'));
+            seed(ms, js);
+            const before = JSON.stringify({ ms, js });
+            // Read-only health/recovery callers still accept a valid zero pool.
+            expect(await availableProductionWip(tx, 'wo', { lock: false })).toEqual(d(kind === 'partially funded' ? 100 : 0));
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            try {
+                const result = await safeAction(() => allocateProductionWip(tx, output, d('100.01')));
+                expect(result).toMatchObject({
+                    success: false, code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE',
+                    error: expect.stringContaining('gudang/admin'),
+                    details: { reason: 'debit bahan WO tidak cukup untuk nilai hasil kumulatif' },
+                });
+                if (result.success) throw new Error('Expected shortage rejection');
+                expect(inputFailure(result, 'production')).toMatchObject({
+                    title: 'Hasil belum tersimpan', code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE',
+                    message: expect.stringContaining('Gudang → Bahan Produksi'),
+                });
+                expect(warn).toHaveBeenCalledExactlyOnceWith(
+                    '[BusinessRejection] {"code":"PRODUCTION_WIP_MATERIAL_SHORTAGE","reason":"debit bahan WO tidak cukup untuk nilai hasil kumulatif"}',
+                );
+                expect(JSON.stringify({ ms, js })).toBe(before);
+            } finally {
+                warn.mockRestore();
+            }
+        },
+    );
     it('nets exact linked material and output reversals on their original accounts', async () => {
         const issue = movement('issue', 'OUT'), prior = movement('prior', 'IN');
         const undoIssue = movement('undo-issue', 'IN', { productVariantId: 'raw', reversalOfId: 'issue', reference: 'VOID: issue' });
@@ -58,27 +91,27 @@ describe('allocateProductionWip', () => {
     it('rejects a separately reversed source journal', async () => {
         const issue = movement('issue', 'OUT'); seed([issue], [journal(issue, 'wip', 'raw')]);
         db.journalEntry.findFirst.mockResolvedValue({ id: 'manual-reversal' });
-        await expect(allocateProductionWip(tx, output, d(10))).rejects.toThrow('di luar');
+        await expect(allocateProductionWip(tx, output, d(10))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED', message: expect.stringContaining('di luar') });
     });
     it('rejects a linked reversal whose financial vector differs from the source', async () => {
         const issue = movement('issue', 'OUT');
         const undo = movement('undo', 'IN', { productVariantId: 'raw', reversalOfId: 'issue' });
         seed([issue, undo], [journal(issue, 'old-wip', 'raw'), journal(undo, 'raw', 'new-wip')]);
-        await expect(allocateProductionWip(tx, output, d(1))).rejects.toThrow('tidak sesuai');
+        await expect(allocateProductionWip(tx, output, d(1))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED', message: expect.stringContaining('tidak sesuai') });
     });
     it('rejects historical unlinked reversal instead of guessing from a reference', async () => {
         const undo = movement('undo', 'IN', { reference: 'VOID: old' }); seed([undo], [journal(undo, 'raw', 'wip')]);
-        await expect(allocateProductionWip(tx, output, d(10))).rejects.toThrow('tautan sumber');
+        await expect(allocateProductionWip(tx, output, d(10))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED', message: expect.stringContaining('tautan sumber') });
     });
     it('does not fund a negative pool from another positive pool', async () => {
         const issue = movement('issue', 'OUT'), prior = movement('prior', 'IN');
         seed([issue, prior], [journal(issue, 'new-wip', 'raw'), journal(prior, 'stock', 'old-wip', '1')]);
-        await expect(allocateProductionWip(tx, output, d(10))).rejects.toThrow('negatif');
+        await expect(allocateProductionWip(tx, output, d(10))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED', message: expect.stringContaining('negatif') });
     });
     it('rejects duplicate, missing, voided or draft source journals', async () => {
         const issue = movement('issue', 'OUT'), j = journal(issue, 'wip', 'raw');
         for (const js of [[], [j, j], [{ ...j, status: 'VOIDED' }], [{ ...j, status: 'DRAFT' }]]) {
-            seed([issue], js); await expect(allocateProductionWip(tx, output, d(1))).rejects.toThrow('WIP WO');
+            seed([issue], js); await expect(allocateProductionWip(tx, output, d(1))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED' });
         }
     });
     it('rejects nonautomatic, unbalanced, foreign-currency or nonasset sources', async () => {
@@ -91,12 +124,12 @@ describe('allocateProductionWip', () => {
         ];
         for (const change of changes) {
             const j = journal(issue, 'wip', 'raw'); change(j); seed([issue], [j]);
-            await expect(allocateProductionWip(tx, output, d(1))).rejects.toThrow('WIP WO');
+            await expect(allocateProductionWip(tx, output, d(1))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED' });
         }
     });
     it('does not assume missing NULL-cost issue journals were zero', async () => {
         seed([movement('issue', 'OUT', { cost: null })], []);
-        await expect(allocateProductionWip(tx, output, d(1))).rejects.toThrow('jurnal sumber');
+        await expect(allocateProductionWip(tx, output, d(1))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED', message: expect.stringContaining('jurnal sumber') });
     });
     it('skips truly zero-cost unjournaled movements without creating value', async () => {
         const issue = movement('issue', 'OUT'), free = movement('free', 'OUT', { cost: d(0) });
@@ -106,10 +139,20 @@ describe('allocateProductionWip', () => {
     it('fails closed on wrong ownership, foreign references and invalid links', async () => {
         for (const extra of [{ companyOwned: false }, { salesOrderId: 'sales' }, { goodsReceiptId: 'receipt' }, { reversalOfId: 'missing' }]) {
             const issue = movement('issue', 'OUT', extra); seed([issue], [journal(issue, 'wip', 'raw')]);
-            await expect(allocateProductionWip(tx, output, d(1))).rejects.toThrow('WIP WO');
+            await expect(allocateProductionWip(tx, output, d(1))).rejects.toMatchObject({ code: 'PRODUCTION_WIP_UNRESOLVED' });
         }
     });
+    it.each([
+        { productionOrderId: null }, { type: 'OUT' as const }, { reversalOfId: 'original' },
+    ])('keeps invalid output identity unresolved: %j', async extra => {
+        await expect(allocateProductionWip(tx, { ...output, ...extra }, d(1))).rejects.toMatchObject({
+            code: 'PRODUCTION_WIP_UNRESOLVED', details: { reason: 'identitas hasil/nilai tidak valid' },
+        });
+        expect(db.stockMovement.findMany).not.toHaveBeenCalled();
+    });
     it.each(['0', '-1', 'NaN', '1.001'])('rejects invalid requested amount %s', async n => {
-        await expect(allocateProductionWip(tx, output, d(n))).rejects.toThrow('nilai tidak valid');
+        await expect(allocateProductionWip(tx, output, d(n))).rejects.toMatchObject({
+            code: 'PRODUCTION_WIP_UNRESOLVED', details: { reason: 'identitas hasil/nilai tidak valid' },
+        });
     });
 });
