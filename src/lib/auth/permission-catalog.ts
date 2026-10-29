@@ -204,6 +204,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                 label: 'Rekap Piutang Karyawan',
             },
             { key: '/finance/journals', label: 'Jurnal' },
+            { key: '/finance/inventory-reconciliation', label: 'Rekonsiliasi nilai ATK' },
             { key: '/finance/assets', label: 'Aset Tetap' },
             { key: '/finance/foh-allocation', label: 'Alokasi FOH' },
             {
