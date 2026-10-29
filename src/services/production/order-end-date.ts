@@ -9,11 +9,13 @@ export async function completionEndDate(
     tx: Prisma.TransactionClient,
     productionOrderId: string,
     fallback: Date = new Date(),
+    excludeExecutionId?: string,
 ): Promise<Date> {
     const lastOutput = await tx.productionExecution.aggregate({
         _max: { endTime: true },
         where: {
             productionOrderId,
+            ...(excludeExecutionId ? { id: { not: excludeExecutionId } } : {}),
             status: { not: 'VOIDED' },
             quantityProduced: { gt: 0 },
         },

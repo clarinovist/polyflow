@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { voidProductionExecutionInTransaction } from '../execution-void-helper';
 import { reverseProductionMovementJournal } from '@/services/accounting/production-movement-reversal';
 import { reversePackagedExecution } from '../packaging-reversal-service';
+import { logActivity } from '@/lib/tools/audit';
 vi.mock('@/services/accounting/production-movement-reversal', () => ({ reverseProductionMovementJournal: vi.fn() }));
 vi.mock('@/lib/core/actor-context', () => ({ getActorUserId: () => 'actor' }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
@@ -103,5 +104,182 @@ describe('void source identity contract', () => {
     it('retains the database unique reversal edge in the existing schema', async () => {
         const { readFileSync } = await import('node:fs');
         expect(readFileSync('prisma/schema.prisma', 'utf8')).toMatch(/reversalOfId\s+String\?\s+@unique/);
+    });
+});
+
+describe('SPK actualEndDate maintenance on execution void', () => {
+    const oldEndDate = new Date('2026-10-20T02:08:00.000Z');
+    const earlierEndDate = new Date('2026-10-19T14:00:00.000Z');
+
+    function orderFixture(options: {
+        orderStatus?: string;
+        actualQuantity?: number;
+        plannedQuantity?: number;
+        actualEndDate?: Date | null;
+        activeExecutionsCount?: number;
+        remainingLastOutput?: Date | null;
+    } = {}) {
+        vi.clearAllMocks();
+        const at = new Date('2026-10-20T02:08:00.000Z');
+        const execution = {
+            id: 'execution',
+            productionOrderId: 'wo',
+            quantityProduced: 20,
+            createdAt: at,
+            endTime: at,
+            status: 'COMPLETED',
+            productionOrder: { id: 'wo', actualPackagingEnabled: false },
+        };
+        const db = {
+            $queryRaw: vi.fn(),
+            auditLog: { findUnique: vi.fn().mockResolvedValue(null), findFirst: vi.fn().mockResolvedValue(null) },
+            productionExecution: {
+                findUnique: vi.fn().mockResolvedValue(execution),
+                findMany: vi.fn().mockResolvedValue([]),
+                count: vi.fn().mockResolvedValue(options.activeExecutionsCount ?? 1),
+                aggregate: vi.fn().mockResolvedValue({ _max: { endTime: options.remainingLastOutput ?? null } }),
+                update: vi.fn(),
+            },
+            productionOrder: {
+                findUniqueOrThrow: vi.fn().mockResolvedValue({
+                    id: 'wo',
+                    status: options.orderStatus ?? 'COMPLETED',
+                    actualQuantity: options.actualQuantity ?? 100,
+                    plannedQuantity: options.plannedQuantity ?? 100,
+                    actualEndDate: options.actualEndDate === undefined ? oldEndDate : options.actualEndDate,
+                }),
+                update: vi.fn(),
+            },
+            stockMovement: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null), create: vi.fn() },
+            materialIssue: { updateMany: vi.fn() },
+            scrapRecord: { deleteMany: vi.fn() },
+            stockReservation: { updateMany: vi.fn() },
+        };
+        return { db, tx: db as unknown as Prisma.TransactionClient };
+    }
+
+    it('clears actualEndDate and audits when void reopens COMPLETED to IN_PROGRESS', async () => {
+        const { db, tx } = orderFixture({ orderStatus: 'COMPLETED', actualQuantity: 100, plannedQuantity: 100, activeExecutionsCount: 1 });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionOrder.update).toHaveBeenCalledTimes(1);
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 80, status: 'IN_PROGRESS', actualEndDate: null },
+        });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'VOID_PRODUCTION_EXECUTION',
+            entityId: 'execution',
+            changes: { orderActualEndDate: { from: oldEndDate.toISOString(), to: null } },
+            tx,
+        }));
+    });
+
+    it('clears actualEndDate and audits when void reopens COMPLETED to DRAFT', async () => {
+        const { db, tx } = orderFixture({ orderStatus: 'COMPLETED', actualQuantity: 20, plannedQuantity: 20, activeExecutionsCount: 0 });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionOrder.update).toHaveBeenCalledTimes(1);
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 0, status: 'DRAFT', actualEndDate: null },
+        });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'VOID_PRODUCTION_EXECUTION',
+            entityId: 'execution',
+            changes: { orderActualEndDate: { from: oldEndDate.toISOString(), to: null } },
+            tx,
+        }));
+    });
+
+    it('recalculates actualEndDate excluding the voided execution when status stays COMPLETED', async () => {
+        const { db, tx } = orderFixture({
+            orderStatus: 'COMPLETED',
+            actualQuantity: 120,
+            plannedQuantity: 100,
+            activeExecutionsCount: 1,
+            remainingLastOutput: earlierEndDate,
+        });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionExecution.aggregate).toHaveBeenCalledWith({
+            _max: { endTime: true },
+            where: {
+                productionOrderId: 'wo',
+                id: { not: 'execution' },
+                status: { not: 'VOIDED' },
+                quantityProduced: { gt: 0 },
+            },
+        });
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 100, status: 'COMPLETED', actualEndDate: earlierEndDate },
+        });
+        expect(logActivity).toHaveBeenCalledWith(expect.objectContaining({
+            action: 'VOID_PRODUCTION_EXECUTION',
+            entityId: 'execution',
+            changes: { orderActualEndDate: { from: oldEndDate.toISOString(), to: earlierEndDate.toISOString() } },
+            tx,
+        }));
+    });
+
+    it('keeps the existing actualEndDate when status stays COMPLETED and no remaining output exists', async () => {
+        const { db, tx } = orderFixture({
+            orderStatus: 'COMPLETED',
+            actualQuantity: 120,
+            plannedQuantity: 100,
+            activeExecutionsCount: 1,
+            remainingLastOutput: null,
+        });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 100, status: 'COMPLETED' },
+        });
+        expect(vi.mocked(logActivity).mock.calls[0][0]).not.toHaveProperty('changes');
+    });
+
+    it('does not populate actualEndDate on a legacy COMPLETED SPK whose actualEndDate is null', async () => {
+        const { db, tx } = orderFixture({
+            orderStatus: 'COMPLETED',
+            actualQuantity: 120,
+            plannedQuantity: 100,
+            actualEndDate: null,
+            activeExecutionsCount: 1,
+            remainingLastOutput: earlierEndDate,
+        });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionExecution.aggregate).not.toHaveBeenCalled();
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 100, status: 'COMPLETED' },
+        });
+        expect(vi.mocked(logActivity).mock.calls[0][0]).not.toHaveProperty('changes');
+    });
+
+    it('does not touch actualEndDate when the order is not COMPLETED', async () => {
+        const { db, tx } = orderFixture({
+            orderStatus: 'IN_PROGRESS',
+            actualQuantity: 80,
+            plannedQuantity: 100,
+            actualEndDate: null,
+            activeExecutionsCount: 1,
+        });
+
+        await voidProductionExecutionInTransaction(tx, 'execution');
+
+        expect(db.productionExecution.aggregate).not.toHaveBeenCalled();
+        expect(db.productionOrder.update).toHaveBeenCalledWith({
+            where: { id: 'wo' },
+            data: { actualQuantity: 60, status: 'IN_PROGRESS' },
+        });
+        expect(vi.mocked(logActivity).mock.calls[0][0]).not.toHaveProperty('changes');
     });
 });
