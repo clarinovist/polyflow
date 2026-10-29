@@ -234,6 +234,30 @@ export async function GET(req: Request) {
                     );
                 }
 
+                let stockLedgerFindings: number | undefined;
+                try {
+                    if (inventoryEntitled) {
+                        const {
+                            checkStockLedgerHealth,
+                            summarizeStockLedgerHealth,
+                        } =
+                            await import('@/services/inventory/stock-ledger-health-service');
+                        const health = await checkStockLedgerHealth();
+                        stockLedgerFindings = health.findings;
+                        const line = summarizeStockLedgerHealth(
+                            tenant.subdomain,
+                            health,
+                        );
+                        if (health.findings > 0) console.error(line);
+                        else console.log(line);
+                    }
+                } catch (healthErr) {
+                    console.error(
+                        `[Cron] Stock ledger health check failed for ${tenant.subdomain}:`,
+                        healthErr,
+                    );
+                }
+
                 return {
                     auditLogs,
                     notifications,
@@ -241,6 +265,7 @@ export async function GET(req: Request) {
                     expiredReservations,
                     autoClosedSchedules,
                     productionCostFindings,
+                    stockLedgerFindings,
                     subsystemError,
                 };
             },

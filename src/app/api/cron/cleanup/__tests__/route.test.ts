@@ -87,6 +87,14 @@ vi.mock(
     '@/services/production/production-cost-health-service',
     () => productionCostHealth,
 );
+const stockLedgerHealth = vi.hoisted(() => ({
+    checkStockLedgerHealth: vi.fn(),
+    summarizeStockLedgerHealth: vi.fn(),
+}));
+vi.mock(
+    '@/services/inventory/stock-ledger-health-service',
+    () => stockLedgerHealth,
+);
 vi.mock('@/services/sales/delivery-schedule-auto-close', () => ({
     autoCloseExpiredDeliverySchedules: vi.fn().mockResolvedValue({
         scanned: 0,
@@ -118,6 +126,17 @@ describe('Cleanup Cron Route', () => {
         productionCostHealth.summarizeProductionCostHealth
             .mockReset()
             .mockReturnValue('[ProductionCostHealth] acme: ok');
+        stockLedgerHealth.checkStockLedgerHealth
+            .mockReset()
+            .mockResolvedValue({
+                mismatches: [],
+                roundingCount: 0,
+                materialCount: 0,
+                findings: 0,
+            });
+        stockLedgerHealth.summarizeStockLedgerHealth
+            .mockReset()
+            .mockReturnValue('[StockLedgerHealth] acme: ok');
     });
 
     it('preserves live forward-cost boundary receipts beyond routine log retention', async () => {
@@ -168,6 +187,71 @@ describe('Cleanup Cron Route', () => {
         const response = await request();
         expect(response.status).toBe(200);
         expect((await response.json()).perTenant[0].result.auditLogs).toBe(5);
+        errors.mockRestore();
+    });
+
+    it('logs stock ledger findings as a failed check so the error monitor alerts ops', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) => [
+                { tenant: 'acme', result: await fn({ id: 'tenant-1', subdomain: 'acme' }) },
+            ],
+        );
+        stockLedgerHealth.checkStockLedgerHealth.mockResolvedValue({
+            mismatches: [
+                {
+                    skuCode: 'SKU-1',
+                    locationName: 'Gudang Utama',
+                    live: '10',
+                    ledger: '8',
+                    diff: '2',
+                },
+            ],
+            roundingCount: 0,
+            materialCount: 1,
+            findings: 1,
+        });
+        stockLedgerHealth.summarizeStockLedgerHealth.mockReturnValue(
+            '[StockLedgerHealth] check failed for acme: 1 pasangan saldo≠kartu stok (0 pembulatan, 1 material) — SKU-1@Gudang Utama 2',
+        );
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+        const response = await GET(new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET', headers: { authorization: 'Bearer test-secret' },
+        }));
+        const data = await response.json();
+
+        expect(data.perTenant[0].result.stockLedgerFindings).toBe(1);
+        expect(errors).toHaveBeenCalledWith(
+            '[StockLedgerHealth] check failed for acme: 1 pasangan saldo≠kartu stok (0 pembulatan, 1 material) — SKU-1@Gudang Utama 2',
+        );
+        errors.mockRestore();
+    });
+
+    it('skips the stock ledger check when INVENTORY is not entitled and survives its failure', async () => {
+        mockRunForEachActiveTenant.mockImplementation(
+            async (fn: (tenant: { id: string; subdomain: string }) => unknown) => [
+                { tenant: 'acme', result: await fn({ id: 'tenant-1', subdomain: 'acme' }) },
+            ],
+        );
+        vi.mocked(hasTenantModule).mockImplementation(async (moduleKey: string) => moduleKey !== 'INVENTORY');
+        const request = () => GET(new Request('http://localhost/api/cron/cleanup', {
+            method: 'GET', headers: { authorization: 'Bearer test-secret' },
+        }));
+        await request();
+        expect(stockLedgerHealth.checkStockLedgerHealth).not.toHaveBeenCalled();
+
+        vi.mocked(hasTenantModule).mockResolvedValue(true);
+        stockLedgerHealth.checkStockLedgerHealth.mockRejectedValue(new Error('ledger check failed'));
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        const response = await request();
+        expect(response.status).toBe(200);
+        const data = await response.json();
+        expect(data.perTenant[0].result.auditLogs).toBe(5);
+        expect(data.perTenant[0].result.productionCostFindings).toBe(0);
+        expect(errors).toHaveBeenCalledWith(
+            '[Cron] Stock ledger health check failed for acme:',
+            expect.any(Error),
+        );
         errors.mockRestore();
     });
 
