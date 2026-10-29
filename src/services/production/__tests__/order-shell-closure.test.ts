@@ -121,9 +121,10 @@ describe('closeOpenShellsForOrder', () => {
         expect(tx.productionExecution.updateMany).not.toHaveBeenCalled();
     });
 
-    it('never touches a shell frozen by a cost boundary', async () => {
+    it.each([undefined, 'COST_V1'])('never touches a shell frozen by a cost boundary (%s)', async (hashVersion) => {
         tx.productionExecution.findMany.mockResolvedValue([shell(), shell({ id: 'shell-2' })]);
-        tx.auditLog.findUnique.mockResolvedValue(receipt(['shell-1']));
+        const evidence = receipt(['shell-1']);
+        tx.auditLog.findUnique.mockResolvedValue({ ...evidence, changes: { ...evidence.changes, ...(hashVersion ? { hashVersion } : {}) } });
 
         const result = await closeOpenShellsForOrder(tx as never, 'po-1');
 

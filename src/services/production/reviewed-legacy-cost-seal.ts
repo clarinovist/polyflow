@@ -2,10 +2,14 @@ import { Prisma } from '@prisma/client';
 import { NotFoundError } from '@/lib/errors/errors';
 import {
     costPeriodHash,
+    costPeriodExecutionHash,
+    costPeriodSupportHash,
     costPeriodSourceHash,
     periodFailure,
     type CostPeriodEvidence,
 } from '@/services/accounting/production-cost-period';
+
+import { COST_PERIOD_HASH_VERSION } from '@/services/accounting/cost-period-hash-projection';
 
 type Tx = Prisma.TransactionClient;
 const zero = () => new Prisma.Decimal(0);
@@ -274,15 +278,16 @@ export async function inspectReviewedLegacySeal(tx: Tx, orderId: string) {
         periodFailure('tidak ada riwayat khusus untuk mode tinjauan');
     const base = {
         version: 2 as const,
+        hashVersion: COST_PERIOD_HASH_VERSION,
         mode: 'REVIEWED_LEGACY_SEAL' as const,
         orderId,
         movementIds: movements.map((m) => m.id),
         executionIds: executions.map((e) => e.id),
-        sourceHash: costPeriodSourceHash(movements, journals),
-        executionHash: costPeriodHash(executions),
+        sourceHash: costPeriodSourceHash(movements, journals, COST_PERIOD_HASH_VERSION),
+        executionHash: costPeriodExecutionHash(executions, COST_PERIOD_HASH_VERSION),
         materialIssueIds: materialIssues.map((m) => m.id),
         scrapRecordIds: scrapRecords.map((r) => r.id),
-        supportHash: costPeriodHash({ materialIssues, scrapRecords }),
+        supportHash: costPeriodSupportHash(materialIssues, scrapRecords, COST_PERIOD_HASH_VERSION),
         nullScrapCount,
         anomalies,
         nonvoidOutput: nonvoidOutput.toString(),

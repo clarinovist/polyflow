@@ -28,7 +28,7 @@ describe('explicit reviewed legacy seal, independent from strict v1',()=>{
  beforeEach(()=>vi.clearAllMocks());
  it('retains signed account balances and unallocated scrap unchanged, no funding',async()=>{
   const f=fixture(),before=JSON.stringify(f.state),p=await f.preview();
-  expect(p).toMatchObject({version:2,mode:'REVIEWED_LEGACY_SEAL',netOutput:'10',nonvoidOutput:'10',historicalBalances:[{accountId:'wip',amount:'-20.00'}]});
+  expect(p).toMatchObject({version:2,hashVersion:'COST_V1',mode:'REVIEWED_LEGACY_SEAL',netOutput:'10',nonvoidOutput:'10',historicalBalances:[{accountId:'wip',amount:'-20.00'}]});
   await expect(previewForwardCostPeriod(f.db,'wo')).rejects.toThrow();
   const result=await f.activate(p.fingerprint);expect(result).toMatchObject({alreadyApplied:false});
   expect(await availableProductionWip(f.tx as unknown as Prisma.TransactionClient,'wo',{lock:false})).toEqual(d(0));
