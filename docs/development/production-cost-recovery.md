@@ -61,12 +61,15 @@ bukti dan biaya periode baru. Tidak menerima nominal/jurnal atau path backup dar
 browser/input. Jalankan hanya artifact exact SHA yang sudah lolos gate rilis;
 backup dan input privat tetap disimpan untuk recovery, bukan dihapus otomatis.
 
-### Riwayat kompleks: mode tinjauan terpisah (CLI)
+### Riwayat kompleks: mode tinjauan terpisah (UI & CLI)
 
 `mode: "REVIEWED_LEGACY_SEAL"` adalah versi bukti kedua, bukan opsi paksa.
-Versi pertama tetap ketat dan tidak diubah/di-upgrade otomatis. Mode ini hanya
-untuk operator sistem setelah preview disetujui; execute wajib
-`acknowledgeRetainedAnomalies: true` beserta fingerprint yang sama.
+Versi pertama (`STRICT`) tetap ketat dan tidak diubah/di-upgrade otomatis.
+Bila pemeriksaan `STRICT` ditolak dengan `PRODUCTION_COST_PERIOD_INVALID`,
+Admin/Finance dapat memilih **Periksa mode riwayat khusus** di UI, atau
+operator sistem menjalankan CLI setelah preview disetujui. Aktivasi wajib
+menyertakan `acknowledgeRetainedAnomalies: true` beserta fingerprint yang sama
+(dan di UI, alasan minimal 30 karakter).
 
 Saldo historis **bertanda per akun**, void lama, jurnal affal bernilai, dan
 catatan affal manual tetap disimpan apa adanya. Mode ini tidak mengisi biaya

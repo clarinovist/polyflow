@@ -7,6 +7,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { LegacySealPreview } from './LegacySealPreview';
 
 type Preview = Extract<
     Awaited<ReturnType<typeof inspectForwardCostPeriod>>,
@@ -16,19 +17,32 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
     const [preview, setPreview] = useState<Preview | null>(null),
         [reason, setReason] = useState(''),
         [confirmed, setConfirmed] = useState(false),
+        [acknowledged, setAcknowledged] = useState(false),
+        [canInspectLegacy, setCanInspectLegacy] = useState(false),
         [message, setMessage] = useState(''),
         [uncertain, setUncertain] = useState(false);
     const [pending, start] = useTransition();
-    const inspect = () =>
+    const isLegacySeal = preview?.version === 2;
+    const minReasonLength = isLegacySeal ? 30 : 12;
+    const inspect = (mode?: 'STRICT' | 'REVIEWED_LEGACY_SEAL') =>
         start(async () => {
             setPreview(null);
             setConfirmed(false);
+            setAcknowledged(false);
+            setCanInspectLegacy(false);
             setMessage('');
             setUncertain(false);
             try {
-                const r = await inspectForwardCostPeriod({ orderId });
+                const r = await inspectForwardCostPeriod(
+                    mode ? { orderId, mode } : { orderId },
+                );
                 if (r.success) setPreview(r.data);
-                else setMessage(r.error);
+                else {
+                    setMessage(r.error);
+                    setCanInspectLegacy(
+                        !mode && r.code === 'PRODUCTION_COST_PERIOD_INVALID',
+                    );
+                }
             } catch {
                 setMessage(
                     'Pemeriksaan belum berhasil. Tidak ada aktivasi dikirim.',
@@ -39,23 +53,36 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
         start(async () => {
             if (!preview) return;
             try {
-                const r = await activateForwardCostPeriod({
-                    orderId,
-                    fingerprint: preview.fingerprint,
-                    reason,
-                    confirmed,
-                });
+                const r = await activateForwardCostPeriod(
+                    isLegacySeal
+                        ? {
+                              orderId,
+                              fingerprint: preview.fingerprint,
+                              reason,
+                              confirmed,
+                              mode: 'REVIEWED_LEGACY_SEAL',
+                              acknowledgeRetainedAnomalies: acknowledged,
+                          }
+                        : {
+                              orderId,
+                              fingerprint: preview.fingerprint,
+                              reason,
+                              confirmed,
+                          },
+                );
                 if (r.success) {
                     setMessage(
                         'Batas biaya sudah tercatat. Periksa biaya ulang sebelum mencatat hasil baru. Riwayat lama tidak diubah.',
                     );
                     setPreview(null);
                     setConfirmed(false);
+                    setAcknowledged(false);
                     setUncertain(false);
                 } else {
                     setMessage(r.error);
                     setPreview(null);
                     setConfirmed(false);
+                    setAcknowledged(false);
                 }
             } catch {
                 setUncertain(true);
@@ -82,7 +109,7 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
                 variant="outline"
                 className="min-h-11"
                 disabled={pending}
-                onClick={inspect}
+                onClick={() => inspect()}
             >
                 Periksa kelayakan batas biaya
             </Button>
@@ -90,6 +117,17 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
                 <p role="status" className="text-sm">
                     {message}
                 </p>
+            )}
+            {canInspectLegacy && (
+                <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-11"
+                    disabled={pending}
+                    onClick={() => inspect('REVIEWED_LEGACY_SEAL')}
+                >
+                    Periksa mode riwayat khusus
+                </Button>
             )}
             {preview &&
                 (preview.alreadyApplied ? (
@@ -99,22 +137,36 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
                     </p>
                 ) : (
                     <div className="space-y-3">
-                        <ul className="list-disc pl-5 space-y-2 text-sm">
-                            <li>
-                                {preview.outputCount} hasil dan{' '}
-                                {preview.movementCount} mutasi lama tetap
-                                tersimpan tanpa perubahan nilai.
-                            </li>
-                            <li>
-                                Biaya lama Rp{preview.historicalAmount} tetap
-                                tercatat terpisah dan tidak dibebankan ke hasil
-                                baru.
-                            </li>
-                            <li>
-                                Hasil lama tidak dibatalkan. Pembatalannya
-                                memerlukan pemeriksaan khusus.
-                            </li>
-                        </ul>
+                        {isLegacySeal ? (
+                            <LegacySealPreview
+                                outputCount={preview.outputCount}
+                                movementCount={preview.movementCount}
+                                materialIssueCount={preview.materialIssueCount}
+                                scrapRecordCount={preview.scrapRecordCount}
+                                balances={preview.balances}
+                                anomalies={preview.anomalies}
+                                acknowledged={acknowledged}
+                                disabled={pending || uncertain}
+                                onAcknowledgeChange={setAcknowledged}
+                            />
+                        ) : (
+                            <ul className="list-disc pl-5 space-y-2 text-sm">
+                                <li>
+                                    {preview.outputCount} hasil dan{' '}
+                                    {preview.movementCount} mutasi lama tetap
+                                    tersimpan tanpa perubahan nilai.
+                                </li>
+                                <li>
+                                    Biaya lama Rp{preview.historicalAmount}{' '}
+                                    tetap tercatat terpisah dan tidak dibebankan
+                                    ke hasil baru.
+                                </li>
+                                <li>
+                                    Hasil lama tidak dibatalkan. Pembatalannya
+                                    memerlukan pemeriksaan khusus.
+                                </li>
+                            </ul>
+                        )}
                         {!preview.storageReady && (
                             <p role="alert">
                                 Cadangan pemulihan belum tersedia. Aktivasi
@@ -122,7 +174,8 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
                             </p>
                         )}
                         <Label htmlFor="period-reason">
-                            Alasan batas biaya (minimal 12 karakter)
+                            Alasan batas biaya (minimal {minReasonLength}{' '}
+                            karakter)
                         </Label>
                         <Textarea
                             id="period-reason"
@@ -153,12 +206,15 @@ export function ForwardCostPeriod({ orderId }: { orderId: string }) {
                                 pending ||
                                 !preview.storageReady ||
                                 !confirmed ||
-                                reason.trim().length < 12
+                                (isLegacySeal && !acknowledged) ||
+                                reason.trim().length < minReasonLength
                             }
                         >
                             {uncertain
                                 ? 'Ulangi aktivasi yang sama'
-                                : 'Aktifkan batas biaya baru'}
+                                : isLegacySeal
+                                  ? 'Aktifkan batas biaya (riwayat khusus)'
+                                  : 'Aktifkan batas biaya baru'}
                         </Button>
                     </div>
                 ))}

@@ -25,7 +25,8 @@ const rupiah = (value: string) =>
 
 const titles = {
     eligible: 'Usulan koreksi terbatas tersedia',
-    needs_review: 'Perlu pemeriksaan tim sistem',
+    needs_review:
+        'Perlu tinjauan Finance — gunakan bagian "Lanjutkan tanpa mengubah biaya lama"',
     unsupported: 'Koreksi riwayat ini belum didukung',
     already_applied: 'Koreksi terdahulu tercatat',
     no_repair: 'Tidak ada kandidat koreksi affal',
