@@ -32,7 +32,7 @@ export interface ProductionCostHealth {
     revisionShortfalls: Array<{ orderNumber: string; changes: string[] }>;
     /** Non-affal stock adjusted in during the last 24h at Rp0: no entered, average, standard or buy cost. */
     zeroCostAdjustments: Array<{ skuCode: string; quantity: string }>;
-    /** Explicitly retained historical WIP; NOT available to future production. */
+    /** Informational retained historical WIP, excluded from findings; NOT available to future production. */
     retainedHistory?: Array<{ orderNumber: string; amount: string; accounts?: Array<{ accountId: string; amount: string }>; anomalies?: Array<{ category: string; count: number }> }>;
     findings: number;
 }
@@ -212,15 +212,14 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const zeroCostAdjustments = await findZeroCostAdjustments(tx, now);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
             uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length +
-            revisionShortfalls.length + zeroCostAdjustments.length + retainedHistory.length;
+            revisionShortfalls.length + zeroCostAdjustments.length;
         return { blockedOrders, completedResidual, retainedHistory, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis,
             revisionShortfalls, zeroCostAdjustments, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
 
-/** One line per tenant; "check failed" lets the existing error-log monitor alert ops. */
+/** One line per tenant; only actionable findings emit "check failed" for the host monitor. */
 export function summarizeProductionCostHealth(tenant: string, health: ProductionCostHealth) {
-    if (health.findings === 0) return `[ProductionCostHealth] ${tenant}: ok`;
     const parts = [
         health.retainedHistory?.length && `biaya historis dipertahankan, bukan dana hasil baru (${health.retainedHistory.map(o=>`${o.orderNumber} Rp${o.amount}${o.accounts ? ` [per akun: ${o.accounts.map(a=>a.amount).join(', ')}; ${o.anomalies?.map(a=>`${a.category}:${a.count}`).join(', ')}]` : ''}`).join(', ')})`,
         health.blockedOrders.length && `${health.blockedOrders.length} SPK terblokir (${health.blockedOrders.map((o) => `${o.orderNumber}: ${o.reason}`).join('; ')})`,
@@ -232,5 +231,8 @@ export function summarizeProductionCostHealth(tenant: string, health: Production
         health.revisionShortfalls.length && `${health.revisionShortfalls.length} revisi SPK mengurangi affal/bahan dari isian yang di-void (${health.revisionShortfalls.map((r) => `${r.orderNumber}: ${r.changes.join(', ')}`).join('; ')})`,
         health.zeroCostAdjustments.length && `penyesuaian masuk Rp0 tanpa sumber harga 24 jam (${health.zeroCostAdjustments.map((a) => `${a.skuCode} ${a.quantity}`).join('; ')})`,
     ].filter(Boolean);
+    if (health.findings === 0) {
+        return `[ProductionCostHealth] ${tenant}: ok${parts.length ? ` — ${parts.join(' | ')}` : ''}`;
+    }
     return `[ProductionCostHealth] check failed for ${tenant}: ${health.findings} temuan — ${parts.join(' | ')}`;
 }
