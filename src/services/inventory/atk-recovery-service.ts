@@ -481,6 +481,10 @@ export async function applyAtkRecovery(
                     },
                     tx,
                 });
+                // Validate deferred document constraints before returning a success value.
+                // Prisma 5 can resolve an interactive callback despite a rejected COMMIT;
+                // an explicit statement makes the failure observable inside the callback.
+                await tx.$executeRaw`SET CONSTRAINTS "atk_document_complete" IMMEDIATE`;
                 return receipt(row, false);
             },
             { timeout: 5000, maxWait: 2000 },
