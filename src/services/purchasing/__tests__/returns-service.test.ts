@@ -41,7 +41,7 @@ import { logActivity } from "@/lib/tools/audit";
 import { logger } from "@/lib/config/logger";
 import { AutoJournalService } from "@/services/finance/auto-journal-service";
 import { PurchaseReturnService } from "../returns-service";
-import { PurchaseReturnStatus, MovementType } from "@prisma/client";
+import { Prisma, PurchaseReturnStatus, MovementType } from "@prisma/client";
 
 const mockPrisma = vi.mocked(prisma);
 const mockLogActivity = vi.mocked(logActivity);
@@ -692,7 +692,7 @@ describe("PurchaseReturnService.shipReturn", () => {
           productVariantId: "pv-1",
         },
       },
-      update: { quantity: { decrement: 2 } },
+      update: { quantity: { decrement: new Prisma.Decimal(2) } },
       create: {
         locationId: "loc-1",
         productVariantId: "pv-1",

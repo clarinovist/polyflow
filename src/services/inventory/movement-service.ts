@@ -17,6 +17,7 @@ import {
 import { AccountingService } from '@/services/accounting/accounting-service';
 import { InventoryCoreService } from './core-service';
 import { resolveInboundAdjustmentCost } from './operational-stock-cost';
+import { toStockQuantity } from './stock-quantity';
 import { InsufficientStockError } from '@/lib/errors/errors';
 
 export class InventoryMovementService {
@@ -88,7 +89,7 @@ export class InventoryMovementService {
                         productVariantId: productVariantId,
                     },
                 },
-                data: { quantity: { decrement: quantity } },
+                data: { quantity: { decrement: toStockQuantity(quantity) } },
             });
 
             const sourceInventory = await tx.inventory.findUnique({
@@ -285,7 +286,7 @@ export class InventoryMovementService {
                             productVariantId: productVariantId,
                         },
                     },
-                    data: { quantity: { decrement: quantity } },
+                    data: { quantity: { decrement: toStockQuantity(quantity) } },
                 });
 
                 const unitCost = packagingOwnerCustomerId ? 0 : (costMap.get(productVariantId) || 0);
@@ -471,7 +472,7 @@ export class InventoryMovementService {
                             productVariantId,
                         },
                     },
-                    data: { quantity: { decrement: quantity } },
+                    data: { quantity: { decrement: toStockQuantity(quantity) } },
                 });
 
                 // Use resolved cost for the movement record
@@ -639,7 +640,7 @@ export class InventoryMovementService {
                                 productVariantId,
                             },
                         },
-                        data: { quantity: { decrement: quantity } },
+                        data: { quantity: { decrement: toStockQuantity(quantity) } },
                     });
 
                     // Use resolved cost for the movement record

@@ -10,6 +10,7 @@ import {
 } from '@/lib/schemas/production';
 import { MovementType, Prisma } from '@prisma/client';
 import { InventoryCoreService } from '@/services/inventory/core-service';
+import { toStockQuantity } from '@/services/inventory/stock-quantity';
 // import { AutoJournalService } from '../finance/auto-journal-service';
 import { AccountingService } from '../accounting/accounting-service';
 import { reverseProductionMovementJournal } from '../accounting/production-movement-reversal';
@@ -386,7 +387,7 @@ export class ProductionMaterialService {
                                     },
                                 },
                                 data: {
-                                    quantity: { decrement: deductFromBatch },
+                                    quantity: { decrement: toStockQuantity(deductFromBatch) },
                                 },
                             });
 
@@ -463,7 +464,7 @@ export class ProductionMaterialService {
                                 productVariantId: item.productVariantId,
                             },
                         },
-                        data: { quantity: { decrement: remainingToDeduct } },
+                        data: { quantity: { decrement: toStockQuantity(remainingToDeduct) } },
                     });
 
                     const newIssue = await tx.materialIssue.create({

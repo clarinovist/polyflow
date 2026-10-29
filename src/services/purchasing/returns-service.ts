@@ -7,6 +7,7 @@ import { PurchaseReturnStatus, MovementType, Prisma } from '@prisma/client';
 import { format } from 'date-fns';
 import { logActivity } from '@/lib/tools/audit';
 import { AutoJournalService } from '../finance/auto-journal-service';
+import { toStockQuantity } from '@/services/inventory/stock-quantity';
 import { logger } from '@/lib/config/logger';
 import {
     BusinessRuleError,
@@ -276,7 +277,7 @@ export class PurchaseReturnService {
                         },
                     },
                     update: {
-                        quantity: { decrement: item.returnedQty },
+                        quantity: { decrement: toStockQuantity(item.returnedQty) },
                     },
                     create: {
                         locationId: purchaseReturn.sourceLocationId,

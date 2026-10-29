@@ -1,6 +1,7 @@
 import { prisma, getTenantDbFromContext } from '@/lib/core/prisma';
 import { logActivity } from '@/lib/tools/audit';
 import { InventoryCoreService } from '@/services/inventory/core-service';
+import { toStockQuantity } from '@/services/inventory/stock-quantity';
 import { AccountingService } from '@/services/accounting/accounting-service';
 import {
     JournalStatus,
@@ -773,7 +774,7 @@ export async function reverseGoodsReceipt(
                                             movement.productVariantId,
                                     },
                                 },
-                                data: { quantity: { decrement: qty } },
+                                data: { quantity: { decrement: toStockQuantity(qty) } },
                             });
                         }
                     }

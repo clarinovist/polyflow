@@ -2,6 +2,7 @@ import { prisma } from '@/lib/core/prisma';
 import { Prisma, ReservationStatus, NotificationType } from '@prisma/client';
 import { isLowStockAlertLocation } from '@/lib/constants/locations';
 import { InsufficientStockError } from '@/lib/errors/errors';
+import { toStockQuantity } from './stock-quantity';
 
 export class InventoryCoreService {
     /**
@@ -104,7 +105,7 @@ export class InventoryCoreService {
             where: {
                 locationId_productVariantId: { locationId, productVariantId },
             },
-            data: { quantity: { decrement: quantity } },
+            data: { quantity: { decrement: toStockQuantity(quantity) } },
         });
     }
 

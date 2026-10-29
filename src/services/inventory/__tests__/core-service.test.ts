@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { InventoryCoreService } from "../core-service";
 import { InsufficientStockError } from "@/lib/errors/errors";
 import { prisma } from "@/lib/core/prisma";
-import { ReservationStatus } from "@prisma/client";
+import { Prisma, ReservationStatus } from "@prisma/client";
 
 // Mock prisma
 vi.mock("@/lib/core/prisma", () => ({
@@ -350,7 +350,24 @@ describe("InventoryCoreService", () => {
             productVariantId: "pv-1",
           },
         },
-        data: { quantity: { decrement: 50 } },
+        data: { quantity: { decrement: new Prisma.Decimal(50) } },
+      });
+
+      await InventoryCoreService.deductStock(
+        mockTx as any,
+        "location-1",
+        "pv-1",
+        0.12345,
+      );
+
+      expect(mockTx.inventory.update).toHaveBeenLastCalledWith({
+        where: {
+          locationId_productVariantId: {
+            locationId: "location-1",
+            productVariantId: "pv-1",
+          },
+        },
+        data: { quantity: { decrement: new Prisma.Decimal("0.1235") } },
       });
     });
   });

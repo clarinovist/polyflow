@@ -439,13 +439,13 @@ describe("ProductionMaterialService", () => {
       vi.mocked(prisma.batch.findMany).mockResolvedValue([
         {
           id: "batch-1",
-          quantity: { toNumber: () => 30 },
+          quantity: decimal(30),
           batchNumber: "B001",
           manufacturingDate: new Date(),
         },
         {
           id: "batch-2",
-          quantity: { toNumber: () => 20 },
+          quantity: decimal(20),
           batchNumber: "B002",
           manufacturingDate: new Date(),
         },
