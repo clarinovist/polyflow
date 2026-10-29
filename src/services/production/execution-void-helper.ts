@@ -17,6 +17,7 @@ import { reversePackagedExecution } from './packaging-reversal-service';
 import { removeZeroCostScrapReceipt } from './zero-cost-scrap-removal';
 import { VOID_PIECE_SNAPSHOT } from '@/services/hrd/piece-rate-helpers';
 import { syncProductionRunStatusFromOrders } from './routing-execution-guard';
+import { completionEndDate } from './order-end-date';
 
 type VoidExecutionOptions = {
   /** Force-cancel uses a source marker so overlapping windows cannot reverse twice. */
@@ -201,10 +202,22 @@ export async function voidProductionExecutionInTransaction(
     : newTotal < Number(currentOrder.plannedQuantity)
       ? ProductionStatus.IN_PROGRESS
       : currentOrder.status;
+  const previousEndDate = currentOrder.actualEndDate ?? null;
+  const nextEndDate =
+    currentOrder.status !== ProductionStatus.COMPLETED || !previousEndDate
+      ? previousEndDate
+      : newStatus !== ProductionStatus.COMPLETED
+        ? null
+        : await completionEndDate(tx, productionOrderId, previousEndDate, executionId);
+  const endDateChanged = previousEndDate?.getTime() !== nextEndDate?.getTime();
 
   await tx.productionOrder.update({
     where: { id: productionOrderId },
-    data: { actualQuantity: newTotal, status: newStatus },
+    data: {
+      actualQuantity: newTotal,
+      status: newStatus,
+      ...(endDateChanged ? { actualEndDate: nextEndDate } : {}),
+    },
   });
   if (newStatus === ProductionStatus.DRAFT) {
     await tx.stockReservation.updateMany({
@@ -236,7 +249,12 @@ export async function voidProductionExecutionInTransaction(
 
   await logActivity({ userId, action: 'VOID_PRODUCTION_EXECUTION',
     entityType: 'ProductionExecution', entityId: executionId,
-    details: 'Production reversal with original journal accounts and amounts.', tx });
+    details: 'Production reversal with original journal accounts and amounts.',
+    ...(endDateChanged ? { changes: { orderActualEndDate: {
+      from: previousEndDate!.toISOString(),
+      to: nextEndDate ? nextEndDate.toISOString() : null,
+    } } } : {}),
+    tx });
   if (options.syncRun !== false && execution.productionOrder.productionRunId) {
     await syncProductionRunStatusFromOrders(tx, execution.productionOrder.productionRunId);
   }

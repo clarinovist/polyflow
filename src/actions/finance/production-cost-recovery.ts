@@ -47,6 +47,29 @@ const applySchema = z
         confirmed: z.literal(true),
     })
     .strict();
+const inspectPeriodSchema = z
+    .object({
+        orderId: z.string().uuid(),
+        mode: z.enum(['STRICT', 'REVIEWED_LEGACY_SEAL']).default('STRICT'),
+    })
+    .strict();
+const activatePeriodSchema = z
+    .object({
+        orderId: z.string().uuid(),
+        fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+        reason: z.string().trim().min(12).max(1000),
+        confirmed: z.literal(true),
+        mode: z.enum(['STRICT', 'REVIEWED_LEGACY_SEAL']).optional(),
+        acknowledgeRetainedAnomalies: z.boolean().optional(),
+    })
+    .strict()
+    .refine(
+        (v) =>
+            v.mode !== 'REVIEWED_LEGACY_SEAL' ||
+            (v.acknowledgeRetainedAnomalies === true &&
+                v.reason.trim().length >= 30),
+        'Mode riwayat khusus memerlukan persetujuan anomali dan alasan minimal 30 karakter.',
+    );
 
 function context() {
     const db = getTenantDbFromContext(),
@@ -80,25 +103,53 @@ export const inspectForwardCostPeriod = withTenant(
     async function inspectForwardCostPeriod(input: unknown) {
         return safeAction(async () => {
             await requireFinanceAccess();
-            const parsed = z
-                .object({ orderId: z.string().uuid() })
-                .strict()
-                .safeParse(input);
+            const parsed = inspectPeriodSchema.safeParse(input);
             if (!parsed.success)
                 throw new ValidationError('ID SPK tidak valid.');
             const { db, backup } = context();
             const preview = await previewForwardCostPeriod(
                 db,
                 parsed.data.orderId,
+                parsed.data.mode,
             );
+            const accountIds = preview.historicalBalances.map(
+                (b) => b.accountId,
+            );
+            const accounts = accountIds.length
+                ? await db.account.findMany({
+                      where: { id: { in: accountIds } },
+                      select: { id: true, code: true, name: true },
+                  })
+                : [];
+            const byId = new Map(accounts.map((a) => [a.id, a]));
             return {
                 alreadyApplied: preview.alreadyApplied,
+                version: preview.version,
                 fingerprint: preview.fingerprint,
                 historicalAmount: preview.historicalBalances
                     .reduce((s, b) => s.plus(b.amount), new Prisma.Decimal(0))
                     .toFixed(2),
+                balances: preview.historicalBalances.map((b) => {
+                    const account = byId.get(b.accountId);
+                    return {
+                        accountId: b.accountId,
+                        code: account?.code ?? null,
+                        name: account?.name ?? null,
+                        amount: b.amount,
+                    };
+                }),
+                anomalies:
+                    preview.version === 2 ? preview.anomalies : [],
                 movementCount: preview.movementIds.length,
                 outputCount: preview.executionIds.length,
+                materialIssueCount:
+                    preview.version === 2
+                        ? preview.materialIssueIds.length
+                        : 0,
+                scrapRecordCount:
+                    preview.version === 2
+                        ? preview.scrapRecordIds.length
+                        : 0,
                 storageReady: backup.ready(),
             };
         });
@@ -109,11 +160,16 @@ export const activateForwardCostPeriod = withTenant(
     async function activateForwardCostPeriod(input: unknown) {
         return safeAction(async () => {
             const session = await requireFinanceApprover();
-            const parsed = applySchema.safeParse(input);
-            if (!parsed.success)
-                throw new ValidationError(
-                    'Preview, alasan dan persetujuan wajib diisi.',
+            const parsed = activatePeriodSchema.safeParse(input);
+            if (!parsed.success) {
+                const refineIssue = parsed.error.issues.find(
+                    (i) => i.code === 'custom',
                 );
+                throw new ValidationError(
+                    refineIssue?.message ??
+                        'Preview, alasan dan persetujuan wajib diisi.',
+                );
+            }
             const { db, backup } = context();
             return startForwardCostPeriod(
                 db,

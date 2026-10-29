@@ -19,4 +19,22 @@ describe('completionEndDate', () => {
 
         await expect(completionEndDate(tx as never, 'po-1', closedAt)).resolves.toBe(closedAt);
     });
+
+    it('excludes a specific execution when recalculating the end date during void', async () => {
+        const previousOutput = new Date('2026-10-19T14:00:00Z');
+        const tx = { productionExecution: { aggregate: vi.fn(async () => ({ _max: { endTime: previousOutput } })) } };
+
+        await expect(
+            completionEndDate(tx as never, 'po-1', new Date('2026-10-20T02:08:00Z'), 'exec-void'),
+        ).resolves.toBe(previousOutput);
+        expect(tx.productionExecution.aggregate).toHaveBeenCalledWith({
+            _max: { endTime: true },
+            where: {
+                productionOrderId: 'po-1',
+                id: { not: 'exec-void' },
+                status: { not: 'VOIDED' },
+                quantityProduced: { gt: 0 },
+            },
+        });
+    });
 });

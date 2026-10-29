@@ -1055,6 +1055,11 @@ export class ProductionOrderService {
             }
 
             const statusChanged = status !== undefined && status !== existing.status;
+            const reopenedFromCompleted =
+                statusChanged &&
+                existing.status === ProductionStatus.COMPLETED &&
+                status !== ProductionStatus.COMPLETED &&
+                actualEndDate === undefined;
             let closure: ShellClosureResult | undefined;
             let completedAt: Date | undefined;
             if (statusChanged && status === ProductionStatus.COMPLETED) {
@@ -1080,6 +1085,7 @@ export class ProductionOrderService {
                         ? { actualEndDate }
                         : {}),
                     ...(completedAt ? { actualEndDate: completedAt } : {}),
+                    ...(reopenedFromCompleted ? { actualEndDate: null } : {}),
                     ...(machineId !== undefined ? { machineId } : {}),
                     ...(locationId !== undefined
                         ? { locationId }
@@ -1112,7 +1118,16 @@ export class ProductionOrderService {
                                   ...(completedAt ? { actualEndDate: completedAt } : {}),
                               },
                           }
-                        : {}),
+                        : reopenedFromCompleted
+                          ? {
+                                changes: {
+                                    actualEndDate: {
+                                        from: existing.actualEndDate?.toISOString() ?? null,
+                                        to: null,
+                                    },
+                                },
+                            }
+                          : {}),
                     tx,
                 });
             }

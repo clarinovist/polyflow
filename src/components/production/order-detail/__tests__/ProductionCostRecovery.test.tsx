@@ -50,4 +50,12 @@ describe('production cost recovery UI', () => {
         await screen.findByRole('alert'); await waitFor(() => expect(screen.queryByRole('checkbox')).toBeNull());
         expect(m.inspect).toHaveBeenCalledWith({ orderNumber: 'WO-SYNTHETIC' });
     });
+    it('shows Finance review label and forward-cost hint for needs_review status', async () => {
+        m.inspect.mockResolvedValueOnce({ success: true, data: { ...data, status: 'needs_review', proposal: null } });
+        render(<ProductionCostRecovery orderId="wo" />);
+        await inspect();
+        expect(screen.getByText(/Perlu tinjauan Finance/)).toBeTruthy();
+        expect(screen.queryByText(/Perlu pemeriksaan tim sistem/)).toBeNull();
+        expect(screen.getByRole('region', { name: 'Lanjutkan tanpa koreksi riwayat' })).toBeTruthy();
+    });
 });

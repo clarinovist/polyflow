@@ -1972,6 +1972,47 @@ describe("ProductionOrderService", () => {
         expect(vi.mocked(prisma.productionOrder.update).mock.calls[1][0].data).not.toHaveProperty("actualEndDate");
       });
 
+      it("clears actualEndDate and audits the change when reopening a COMPLETED SPK", async () => {
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+          mockExistingOrder({ status: "COMPLETED", actualEndDate: lastOutput }),
+        );
+
+        await ProductionOrderService.updateOrder({ id: "po-1", status: ProductionStatus.IN_PROGRESS });
+
+        expect(prisma.productionOrder.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ status: "IN_PROGRESS", actualEndDate: null }),
+          }),
+        );
+        const audit = vi.mocked(prisma.auditLog.create).mock.calls[0][0].data;
+        expect(audit).toMatchObject({
+          fromStatus: "COMPLETED",
+          toStatus: "IN_PROGRESS",
+        });
+        expect(JSON.parse(audit.changes)).toEqual({
+          actualEndDate: { from: lastOutput.toISOString(), to: null },
+        });
+      });
+
+      it("uses an explicit actualEndDate when reopening a COMPLETED SPK", async () => {
+        const explicit = new Date("2026-10-22T00:00:00Z");
+        vi.mocked(prisma.productionOrder.findUnique).mockResolvedValue(
+          mockExistingOrder({ status: "COMPLETED", actualEndDate: lastOutput }),
+        );
+
+        await ProductionOrderService.updateOrder({
+          id: "po-1",
+          status: ProductionStatus.IN_PROGRESS,
+          actualEndDate: explicit,
+        });
+
+        expect(prisma.productionOrder.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ status: "IN_PROGRESS", actualEndDate: explicit }),
+          }),
+        );
+      });
+
       it("rolls back the completion when the audit cannot be written", async () => {
         vi.mocked(prisma.auditLog.create).mockRejectedValue(new Error("audit down"));
 
