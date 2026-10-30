@@ -79,7 +79,8 @@ describe('production output monetary rounding', () => {
             type: 'IN', productionOrderId: 'wo', productVariantId: 'finished', quantity: 10, cost: 10,
         } });
         await expect(recordInventoryMovement(movement as never, f.tx, { productionOutput: true, journalTotal: 100 }))
-            .rejects.toThrow('tidak cukup');
+            .rejects.toMatchObject({ code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE' });
+        expect(journal).not.toHaveBeenCalled();
     });
     it('uses the existing journal on replay instead of recalculating its rounded value', async () => {
         const f = fixture([['350', '3570.1728'], ['350', '11818.1818'], ['11', '21080.2253']]);

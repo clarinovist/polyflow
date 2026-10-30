@@ -1,10 +1,11 @@
 /**
- * Business rejections that send the user to Finance. They are returned to the
- * client without a stack trace, so log one line that admins can trace later.
+ * Business rejections that need a trace for operational or Finance review.
+ * Returned without a stack trace, so log one line that admins can trace later.
  */
 export const TRACEABLE_REJECTION_CODES: ReadonlySet<string> = new Set([
     'PRODUCTION_COST_PERIOD_INVALID',
     'PRODUCTION_WIP_UNRESOLVED',
+    'PRODUCTION_WIP_MATERIAL_SHORTAGE',
     'PRODUCTION_CONVERSION_UNFUNDED',
     'PRODUCTION_COST_RECONCILIATION_REQUIRED',
     'PRODUCTION_REVERSAL_UNRESOLVED',

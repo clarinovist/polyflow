@@ -141,6 +141,11 @@ export const financeLinks = [
         heading: 'Akuntansi',
         items: [
             {
+                href: '/finance/inventory-reconciliation',
+                icon: FileText,
+                label: 'Rekonsiliasi nilai ATK',
+            },
+            {
                 href: '/finance/journals',
                 icon: BookOpen,
                 label: financeSidebarLabels.journalEntries,

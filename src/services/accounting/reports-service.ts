@@ -586,9 +586,9 @@ export async function getAccountBalance(
     return balance;
 }
 
-export async function getClosingBalances(startDate: Date, endDate: Date) {
+export async function getClosingBalances(startDate: Date, endDate: Date, tx?: Prisma.TransactionClient) {
     const entryDate = wibRangeBounds(startDate, endDate);
-    const accounts = await prisma.account.findMany({
+    const accounts = await (tx ?? prisma).account.findMany({
         where: {
             type: { in: ['REVENUE', 'EXPENSE'] },
         },

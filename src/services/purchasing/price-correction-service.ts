@@ -71,6 +71,11 @@ async function readSource(tx: Prisma.TransactionClient, invoiceId: string, lockI
         reject('PURCHASE_PRICE_MAKLON', 'Penerimaan maklon tidak dapat dikoreksi melalui koreksi harga pembelian.');
     }
     const receiptIds = po.goodsReceipts.map(gr => gr.id);
+    if (await tx.atkCostEvidence.count({
+        where: { movement: { goodsReceiptId: { in: receiptIds } } },
+    })) {
+        reject('ATK_EVIDENCE_PROTECTED', 'Penerimaan PO ini dipakai sebagai bukti koreksi ATK; koreksi harga tidak dapat diposting. Minta Finance memeriksa recovery ATK.');
+    }
     const assets = await tx.fixedAsset.count({ where: { goodsReceiptId: { in: receiptIds } } });
     if (assets > 0 || po.items.some(item => item.productVariant.product.productType === 'FIXED_ASSET')) {
         reject('PURCHASE_PRICE_FIXED_ASSET', 'Penerimaan terkait aset tetap tidak dapat dikoreksi melalui aksi ini.');
@@ -168,6 +173,7 @@ const contextIneligibilityCodes = new Set([
     'PURCHASE_PRICE_BILL_PROTECTED',
     'PURCHASE_PRICE_INVALID_SOURCE',
     'PURCHASE_PRICE_MAKLON',
+    'ATK_EVIDENCE_PROTECTED',
     'PURCHASE_PRICE_FIXED_ASSET',
     'PURCHASE_PRICE_RECEIPT_AMBIGUOUS',
     'PURCHASE_PRICE_BILL_MISMATCH',

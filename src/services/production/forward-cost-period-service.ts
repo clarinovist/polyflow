@@ -5,6 +5,7 @@ import { availableProductionWip } from '@/services/accounting/production-wip-pro
 import {
     COST_PERIOD_ACTION,
     costPeriodHash,
+    costPeriodExecutionHash,
     costPeriodSourceHash,
     periodFailure,
     readCostPeriod,
@@ -12,6 +13,7 @@ import {
 } from '@/services/accounting/production-cost-period';
 import type { RecoveryBackupStore } from './cost-recovery-service';
 import { inspectReviewedLegacySeal } from './reviewed-legacy-cost-seal';
+import { COST_PERIOD_HASH_VERSION } from '@/services/accounting/cost-period-hash-projection';
 
 export type CostPeriodMode = 'STRICT' | 'REVIEWED_LEGACY_SEAL';
 
@@ -252,11 +254,12 @@ async function inspect(tx: Tx, orderId: string) {
         periodFailure('bukan kasus affal kosong dengan sisa biaya nonnegatif');
     const base = {
         version: 1 as const,
+        hashVersion: COST_PERIOD_HASH_VERSION,
         orderId,
         movementIds: movements.map((m) => m.id),
         executionIds: executions.map((e) => e.id),
-        sourceHash: costPeriodSourceHash(movements, journals),
-        executionHash: costPeriodHash(executions),
+        sourceHash: costPeriodSourceHash(movements, journals, COST_PERIOD_HASH_VERSION),
+        executionHash: costPeriodExecutionHash(executions, COST_PERIOD_HASH_VERSION),
         historicalBalances: [...balances]
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([accountId, amount]) => ({

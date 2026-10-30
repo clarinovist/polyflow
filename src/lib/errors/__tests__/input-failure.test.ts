@@ -16,12 +16,32 @@ describe('input failure presentation', () => {
         expect(result.code).toBe('PRODUCTION_WIP_UNRESOLVED');
     });
 
+    it('directs material shortages to record checks before any new issue, not straight to Finance', () => {
+        const result = inputFailure({
+            code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE', error: 'private WIP balance',
+        }, 'production');
+        expect(result).toEqual({
+            title: 'Hasil belum tersimpan', code: 'PRODUCTION_WIP_MATERIAL_SHORTAGE',
+            message: 'Nilai bahan yang tercatat untuk SPK ini belum cukup untuk hasil ini. Minta gudang/admin memeriksa catatan bahan di Gudang → Bahan Produksi. Catat hanya bahan yang benar-benar dipakai tetapi belum tercatat ke SPK ini, lalu simpan hasil kembali. Jika bahan sudah tercatat atau dipotong otomatis saat catat hasil, jangan keluarkan lagi; minta admin memeriksa. Tetap gunakan jumlah hasil sebenarnya.',
+        });
+        expect(result.message).not.toMatch(/Finance|private|WIP/);
+    });
+
     it.each(['INTERNAL_USAGE_MISSING_MAPPING', 'INTERNAL_USAGE_MISSING_COST', 'INTERNAL_USAGE_MISSING_SOURCE_BASIS', 'INTERNAL_USAGE_SOURCE_ACCOUNT_MISMATCH', 'INTERNAL_USAGE_INSUFFICIENT_GL'])(
         'explains %s without exposing account balances', (code) => {
             const result = inputFailure({ code, error: 'secret account balance' }, 'usage');
             expect(result.message).toContain('Finance');
             expect(result.message).not.toContain('secret');
             expect(result.title).toBe('Pemakaian belum dicatat');
+        },
+    );
+
+    it.each(['INTERNAL_USAGE_MISSING_COST', 'OPERATIONAL_STOCK_COST_REQUIRED', 'OPERATIONAL_ADJUSTMENT_MISSING_SOURCE_BASIS'])(
+        'routes %s to the actual read-only Finance screen without promising a repair', code => {
+            const result = inputFailure({ code, details: { skuCode: 'TEST-ATK', accountBalance: 999 } }, 'usage');
+            expect(result.message).toContain('Finance → Akuntansi → Rekonsiliasi nilai ATK');
+            expect(result.message).toContain('Tidak semua kasus dapat diperbaiki otomatis');
+            expect(result.message).not.toContain('999');
         },
     );
 

@@ -281,15 +281,23 @@ describe('WO output production date', () => {
         expect(addProductionOutput).toHaveBeenCalledTimes(2);
     });
 
-    it('shows a cost rejection without jargon and retains the request identity', async () => {
-        vi.mocked(addProductionOutput).mockResolvedValueOnce({ success: false, code: 'PRODUCTION_WIP_UNRESOLVED', error: 'vektor jurnal tidak valid' });
+    it.each([
+        ['PRODUCTION_WIP_UNRESOLVED', 'Finance'],
+        ['PRODUCTION_WIP_MATERIAL_SHORTAGE', 'Gudang → Bahan Produksi'],
+    ])('shows %s without jargon and retains the request identity', async (code, guidance) => {
+        vi.mocked(addProductionOutput).mockResolvedValueOnce({ success: false, code, error: 'vektor jurnal tidak valid' });
         render(<AddOutputDialog {...props} />);
         openDialog();
         await waitFor(() => expect(document.activeElement).toBe(dateInput()));
         addGoodOutput(); addScrap();
         fireEvent.submit(form());
         const alert = await screen.findByRole('alert');
-        expect(alert.textContent).toContain('Finance');
+        expect(alert.textContent).toContain('Hasil belum tersimpan');
+        expect(alert.textContent).toContain(guidance);
+        if (code === 'PRODUCTION_WIP_MATERIAL_SHORTAGE') {
+            expect(alert.textContent).toContain('jangan keluarkan lagi');
+            expect(alert.textContent).not.toContain('Finance');
+        }
         expect(alert.textContent).not.toContain('vektor');
         expect(document.activeElement).toBe(alert);
         fireEvent.submit(form());

@@ -42,6 +42,8 @@ const generated = execFileSync(
 // This preserves CHECK constraints, partial indexes and triggers, not only ORM shape.
 const addedObjects = [
     'InternalUsage',
+    'AtkCostCorrection',
+    'AtkCostEvidence',
     'ProductionPackagingOption',
     'ProductionOutputGroup',
     'ProductionPackagingConsumption',
@@ -102,6 +104,7 @@ const guards = [
     '20261023_return_credit_recovery',
     '20261023_internal_usage',
     '20261023_material_order_unit_snapshot',
+    '20261029_atk_cost_correction',
     '20261030_purchase_price_correction',
 ]
     .map(migration)

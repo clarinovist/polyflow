@@ -694,6 +694,8 @@ model StockMovement {
   outputGroup ProductionOutputGroup?
   packagingConsumption ProductionPackagingConsumption?
   internalUsage InternalUsage?
+  atkCorrections AtkCostCorrection[] @relation("AtkCorrectionSource")
+  atkEvidence AtkCostEvidence[]
 
   @@index([productionExecutionId])
 
@@ -732,6 +734,52 @@ model InternalUsage {
 
   @@index([createdAt, id])
   @@index([department])
+}
+
+/// Immutable, source-proven ATK overcharge refunds and exact compensations.
+model AtkCostCorrection {
+  id String @id
+  kind String
+  requestId String @unique
+  requestHash String
+  sourceMovementId String
+  sourceMovement StockMovement @relation("AtkCorrectionSource", fields: [sourceMovementId], references: [id], onDelete: Restrict)
+  sourceJournalId String
+  sourceJournal JournalEntry @relation("AtkCorrectionOriginal", fields: [sourceJournalId], references: [id], onDelete: Restrict)
+  journalId String @unique
+  journal JournalEntry @relation("AtkCorrectionPosting", fields: [journalId], references: [id], onDelete: Restrict)
+  reversalOfId String? @unique
+  reversalOf AtkCostCorrection? @relation("AtkCompensation", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  compensation AtkCostCorrection? @relation("AtkCompensation")
+  amount Decimal @db.Decimal(15, 2)
+  historicalUnitCost Decimal @db.Decimal(15, 4)
+  expectedLoss Decimal @db.Decimal(15, 2)
+  originalLoss Decimal @db.Decimal(15, 2)
+  fingerprint String
+  rulesVersion String
+  reason String
+  actorId String
+  postingDate DateTime
+  createdAt DateTime @default(now())
+  backupReference String
+  evidenceSnapshot Json
+  evidence AtkCostEvidence[]
+
+  @@unique([sourceMovementId, kind])
+}
+
+model AtkCostEvidence {
+  id String @id
+  correctionId String
+  correction AtkCostCorrection @relation(fields: [correctionId], references: [id], onDelete: Restrict)
+  movementId String
+  movement StockMovement @relation(fields: [movementId], references: [id], onDelete: Restrict)
+  journalId String
+  journal JournalEntry @relation("AtkEvidenceJournal", fields: [journalId], references: [id], onDelete: Restrict)
+
+  @@unique([correctionId, movementId])
+  @@index([journalId])
+  @@index([movementId])
 }
 
 model Inventory {
@@ -2097,6 +2145,9 @@ model JournalEntry {
   createdBy                 User?                          @relation("JournalCreator", fields: [createdById], references: [id])
   lines                     JournalLine[]
   internalUsage             InternalUsage?
+  atkSourceCorrections      AtkCostCorrection[] @relation("AtkCorrectionOriginal")
+  atkCorrectionPosting      AtkCostCorrection? @relation("AtkCorrectionPosting")
+  atkEvidence               AtkCostEvidence[] @relation("AtkEvidenceJournal")
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
   reconciliationAdjustments BankReconciliationAdjustment[]

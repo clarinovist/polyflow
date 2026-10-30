@@ -16,6 +16,7 @@ const { tx, tenant } = vi.hoisted(() => {
         inventory: { findUnique: vi.fn(), update: vi.fn() },
         location: { findMany: vi.fn() },
         fixedAsset: { count: vi.fn() },
+        atkCostEvidence: { count: vi.fn() },
         account: { count: vi.fn() },
         purchasePriceCorrection: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
         journalEntry: { create: vi.fn() },
@@ -60,6 +61,7 @@ beforeEach(() => {
     tx.$transaction.mockImplementation(async callback => callback(tx));
     tx.$queryRaw.mockResolvedValue([]);
     tx.fixedAsset.count.mockResolvedValue(0);
+    tx.atkCostEvidence.count.mockResolvedValue(0);
     tx.location.findMany.mockResolvedValue([{ id: 'location', name: 'Gudang Sintetis' }]);
     tx.account.count.mockResolvedValue(3);
     tx.purchasePriceCorrection.findUnique.mockResolvedValue(null);
@@ -106,6 +108,29 @@ describe('purchase price correction service', () => {
         await expect(previewPurchasePriceCorrection(data)).rejects.toMatchObject({ code: `PURCHASE_PRICE_${codes[kind]}`, message: context.eligible ? undefined : context.reasonMessage });
         await expect(postPurchasePriceCorrection(data, 'actor')).rejects.toMatchObject({ code: `PURCHASE_PRICE_${codes[kind]}` });
         expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+    });
+    it('keeps ATK-protected receipt history read-only and rechecks before posting without mutations', async () => {
+        const data = await input();
+        tx.atkCostEvidence.count.mockResolvedValue(1);
+        const history = [{ id: 'prior-correction', reason: 'Koreksi sintetis sebelumnya' }];
+        tx.purchasePriceCorrection.findMany.mockResolvedValue(history);
+        const context = await getPurchasePriceCorrectionContext('bill');
+        expect(context).toMatchObject({ eligible: false, reasonCode: 'ATK_EVIDENCE_PROTECTED', history });
+        expect(context).not.toHaveProperty('sourceFingerprint');
+        await expect(previewPurchasePriceCorrection(data)).rejects.toMatchObject({ code: 'ATK_EVIDENCE_PROTECTED' });
+        vi.clearAllMocks();
+        await expect(postPurchasePriceCorrection(data, 'actor')).rejects.toMatchObject({ code: 'ATK_EVIDENCE_PROTECTED' });
+        expect(tx.atkCostEvidence.count).toHaveBeenCalledExactlyOnceWith({
+            where: { movement: { goodsReceiptId: { in: ['gr'] } } },
+        });
+        expect(tx.$queryRaw.mock.invocationCallOrder[2]).toBeLessThan(tx.atkCostEvidence.count.mock.invocationCallOrder[0]);
+        expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+        expect(tx.purchaseOrder.update).not.toHaveBeenCalled();
+        expect(createDraftBillFromPo).not.toHaveBeenCalled();
+        expect(tx.inventory.update).not.toHaveBeenCalled();
+        expect(tx.journalEntry.create).not.toHaveBeenCalled();
+        expect(tx.purchasePriceCorrection.create).not.toHaveBeenCalled();
+        expect(logActivity).not.toHaveBeenCalled();
     });
     it.each(['invoice', 'po'])('keeps missing %s as a failure rather than ineligibility', async kind => {
         if (kind === 'invoice') tx.purchaseInvoice.findUnique.mockResolvedValue(null);

@@ -15,6 +15,7 @@ describe('forward cost period activation',()=>{
  beforeEach(()=>vi.clearAllMocks());
  it('previews explicit retained value, activates only an audit and deduplicates',async()=>{
   const f=fixture(),p=await previewForwardCostPeriod(f.db,'wo'),before=JSON.stringify({m:f.state.movements,j:f.state.journals,e:f.state.executions});
+  expect(p).toMatchObject({version:1,hashVersion:'COST_V1'});
   expect(p.historicalBalances).toEqual([{accountId:'wip',amount:'20.00'}]);
   const input={orderId:'wo',fingerprint:p.fingerprint,actorId:'actor',reason:'Preserve historic values'};
   expect(await startForwardCostPeriod(f.db,input,f.backup)).toMatchObject({alreadyApplied:false});

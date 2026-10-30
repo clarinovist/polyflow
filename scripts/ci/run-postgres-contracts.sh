@@ -29,6 +29,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/finance/__tests__/invoice-date-correction-postgres.test.ts \
   src/services/finance/__tests__/customer-credit-postgres.test.ts \
   src/services/inventory/__tests__/internal-usage-postgres.test.ts \
+  src/services/inventory/__tests__/atk-recovery-postgres.test.ts \
   src/services/production/__tests__/order-context-postgres.test.ts \
   src/lib/ops/__tests__/stale-shell-closure-postgres.test.ts \
   src/lib/ops/__tests__/order-end-date-backfill-postgres.test.ts \

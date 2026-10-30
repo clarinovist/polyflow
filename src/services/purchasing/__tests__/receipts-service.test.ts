@@ -20,6 +20,7 @@ import { BusinessRuleError } from '@/lib/errors/errors';
 // Mock prisma
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    atkCostEvidence: { count: vi.fn().mockResolvedValue(0) },
     $queryRaw: vi.fn().mockResolvedValue([]),
     goodsReceipt: {
       findUnique: vi.fn(),
@@ -50,6 +51,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
     stockMovement: {
       create: vi.fn(),
@@ -101,6 +103,8 @@ vi.mock("@/services/accounting/account-resolver", () => ({
 function withReceiptAggregate(tx: any) {
   tx.$queryRaw ??= vi.fn().mockResolvedValue([]);
   tx.purchasePriceCorrection ??= { findFirst: vi.fn().mockResolvedValue(null) };
+  tx.atkCostEvidence ??= { count: vi.fn().mockResolvedValue(0) };
+  if (tx.inventory) tx.inventory.updateMany ??= vi.fn().mockResolvedValue({ count: 1 });
   if (!tx.goodsReceipt?.create) return tx;
   return {
     ...tx,
@@ -2056,6 +2060,26 @@ describe("receipts-service", () => {
   });
 
   describe("reverseGoodsReceipt", () => {
+    it("rejects protected ATK evidence before inventory or journal deletion", async () => {
+      const { tx } = reversalFixture('12.3456');
+      tx.atkCostEvidence.count.mockResolvedValue(1);
+      await expect(reverseGoodsReceipt(grId, userId, tx as never)).rejects.toMatchObject({ code: "ATK_EVIDENCE_PROTECTED" });
+      expect(tx.purchasePriceCorrection.findFirst).toHaveBeenCalledExactlyOnceWith({ where: { purchaseOrderId: 'po-1' }, select: { id: true } });
+      expect(tx.atkCostEvidence.count).toHaveBeenCalledExactlyOnceWith({ where: { movementId: { in: ['mov-1'] } } });
+      expect(tx.purchasePriceCorrection.findFirst.mock.invocationCallOrder[0]).toBeLessThan(tx.atkCostEvidence.count.mock.invocationCallOrder[0]);
+      expect(tx.fixedAsset.findMany).not.toHaveBeenCalled();
+      expect(tx.inventory.update).not.toHaveBeenCalled(); expect(tx.journalEntry.delete).not.toHaveBeenCalled();
+      expect(tx.inventory.updateMany).not.toHaveBeenCalled();
+      expect(tx.journalLine.deleteMany).not.toHaveBeenCalled();
+      expect(tx.stockMovement.delete).not.toHaveBeenCalled();
+      expect(tx.costHistory.deleteMany).not.toHaveBeenCalled();
+      expect(tx.goodsReceipt.delete).not.toHaveBeenCalled();
+      expect(tx.goodsReceiptItem.deleteMany).not.toHaveBeenCalled();
+      expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+      expect(tx.purchaseOrder.update).not.toHaveBeenCalled();
+      expect(createDraftBillFromPo).not.toHaveBeenCalled();
+      expect(logActivity).not.toHaveBeenCalled();
+    });
     const userId = "user-1";
     const grId = "gr-1";
 
@@ -2085,6 +2109,7 @@ describe("receipts-service", () => {
             location: { findUnique: vi.fn().mockResolvedValue({ name: 'Gudang Sintetis' }) },
             fixedAsset: { findMany: vi.fn().mockResolvedValue([]) },
             purchasePriceCorrection: { findFirst: vi.fn().mockResolvedValue(null) },
+            atkCostEvidence: { count: vi.fn().mockResolvedValue(0) },
             goodsReceipt: { findUnique: vi.fn().mockResolvedValue(gr), delete: vi.fn() },
             goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
             stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
@@ -2122,7 +2147,17 @@ describe("receipts-service", () => {
     it('rejects corrected PO before any asset, stock, or journal mutation', async () => {
         const { tx } = reversalFixture('12.3456');
         tx.purchasePriceCorrection.findFirst.mockResolvedValue({ id: 'correction' });
+        tx.atkCostEvidence.count.mockResolvedValue(1);
         await expect(reverseGoodsReceipt(grId, userId)).rejects.toMatchObject({ code: 'PURCHASE_PRICE_CORRECTED' });
+        expect(tx.atkCostEvidence.count).not.toHaveBeenCalled();
+        expect(tx.inventory.update).not.toHaveBeenCalled();
+        expect(tx.journalEntry.delete).not.toHaveBeenCalled();
+        expect(tx.costHistory.deleteMany).not.toHaveBeenCalled();
+        expect(tx.goodsReceiptItem.deleteMany).not.toHaveBeenCalled();
+        expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+        expect(tx.purchaseOrder.update).not.toHaveBeenCalled();
+        expect(createDraftBillFromPo).not.toHaveBeenCalled();
+        expect(logActivity).not.toHaveBeenCalled();
         expect(tx.fixedAsset.findMany).not.toHaveBeenCalled();
         expect(tx.inventory.updateMany).not.toHaveBeenCalled();
         expect(tx.journalLine.deleteMany).not.toHaveBeenCalled();
@@ -2149,6 +2184,8 @@ describe("receipts-service", () => {
         expect(tx.location.findUnique).not.toHaveBeenCalled();
         expect(tx.stockMovement.delete).toHaveBeenCalledExactlyOnceWith({ where: { id: 'mov-1' } });
         expect(tx.journalEntry.delete).toHaveBeenCalledExactlyOnceWith({ where: { id: 'je-1' } });
+        expect(tx.purchasePriceCorrection.findFirst.mock.invocationCallOrder[0]).toBeLessThan(tx.atkCostEvidence.count.mock.invocationCallOrder[0]);
+        expect(tx.atkCostEvidence.count.mock.invocationCallOrder[0]).toBeLessThan(tx.inventory.updateMany.mock.invocationCallOrder[0]);
         expect(tx.inventory.updateMany.mock.invocationCallOrder[0]).toBeLessThan(tx.journalEntry.delete.mock.invocationCallOrder[0]);
         expect(tx.inventory.updateMany.mock.invocationCallOrder[0]).toBeLessThan(tx.stockMovement.delete.mock.invocationCallOrder[0]);
         expect(createDraftBillFromPo).toHaveBeenCalledWith('po-1', userId, { tx });

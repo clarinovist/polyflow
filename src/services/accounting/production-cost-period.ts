@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { Prisma, type StockMovement } from '@prisma/client';
 import { BusinessRuleError, ConflictError } from '@/lib/errors/errors';
+import {
+    COST_PERIOD_HASH_VERSION,
+    projectCostPeriodRow,
+    type CostPeriodHashVersion,
+} from './cost-period-hash-projection';
 
 export const COST_PERIOD_ACTION = 'START_PRODUCTION_COST_PERIOD';
 export type PeriodJournal = Prisma.JournalEntryGetPayload<{
@@ -8,6 +13,8 @@ export type PeriodJournal = Prisma.JournalEntryGetPayload<{
 }>;
 interface CostPeriodBase {
     version: 1 | 2;
+    /** Absent only on original full-row receipts; never infer from current schema. */
+    hashVersion?: CostPeriodHashVersion;
     orderId: string;
     movementIds: string[];
     executionIds: string[];
@@ -55,22 +62,47 @@ export function periodFailure(reason: string): never {
 export function costPeriodSourceHash(
     movements: StockMovement[],
     journals: PeriodJournal[],
+    hashVersion?: CostPeriodHashVersion,
 ) {
     return costPeriodHash({
-        movements: [...movements].sort((a, b) => a.id.localeCompare(b.id)),
+        movements: [...movements]
+            .sort((a, b) => a.id.localeCompare(b.id))
+            .map((m) => projectCostPeriodRow('StockMovement', m, hashVersion)),
         journals: [...journals]
             .sort((a, b) => a.id.localeCompare(b.id))
             .map((j) => ({
-                ...j,
+                ...projectCostPeriodRow('JournalEntry', j, hashVersion),
                 lines: [...j.lines]
                     .sort((a, b) => a.id.localeCompare(b.id))
                     .map((l) => ({
-                        ...l,
+                        ...projectCostPeriodRow('JournalLine', l, hashVersion),
                         account: { id: l.accountId, type: l.account.type },
                     })),
             })),
     });
 }
+/** Preserve the DB id ordering used by the original execution/support writers. */
+export function costPeriodExecutionHash(
+    executions: object[],
+    hashVersion?: CostPeriodHashVersion,
+) {
+    return costPeriodHash(executions.map((e) =>
+        projectCostPeriodRow('ProductionExecution', e, hashVersion)));
+}
+
+export function costPeriodSupportHash(
+    materialIssues: object[],
+    scrapRecords: object[],
+    hashVersion?: CostPeriodHashVersion,
+) {
+    return costPeriodHash({
+        materialIssues: materialIssues.map((m) =>
+            projectCostPeriodRow('MaterialIssue', m, hashVersion)),
+        scrapRecords: scrapRecords.map((s) =>
+            projectCostPeriodRow('ScrapRecord', s, hashVersion)),
+    });
+}
+
 export async function readCostPeriod(
     tx: Prisma.TransactionClient,
     orderId: string,
@@ -92,6 +124,7 @@ export async function readCostPeriod(
         audit.entityId !== orderId ||
         !data ||
         ![1, 2].includes(data.version) ||
+        (data.hashVersion !== undefined && data.hashVersion !== COST_PERIOD_HASH_VERSION) ||
         data.orderId !== orderId ||
         !Array.isArray(data.movementIds) ||
         !data.movementIds.length ||
@@ -180,7 +213,7 @@ export async function forwardCostMovements(
     );
     if (
         baseline.length !== ids.size ||
-        costPeriodSourceHash(baseline, originalJournals) !== period.sourceHash
+        costPeriodSourceHash(baseline, originalJournals, period.hashVersion) !== period.sourceHash
     )
         periodFailure('sumber historis berubah; minta pemeriksaan Finance');
     const executions = await tx.productionExecution.findMany({
@@ -189,7 +222,7 @@ export async function forwardCostMovements(
     });
     if (
         executions.length !== period.executionIds.length ||
-        costPeriodHash(executions) !== period.executionHash
+        costPeriodExecutionHash(executions, period.hashVersion) !== period.executionHash
     )
         periodFailure('hasil historis berubah setelah batas biaya');
     if (period.version === 2) {
@@ -210,7 +243,7 @@ export async function forwardCostMovements(
         if (
             materialIssues.length !== period.materialIssueIds.length ||
             scrapRecords.length !== period.scrapRecordIds.length ||
-            costPeriodHash({ materialIssues, scrapRecords }) !==
+            costPeriodSupportHash(materialIssues, scrapRecords, period.hashVersion) !==
                 period.supportHash
         )
             periodFailure('catatan bahan atau affal historis berubah');

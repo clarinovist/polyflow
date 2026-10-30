@@ -42,6 +42,7 @@ const PERIOD_STATUS_BY_YEAR_MONTH: Record<string, 'OPEN' | 'CLOSED'> = {
 
 vi.mock('@/lib/core/prisma', () => ({
     prisma: {
+        $queryRaw: vi.fn().mockResolvedValue([]),
         fiscalPeriod: {
             findUnique: vi.fn(
                 async ({
@@ -124,6 +125,8 @@ describe('createClosingJournalEntry — WIB month boundary', () => {
         await createClosingJournalEntry('period-juni', 'user-1');
 
         expect(getClosingBalances).toHaveBeenCalledTimes(1);
+        expect(vi.mocked(getClosingBalances).mock.calls[0][2]).toBe(prisma);
+        expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getClosingBalances).mock.invocationCallOrder[0]);
         const [start, end] = vi.mocked(getClosingBalances).mock.calls[0];
         const july1 = new Date('2026-07-01T00:00:00.000Z');
 

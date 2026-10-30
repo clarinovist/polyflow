@@ -10,9 +10,11 @@ export async function createClosingJournalEntry(
     periodId: string,
     userId: string,
     tx?: Prisma.TransactionClient,
-) {
-    const db = tx || prisma;
-
+): Promise<Awaited<ReturnType<typeof createJournalEntry>> | null> {
+    if (!tx) return prisma.$transaction(inner => createClosingJournalEntry(periodId, userId, inner));
+    const db = tx;
+    // Serialize closing before reading balances, not after computing them.
+    await db.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE id = ${periodId} FOR UPDATE`;
     const period = await db.fiscalPeriod.findUnique({
         where: { id: periodId },
     });
@@ -44,7 +46,7 @@ export async function createClosingJournalEntry(
         period.month,
     );
 
-    const balances = await getClosingBalances(periodStart, periodEnd);
+    const balances = await getClosingBalances(periodStart, periodEnd, db);
     if (balances.length === 0) return null;
 
     let totalNetIncome = 0;
@@ -109,8 +111,10 @@ export async function createYearEndClosingEntry(
     year: number,
     userId: string,
     tx?: Prisma.TransactionClient,
-) {
-    const db = tx || prisma;
+): Promise<Awaited<ReturnType<typeof createJournalEntry>>> {
+    if (!tx) return prisma.$transaction(inner => createYearEndClosingEntry(year, userId, inner));
+    const db = tx;
+    await db.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE year = ${year} ORDER BY id FOR UPDATE`;
     const reference = `YEAREND-${year}`;
 
     // 1. Re-close check

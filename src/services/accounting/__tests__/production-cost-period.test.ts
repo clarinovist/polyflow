@@ -19,6 +19,15 @@ describe('explicit forward-only production cost boundary',()=>{
         await expect(allocateProductionWip(f.tx,f.move('new-output','IN',70),d(70))).rejects.toThrow('tidak cukup');
         expect(costPeriodHash({m:f.ms,j:f.js})).toBe(before);
     });
+    it('reports a material shortage after sealing history with no new material, without using retained value',async()=>{
+        const f=setup(); f.ms.pop(); f.js.pop();
+        const before=costPeriodHash({m:f.ms,j:f.js,boundary:f.data});
+        await expect(allocateProductionWip(f.tx,f.move('next','IN',1),d(1))).rejects.toMatchObject({
+            code:'PRODUCTION_WIP_MATERIAL_SHORTAGE',
+            details:{reason:'debit bahan WO tidak cukup untuk nilai hasil kumulatif'},
+        });
+        expect(costPeriodHash({m:f.ms,j:f.js,boundary:f.data})).toBe(before);
+    });
     it('without explicit boundary still rejects NULL historic source',async()=>{
         const f=setup();f.db.auditLog.findUnique.mockResolvedValue(null);
         await expect(allocateProductionWip(f.tx,f.move('next','IN',1),d(1))).rejects.toThrow('jurnal sumber');
