@@ -56,6 +56,7 @@ const addedObjects = [
     'InvoicePriceAdjustment',
     'InvoicePriceAdjustmentStatus',
     'InvoiceDateCorrection',
+    'PurchasePriceCorrection',
     'ProductionOrderCustomer',
     'CustomerCreditNote',
     'CustomerCreditApplication',
@@ -101,6 +102,7 @@ const guards = [
     '20261023_return_credit_recovery',
     '20261023_internal_usage',
     '20261023_material_order_unit_snapshot',
+    '20261030_purchase_price_correction',
 ]
     .map(migration)
     .join('\n');
