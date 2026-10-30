@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Prisma } from '@prisma/client';
+import { createHash } from 'node:crypto';
+import { AuthorizationError, BusinessRuleError } from '@/lib/errors/errors';
 import { getPurchasePriceCorrectionContext, postPurchasePriceCorrection, previewPurchasePriceCorrection } from '../price-correction-service';
 import { calculatePoInvoiceTotalFromReceipts, createDraftBillFromPo } from '../invoices-service';
 import { requireOpenJournalPeriod } from '@/services/finance/sales-recognition-service';
@@ -12,6 +14,7 @@ const { tx, tenant } = vi.hoisted(() => {
         purchaseOrder: { findUnique: vi.fn(), update: vi.fn() },
         purchaseOrderItem: { update: vi.fn() },
         inventory: { findUnique: vi.fn(), update: vi.fn() },
+        location: { findMany: vi.fn() },
         fixedAsset: { count: vi.fn() },
         account: { count: vi.fn() },
         purchasePriceCorrection: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn() },
@@ -32,7 +35,7 @@ const d = (value: Prisma.Decimal.Value) => new Prisma.Decimal(value);
 function fixture() {
     const now = new Date('2026-10-30T03:00:00Z');
     const invoice = { id: 'bill', purchaseOrderId: 'po', invoiceDate: now, updatedAt: now, totalAmount: d(1000), paidAmount: d(0), status: 'UNPAID', notes: null as string | null };
-    const item = { id: 'item', productVariantId: 'variant', quantity: d(10), receivedQty: d(10), unitPrice: d(100), discountPercent: d(0), taxPercent: d(0), taxAmount: d(0), ppnMode: 'EXCLUDE', dppOtherAmount: null, productVariant: { name: 'Synthetic material', product: { productType: 'RAW_MATERIAL', inventoryAccountId: 'inventory-account' } } };
+    const item = { id: 'item', productVariantId: 'variant', quantity: d(10), receivedQty: d(10), unitPrice: d(100), discountPercent: d(0), taxPercent: d(0), taxAmount: d(0), ppnMode: 'EXCLUDE', dppOtherAmount: null, productVariant: { name: 'Synthetic material', skuCode: 'SYNTHETIC-MATERIAL', product: { productType: 'RAW_MATERIAL', inventoryAccountId: 'inventory-account' } } };
     const grItem = { id: 'gr-item', purchaseOrderItemId: 'item' as string | null, productVariantId: 'variant', receivedQty: d(10), unitCost: d(100) };
     const po = { id: 'po', updatedAt: now, status: 'RECEIVED', totalAmount: d(1000), taxAmount: d(0), shippingCost: null, invoices: [invoice], items: [item], goodsReceipts: [{ id: 'gr', locationId: 'location', isMaklon: false, items: [grItem] }] };
     const inventory = { id: 'stock', quantity: d(4), averageCost: d(100) };
@@ -57,6 +60,7 @@ beforeEach(() => {
     tx.$transaction.mockImplementation(async callback => callback(tx));
     tx.$queryRaw.mockResolvedValue([]);
     tx.fixedAsset.count.mockResolvedValue(0);
+    tx.location.findMany.mockResolvedValue([{ id: 'location', name: 'Gudang Sintetis' }]);
     tx.account.count.mockResolvedValue(3);
     tx.purchasePriceCorrection.findUnique.mockResolvedValue(null);
     tx.purchasePriceCorrection.findMany.mockResolvedValue([]);
@@ -71,11 +75,83 @@ beforeEach(() => {
 describe('purchase price correction service', () => {
     it('returns context/preview without writes', async () => {
         const context = await getPurchasePriceCorrectionContext('bill');
-        expect(context.items[0]).toMatchObject({ unitPrice: '100.0000', receivedQuantity: '10.0000' });
+        expect(context).toHaveProperty('eligible', true);
+        expect(context.items[0]).toMatchObject({ name: 'Synthetic material', skuCode: 'SYNTHETIC-MATERIAL', unitPrice: '100.0000', receivedQuantity: '10.0000' });
+        expect(context.items[0]).toHaveProperty('receipts', [expect.objectContaining({ locationId: 'location', locationName: 'Gudang Sintetis', skuCode: 'SYNTHETIC-MATERIAL' })]);
+        expect(context.items[0]).toHaveProperty('inventory', [expect.objectContaining({ locationId: 'location', locationName: 'Gudang Sintetis', skuCode: 'SYNTHETIC-MATERIAL' })]);
         const value = await previewPurchasePriceCorrection({ invoiceId: 'bill', purchaseOrderItemId: 'item', newUnitPrice: '120' });
         expect(value).toMatchObject({ receiptAmount: '200.00', inventoryAmount: '80.00', varianceAmount: '120.00', billTotalDelta: '200.00', billTaxDelta: '0.00' });
+        expect(value).toMatchObject({ name: 'Synthetic material', skuCode: 'SYNTHETIC-MATERIAL', locations: [expect.objectContaining({ locationName: 'Gudang Sintetis', skuCode: 'SYNTHETIC-MATERIAL' })] });
         expect(tx.purchaseOrder.update).not.toHaveBeenCalled();
         expect(tx.inventory.update).not.toHaveBeenCalled();
+    });
+    it.each(['paid', 'supplementary', 'maklon', 'asset', 'cancelled-po', 'ambiguous-receipt', 'bill-mismatch'])('keeps history for an ineligible %s context but rejects preview/post', async kind => {
+        const { invoice, po, grItem } = fixture();
+        const data = await input();
+        const codes: Record<string, string> = { paid: 'BILL_PROTECTED', supplementary: 'BILL_AMBIGUOUS', maklon: 'MAKLON', asset: 'FIXED_ASSET', 'cancelled-po': 'INVALID_SOURCE', 'ambiguous-receipt': 'RECEIPT_AMBIGUOUS', 'bill-mismatch': 'BILL_MISMATCH' };
+        if (kind === 'paid') { invoice.status = 'PAID'; invoice.paidAmount = d(1000); }
+        if (kind === 'supplementary') invoice.notes = 'Suplementer: sintetis';
+        if (kind === 'maklon') po.goodsReceipts[0].isMaklon = true;
+        if (kind === 'asset') tx.fixedAsset.count.mockResolvedValue(1);
+        if (kind === 'cancelled-po') po.status = 'CANCELLED';
+        if (kind === 'ambiguous-receipt') grItem.purchaseOrderItemId = 'missing-item';
+        if (kind === 'bill-mismatch') vi.mocked(calculatePoInvoiceTotalFromReceipts).mockResolvedValue(999);
+        const history = [{ id: 'prior-correction', purchaseOrderItemId: 'item', reason: 'Koreksi sintetis sebelumnya' }];
+        tx.purchasePriceCorrection.findMany.mockResolvedValue(history);
+        const context = await getPurchasePriceCorrectionContext('bill');
+        expect(context).toMatchObject({ eligible: false, invoiceId: 'bill', purchaseOrderId: 'po', reasonCode: `PURCHASE_PRICE_${codes[kind]}`, reasonMessage: expect.any(String), history });
+        expect(context.items[0]).toMatchObject({ purchaseOrderItemId: 'item', name: 'Synthetic material', skuCode: 'SYNTHETIC-MATERIAL' });
+        expect(context).not.toHaveProperty('sourceFingerprint');
+        expect(tx.purchasePriceCorrection.findMany).toHaveBeenCalledWith({ where: { invoiceId: 'bill' }, orderBy: { createdAt: 'desc' }, take: 100 });
+        await expect(previewPurchasePriceCorrection(data)).rejects.toMatchObject({ code: `PURCHASE_PRICE_${codes[kind]}`, message: context.eligible ? undefined : context.reasonMessage });
+        await expect(postPurchasePriceCorrection(data, 'actor')).rejects.toMatchObject({ code: `PURCHASE_PRICE_${codes[kind]}` });
+        expect(tx.purchaseOrderItem.update).not.toHaveBeenCalled();
+    });
+    it.each(['invoice', 'po'])('keeps missing %s as a failure rather than ineligibility', async kind => {
+        if (kind === 'invoice') tx.purchaseInvoice.findUnique.mockResolvedValue(null);
+        else tx.purchaseOrder.findUnique.mockResolvedValue(null);
+        await expect(getPurchasePriceCorrectionContext('bill')).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        expect(tx.purchasePriceCorrection.findMany).not.toHaveBeenCalled();
+    });
+    it.each([new Error('Unexpected read failure'), new AuthorizationError(), new BusinessRuleError('Unrelated business failure')])('propagates non-eligibility errors: %s', async error => {
+        tx.fixedAsset.count.mockRejectedValueOnce(error);
+        await expect(getPurchasePriceCorrectionContext('bill')).rejects.toBe(error);
+        expect(tx.purchasePriceCorrection.findMany).not.toHaveBeenCalled();
+    });
+    it('propagates history and display lookup failures', async () => {
+        const failure = new Error('Unexpected lookup failure');
+        tx.purchasePriceCorrection.findMany.mockRejectedValueOnce(failure);
+        await expect(getPurchasePriceCorrectionContext('bill')).rejects.toBe(failure);
+        tx.location.findMany.mockRejectedValueOnce(failure);
+        await expect(getPurchasePriceCorrectionContext('bill')).rejects.toBe(failure);
+    });
+    it('does not add labels to the fingerprint or persisted posting evidence', async () => {
+        const { item } = fixture();
+        const data = await input();
+        const before = await getPurchasePriceCorrectionContext('bill');
+        item.productVariant.name = 'Bahan Sintetis Baru';
+        item.productVariant.skuCode = 'SYNTHETIC-RENAMED';
+        tx.location.findMany.mockResolvedValue([{ id: 'location', name: 'Gudang Sintetis Baru' }]);
+        const after = await getPurchasePriceCorrectionContext('bill');
+        const updated = await previewPurchasePriceCorrection(data);
+        expect(before).toHaveProperty('sourceFingerprint', data.sourceFingerprint);
+        expect(after).toHaveProperty('sourceFingerprint', data.sourceFingerprint);
+        expect(updated.sourceFingerprint).toBe(data.sourceFingerprint);
+        expect(updated.locations[0]).toHaveProperty('locationName', 'Gudang Sintetis Baru');
+        const result = await postPurchasePriceCorrection(data, 'actor');
+        const sourceEvidence = result.sourceEvidence;
+        if (!sourceEvidence || typeof sourceEvidence !== 'object' || Array.isArray(sourceEvidence)) throw new Error('Expected source evidence object');
+        const { accounts: _accounts, oldNetUnitCost: _oldNet, newNetUnitCost: _newNet, ...evidence } = sourceEvidence;
+        expect(createHash('sha256').update(JSON.stringify(evidence)).digest('hex')).toBe(data.sourceFingerprint);
+        expect(JSON.stringify(result.sourceEvidence)).not.toMatch(/locationName|skuCode|Synthetic material|Bahan Sintetis/);
+        expect(JSON.stringify(result.locationAllocations)).not.toMatch(/locationName|skuCode/);
+    });
+    it('returns a null label for a missing location without changing the fingerprint', async () => {
+        const data = await input();
+        tx.location.findMany.mockResolvedValue([]);
+        const value = await previewPurchasePriceCorrection(data);
+        expect(value.locations[0]).toMatchObject({ locationId: 'location', locationName: null });
+        expect(value.sourceFingerprint).toBe(data.sourceFingerprint);
     });
     it('locks, revalidates, synchronizes, revalues, and audits in one transaction', async () => {
         const data = await input();

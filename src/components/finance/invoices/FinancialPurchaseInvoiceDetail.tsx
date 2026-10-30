@@ -6,6 +6,7 @@ import { PurchaseInvoiceStatus } from '@prisma/client';
 import { format } from 'date-fns';
 import { AlertCircle, CreditCard, History, Package } from 'lucide-react';
 import { isInvoiceOverdue } from '@/lib/purchasing/payment-terms';
+import { PurchasePriceCorrection } from './PurchasePriceCorrection';
 
 interface PurchaseOrderItemData {
     id: string;
@@ -87,8 +88,8 @@ export function FinancialPurchaseInvoiceDetail({
     const overdue = isInvoiceOverdue(invoice.dueDate, invoice.status);
 
     return (
-        <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="min-w-0 max-w-full space-y-6">
+            <div className="grid min-w-0 grid-cols-1 md:grid-cols-2 gap-6 [&>div]:min-w-0">
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -96,9 +97,9 @@ export function FinancialPurchaseInvoiceDetail({
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                <span className="text-2xl font-bold">
+                        <div className="flex flex-wrap justify-between items-center gap-2">
+                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <span className="min-w-0 text-2xl font-bold [overflow-wrap:anywhere]">
                                     {invoice.invoiceNumber}
                                 </span>
                                 {invoice.purchaseOrder.entrySource === 'WALK_IN_RECEIPT' && (
@@ -112,7 +113,7 @@ export function FinancialPurchaseInvoiceDetail({
                             </div>
                             {getStatusBadge(invoice.status)}
                         </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-2 gap-4 text-sm [&>div]:min-w-0 [&_p]:[overflow-wrap:anywhere]">
                             <div>
                                 <p className="text-muted-foreground">
                                     Invoice Date
@@ -234,7 +235,7 @@ export function FinancialPurchaseInvoiceDetail({
                 <CardContent>
                     {hasItems ? (
                         <div
-                            className="rounded-md border overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            className="max-w-full rounded-md border overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             role="region"
                             aria-label="Rincian invoice pembelian"
                             tabIndex={0}
@@ -346,6 +347,8 @@ export function FinancialPurchaseInvoiceDetail({
                 </CardContent>
             </Card>
 
+            <PurchasePriceCorrection invoiceId={invoice.id} />
+
             {invoice.payments && invoice.payments.length > 0 && (
                 <Card>
                     <CardHeader>
@@ -402,8 +405,9 @@ export function FinancialPurchaseInvoiceDetail({
             <div className="flex items-center gap-2 p-4 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg text-sm">
                 <AlertCircle className="h-4 w-4" />
                 <p>
-                    This is a read-only financial view. To manage receipts or
-                    edit items, switch to the Planning/Procurement module.
+                    Koreksi harga tersedia di kartu di atas sesuai akses dan syarat tagihan.
+                    Untuk mengelola penerimaan atau mengubah rincian barang lainnya,
+                    gunakan modul Planning/Procurement.
                 </p>
             </div>
         </div>

@@ -8,7 +8,7 @@ import { InventoryCoreService } from '@/services/inventory/core-service';
 import { clearAccountCache } from '@/services/accounting/account-resolver';
 import { returnTestClient, verifyReturnTestDatabase } from '../../finance/__tests__/return-credit-postgres-fixture';
 import { createGoodsReceipt, reverseGoodsReceipt } from '../receipts-service';
-import { postPurchasePriceCorrection, previewPurchasePriceCorrection } from '../price-correction-service';
+import { getPurchasePriceCorrectionContext, postPurchasePriceCorrection, previewPurchasePriceCorrection } from '../price-correction-service';
 import { calculatePurchaseOrderTotals } from '../orders-service';
 
 const url = process.env.RETURN_CREDIT_TEST_DATABASE_URL;
@@ -135,6 +135,30 @@ describe.skipIf(!db)('purchase price correction PostgreSQL contract', () => {
         const beforeReverse = await snapshot(db!);
         await expect(run(db!, () => reverseGoodsReceipt(receipt.id, actor))).rejects.toMatchObject({ code: 'PURCHASE_PRICE_CORRECTED' });
         expect(await snapshot(db!)).toBe(beforeReverse);
+    });
+
+    it('preserves named correction history after payment while keeping preview/post protected', async () => {
+        await receive(db!);
+        const data = await request(db!, '120');
+        const context = await run(db!, () => getPurchasePriceCorrectionContext(data.invoiceId));
+        expect(context.eligible).toBe(true);
+        expect(context.items[0]).toMatchObject({ name: 'Synthetic variant', skuCode: 'SYNTHETIC-PRICE',
+            receipts: [expect.objectContaining({ locationName: 'Gudang Sintetis' })],
+            inventory: [expect.objectContaining({ locationName: 'Gudang Sintetis' })],
+        });
+        await db!.location.update({ where: { id: locationId }, data: { name: 'Gudang Sintetis Baru' } });
+        const preview = await run(db!, () => previewPurchasePriceCorrection(data));
+        expect(preview.sourceFingerprint).toBe(data.sourceFingerprint);
+        expect(preview.locations[0]).toMatchObject({ locationName: 'Gudang Sintetis Baru', skuCode: 'SYNTHETIC-PRICE' });
+        const correction = await run(db!, () => postPurchasePriceCorrection(data, actor));
+        await db!.purchaseInvoice.update({ where: { id: data.invoiceId }, data: { status: 'PAID', paidAmount: '1332' } });
+        const before = await snapshot(db!);
+        const paid = await run(db!, () => getPurchasePriceCorrectionContext(data.invoiceId));
+        expect(paid).toMatchObject({ eligible: false, reasonCode: 'PURCHASE_PRICE_BILL_PROTECTED', history: [expect.objectContaining({ id: correction.id })] });
+        expect(paid.items[0]).toMatchObject({ name: 'Synthetic variant', skuCode: 'SYNTHETIC-PRICE' });
+        await expect(run(db!, () => previewPurchasePriceCorrection({ ...data, newUnitPrice: '130' }))).rejects.toMatchObject({ code: 'PURCHASE_PRICE_BILL_PROTECTED' });
+        await expect(run(db!, () => postPurchasePriceCorrection({ ...data, newUnitPrice: '130', idempotencyKey: randomUUID() }, actor))).rejects.toMatchObject({ code: 'PURCHASE_PRICE_BILL_PROTECTED' });
+        expect(await snapshot(db!)).toBe(before);
     });
 
     it('revalues multiple locations separately', async () => {

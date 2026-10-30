@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@prisma/client';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 const m = vi.hoisted(() => ({ read: vi.fn(), approve: vi.fn(), db: vi.fn(), user: vi.fn(), grants: vi.fn(), entitled: vi.fn(), context: vi.fn(), preview: vi.fn(), post: vi.fn(), refresh: vi.fn() }));
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
 vi.mock('@/lib/core/prisma', () => ({ getTenantDbFromContext: m.db }));
@@ -16,7 +18,7 @@ beforeEach(() => {
     m.user.mockResolvedValue({ isActive: true, role: 'FINANCE', roles: [] });
     m.grants.mockResolvedValue([{ resource: '/finance/invoices/purchase' }]);
     m.entitled.mockReturnValue(true);
-    m.context.mockResolvedValue({ invoiceId: 'bill', items: [], history: [] });
+    m.context.mockResolvedValue({ eligible: true, invoiceId: 'bill', items: [], history: [] });
     m.preview.mockResolvedValue({ receiptAmount: '20.00' });
     m.post.mockResolvedValue({ invoiceId: 'bill', purchaseOrderId: 'po' });
 });
@@ -27,6 +29,39 @@ describe('purchase price correction authorization', () => {
         expect((await previewFinancePurchasePriceCorrection({})).success).toBe(true);
         expect(m.read).toHaveBeenCalledTimes(2);
         expect(m.approve).not.toHaveBeenCalled();
+        expect(m.refresh).not.toHaveBeenCalled();
+    });
+    it('returns ineligible context and serialized history as a successful read', async () => {
+        const reasonMessage = 'Tagihan sudah dilindungi atau memiliki pembayaran. Koreksi harga tidak dapat dilanjutkan.';
+        m.context.mockResolvedValue({
+            eligible: false, invoiceId: 'bill', purchaseOrderId: 'po',
+            reasonCode: 'PURCHASE_PRICE_BILL_PROTECTED', reasonMessage,
+            items: [{ purchaseOrderItemId: 'item', name: 'Bahan Sintetis', skuCode: 'SYNTHETIC-MATERIAL' }],
+            history: [{ id: 'correction', oldUnitPrice: new Prisma.Decimal(100), postingDate: new Date('2026-10-30T00:00:00Z') }],
+        });
+        expect(await getFinancePurchasePriceCorrectionContext('bill')).toMatchObject({
+            success: true, data: { eligible: false, reasonCode: 'PURCHASE_PRICE_BILL_PROTECTED', reasonMessage,
+                history: [{ id: 'correction', oldUnitPrice: 100, postingDate: '2026-10-30T00:00:00.000Z' }],
+            },
+        });
+        expect(m.read).toHaveBeenCalledOnce();
+        expect(m.approve).not.toHaveBeenCalled();
+        expect(m.refresh).not.toHaveBeenCalled();
+    });
+    it.each([
+        [new NotFoundError('Tagihan pembelian'), 'NOT_FOUND'],
+        [new Error('Unexpected lookup failure'), 'INTERNAL_ERROR'],
+    ])('keeps context service failures as failures: %s', async (error, code) => {
+        m.context.mockRejectedValue(error);
+        expect(await getFinancePurchasePriceCorrectionContext('bill')).toMatchObject({ success: false, code });
+        expect(m.refresh).not.toHaveBeenCalled();
+    });
+    it('does not convert preview/post eligibility rejection into successful reads', async () => {
+        const error = new BusinessRuleError('Tagihan memiliki pembayaran.', undefined, 'PURCHASE_PRICE_BILL_PROTECTED');
+        m.preview.mockRejectedValue(error);
+        m.post.mockRejectedValue(error);
+        expect(await previewFinancePurchasePriceCorrection({})).toMatchObject({ success: false, code: error.code });
+        expect(await postFinancePurchasePriceCorrection({})).toMatchObject({ success: false, code: error.code });
         expect(m.refresh).not.toHaveBeenCalled();
     });
     it('uses approver and session actor, refreshing only success', async () => {

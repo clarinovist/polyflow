@@ -161,20 +161,76 @@ function preview(source: Source, purchaseOrderItemId: string, newUnitPrice: stri
     };
 }
 
+// Only these readSource eligibility refusals become read-only context. Other
+// business errors (including failures in dependencies) must still propagate.
+const contextIneligibilityCodes = new Set([
+    'PURCHASE_PRICE_BILL_AMBIGUOUS',
+    'PURCHASE_PRICE_BILL_PROTECTED',
+    'PURCHASE_PRICE_INVALID_SOURCE',
+    'PURCHASE_PRICE_MAKLON',
+    'PURCHASE_PRICE_FIXED_ASSET',
+    'PURCHASE_PRICE_RECEIPT_AMBIGUOUS',
+    'PURCHASE_PRICE_BILL_MISMATCH',
+]);
+
+async function readLocationNames(tx: Prisma.TransactionClient, source: Source) {
+    const locations = await tx.location.findMany({
+        where: { id: { in: [...new Set(source.receipts.map(row => row.locationId))] } },
+        select: { id: true, name: true },
+    });
+    return new Map(locations.map(location => [location.id, location.name]));
+}
+
 export async function getPurchasePriceCorrectionContext(invoiceId: string) {
     parseInput(z.string().min(1, 'Identitas tagihan wajib diisi.').max(100, 'Identitas tagihan terlalu panjang.'), invoiceId);
     return tenantDb().$transaction(async tx => {
-        const source = await readSource(tx, invoiceId);
+        let source: Source;
+        try {
+            source = await readSource(tx, invoiceId);
+        } catch (error) {
+            if (!(error instanceof BusinessRuleError) || !contextIneligibilityCodes.has(error.code)) throw error;
+            // Reload only display identity in the same snapshot; never bypass
+            // readSource or provide a usable fingerprint for preview/post.
+            const invoice = await tx.purchaseInvoice.findUnique({ where: { id: invoiceId } });
+            if (!invoice) throw new NotFoundError('Tagihan pembelian');
+            const po = await tx.purchaseOrder.findUnique({
+                where: { id: invoice.purchaseOrderId },
+                select: {
+                    id: true,
+                    items: { orderBy: { id: 'asc' }, select: {
+                        id: true, productVariantId: true,
+                        productVariant: { select: { name: true, skuCode: true } },
+                    } },
+                },
+            });
+            if (!po) throw new NotFoundError('Pesanan pembelian');
+            const history = await tx.purchasePriceCorrection.findMany({ where: { invoiceId }, orderBy: { createdAt: 'desc' }, take: 100 });
+            return {
+                eligible: false as const, reasonCode: error.code, reasonMessage: error.message,
+                invoiceId, purchaseOrderId: po.id, billTotal: invoice.totalAmount.toFixed(2),
+                items: po.items.map(item => ({
+                    purchaseOrderItemId: item.id, productVariantId: item.productVariantId,
+                    name: item.productVariant.name, skuCode: item.productVariant.skuCode,
+                })),
+                history,
+            };
+        }
         const history = await tx.purchasePriceCorrection.findMany({ where: { invoiceId }, orderBy: { createdAt: 'desc' }, take: 100 });
+        const locationNames = await readLocationNames(tx, source);
         return {
+            eligible: true as const,
             invoiceId, purchaseOrderId: source.po.id, sourceFingerprint: source.fingerprint,
             billTotal: source.invoice.totalAmount.toFixed(2),
             items: source.po.items.map(item => ({
                 purchaseOrderItemId: item.id, productVariantId: item.productVariantId,
-                name: item.productVariant.name, unitPrice: item.unitPrice.toFixed(4),
+                name: item.productVariant.name, skuCode: item.productVariant.skuCode, unitPrice: item.unitPrice.toFixed(4),
                 receivedQuantity: source.receipts.filter(row => row.purchaseOrderItemId === item.id).reduce((sum, row) => sum.plus(row.quantity), new Prisma.Decimal(0)).toFixed(4),
-                receipts: source.receipts.filter(row => row.purchaseOrderItemId === item.id),
-                inventory: source.inventory.filter(row => row.productVariantId === item.productVariantId),
+                receipts: source.receipts.filter(row => row.purchaseOrderItemId === item.id).map(row => ({
+                    ...row, locationName: locationNames.get(row.locationId) ?? null, skuCode: item.productVariant.skuCode,
+                })),
+                inventory: source.inventory.filter(row => row.productVariantId === item.productVariantId).map(row => ({
+                    ...row, locationName: locationNames.get(row.locationId) ?? null, skuCode: item.productVariant.skuCode,
+                })),
             })),
             history,
         };
@@ -186,7 +242,19 @@ export async function previewPurchasePriceCorrection(input: unknown) {
     return tenantDb().$transaction(async tx => {
         const source = await readSource(tx, data.invoiceId);
         await requireOpenJournalPeriod(tx, normalizeToBusinessDay(new Date()));
-        return preview(source, data.purchaseOrderItemId, data.newUnitPrice).public;
+        const calculated = preview(source, data.purchaseOrderItemId, data.newUnitPrice);
+        const locationNames = await readLocationNames(tx, source);
+        // Display labels intentionally stay outside source evidence/fingerprint
+        // and the shared calculation used by posting.
+        return {
+            ...calculated.public,
+            name: calculated.item.productVariant.name,
+            skuCode: calculated.item.productVariant.skuCode,
+            locations: calculated.public.locations.map(row => ({
+                ...row, locationName: locationNames.get(row.locationId) ?? null,
+                skuCode: calculated.item.productVariant.skuCode,
+            })),
+        };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 }
 
