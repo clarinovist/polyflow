@@ -49,6 +49,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/purchasing/__tests__/gr-reversal-consumed-guard-postgres.test.ts \
   src/services/purchasing/__tests__/purchase-price-correction-postgres.test.ts \
   src/lib/ops/__tests__/stock-ledger-rounding-alignment-postgres.test.ts \
+  src/lib/ops/__tests__/stock-ledger-material-alignment-postgres.test.ts \
   src/services/finance/__tests__/cogs-economic-diagnosis-postgres.test.ts \
   src/services/finance/__tests__/inventory-economic-diagnosis-postgres.test.ts \
   src/lib/bot/__tests__/help-guides-postgres.test.ts \

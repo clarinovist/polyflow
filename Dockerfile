@@ -61,6 +61,8 @@ RUN ./node_modules/.bin/esbuild scripts/close-stale-shells.ts --bundle --platfor
 RUN node /app/ops-dist/scripts/close-stale-shells.js --help
 RUN ./node_modules/.bin/esbuild scripts/align-stock-ledger-rounding.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/align-stock-ledger-rounding.js
 RUN node /app/ops-dist/scripts/align-stock-ledger-rounding.js --help
+RUN ./node_modules/.bin/esbuild scripts/align-stock-ledger-material.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/align-stock-ledger-material.js
+RUN node /app/ops-dist/scripts/align-stock-ledger-material.js --help
 RUN ./node_modules/.bin/esbuild scripts/backfill-order-end-dates.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/backfill-order-end-dates.js
 RUN node /app/ops-dist/scripts/backfill-order-end-dates.js --help
 
@@ -115,6 +117,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/start-production-cost-period.js \
   /app/ops-dist/scripts/close-stale-shells.js \
   /app/ops-dist/scripts/align-stock-ledger-rounding.js \
+  /app/ops-dist/scripts/align-stock-ledger-material.js \
   /app/ops-dist/scripts/backfill-order-end-dates.js \
   /app/ops-dist/scripts/attribute-operational-opening.js \
   /app/scripts/audit-duplicate-production-voids.js \
@@ -161,6 +164,7 @@ USER nextjs
 RUN node scripts/start-production-cost-period.js --help
 RUN node scripts/close-stale-shells.js --help
 RUN node scripts/align-stock-ledger-rounding.js --help
+RUN node scripts/align-stock-ledger-material.js --help
 RUN node scripts/backfill-order-end-dates.js --help
 
 EXPOSE 3000
