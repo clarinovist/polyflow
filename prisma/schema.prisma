@@ -58,6 +58,7 @@ model User {
   salesReturns                   SalesReturn[]                    @relation("SalesReturnCreator")
   invoicePriceAdjustments        InvoicePriceAdjustment[] @relation("PriceAdjustmentActor")
   reversedPriceAdjustments       InvoicePriceAdjustment[] @relation("PriceAdjustmentReverser")
+  purchasePriceCorrections       PurchasePriceCorrection[]
   approvedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditApprovedBy")
   returnCredits                  SalesReturnCredit[]
   reversedReturnCredits          SalesReturnCredit[] @relation("ReturnCreditReversedBy")
@@ -1792,6 +1793,7 @@ model PurchaseOrder {
   items                  PurchaseOrderItem[]
   purchaseRequests       PurchaseRequest[]                @relation("PrToPo")
   purchaseReturns        PurchaseReturn[]
+  priceCorrections       PurchasePriceCorrection[]
 }
 
 model PurchaseOrderItem {
@@ -1810,6 +1812,7 @@ model PurchaseOrderItem {
   productVariant    ProductVariant     @relation(fields: [productVariantId], references: [id])
   purchaseOrder     PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   goodsReceiptItems GoodsReceiptItem[]
+  priceCorrections  PurchasePriceCorrection[]
 }
 
 model GoodsReceipt {
@@ -1866,7 +1869,44 @@ model PurchaseInvoice {
   purchasePayments  PurchasePayment[]
   remittanceItems   PurchaseRemittanceItem[]
 
+  priceCorrections  PurchasePriceCorrection[]
+
   @@index([purchaseOrderId, status, dueDate, invoiceDate, id], map: "PurchaseInvoice_barter_selector_idx")
+}
+
+model PurchasePriceCorrection {
+  id                  String   @id @default(uuid())
+  purchaseOrderId     String
+  purchaseOrderItemId String
+  invoiceId           String
+  oldUnitPrice        Decimal  @db.Decimal(15, 4)
+  newUnitPrice        Decimal  @db.Decimal(15, 4)
+  receiptAmount       Decimal  @db.Decimal(15, 2)
+  inventoryAmount     Decimal  @db.Decimal(15, 2)
+  varianceAmount      Decimal  @db.Decimal(15, 2)
+  billTotalDelta      Decimal  @db.Decimal(15, 2)
+  billNetDelta        Decimal  @db.Decimal(15, 2)
+  billTaxDelta        Decimal  @db.Decimal(15, 2)
+  locationAllocations Json
+  sourceEvidence      Json
+  sourceFingerprint   String
+  journalId           String   @unique
+  postingDate         DateTime
+  reason              String
+  idempotencyKey      String   @unique
+  requestSignature    String
+  createdById         String
+  createdAt           DateTime @default(now())
+  purchaseOrder       PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  purchaseOrderItem   PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  invoice             PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  journal             JournalEntry @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  createdBy           User @relation(fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId, createdAt])
+  @@index([purchaseOrderItemId])
+  @@index([invoiceId, postingDate])
+  @@index([createdById])
 }
 
 model PurchasePayment {
@@ -2063,6 +2103,7 @@ model JournalEntry {
   priceAdjustmentSources    InvoicePriceAdjustment[] @relation("PriceAdjustmentSource")
   priceAdjustmentJournal    InvoicePriceAdjustment? @relation("PriceAdjustmentJournal")
   priceAdjustmentReversal   InvoicePriceAdjustment? @relation("PriceAdjustmentReversal")
+  purchasePriceCorrection   PurchasePriceCorrection?
   manualReturnAllocations    SalesReturnCreditAllocation[] @relation("ManualReturnSourceJournal")
   returnBasisLines           InvoiceReturnBasisLine[]
   returnCredit              SalesReturnCredit?

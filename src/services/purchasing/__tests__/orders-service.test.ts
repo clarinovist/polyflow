@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     createOrder,
+    calculatePurchaseOrderTotals,
     updateOrder,
     updateOrderStatus,
     deleteOrder,
@@ -45,6 +46,30 @@ vi.mock('@/lib/tools/audit', () => ({
 describe('OrdersService (Purchasing)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    describe('shared PO totals', () => {
+        it('keeps mixed PPN modes, discounts, shipping, and item fields unchanged', async () => {
+            const items = [
+                { productVariantId: 'synthetic-a', quantity: 2, unitPrice: 100, discountPercent: 10, taxPercent: 11, ppnMode: 'EXCLUDE' as const, dppOtherAmount: 0 },
+                { productVariantId: 'synthetic-b', quantity: 1, unitPrice: 111, discountPercent: 0, taxPercent: 11, ppnMode: 'INCLUDE' as const, dppOtherAmount: null },
+            ];
+            const totals = calculatePurchaseOrderTotals(items, 20);
+            expect(totals).toMatchObject({ finalTotal: 330.8, totalDiscount: 20, totalTax: 30.8, shippingCost: 20 });
+            expect(totals.itemsWithTotals[0]).toMatchObject({ subtotal: 199.8, taxAmount: 19.8, dppOtherAmount: null });
+            expect(totals.itemsWithTotals[1]).toMatchObject({ subtotal: 111, taxAmount: 11 });
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({ status: 'DRAFT', items: [], invoices: [] } as never);
+            await updateOrder({ id: 'synthetic-po', supplierId: 'synthetic-supplier', orderDate: new Date(), items, shippingCost: 20, deliveryAddress: '', notes: 'Sintetis' });
+            expect(prisma.purchaseOrder.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ totalAmount: totals.finalTotal, taxAmount: totals.totalTax, discountAmount: totals.totalDiscount, items: { create: totals.itemsWithTotals.map(item => ({ ...item, receivedQty: 0 })) } }) }));
+        });
+        it('preserves the existing prohibition on price edits when a bill exists', async () => {
+            vi.mocked(prisma.purchaseOrder.findUnique).mockResolvedValue({ status: 'SENT', items: [{ id: 'synthetic-item', quantity: 10, receivedQty: 0, unitPrice: 100 }], invoices: [{ id: 'bill' }] } as never);
+            await expect(updateOrder({ id: 'synthetic-po', supplierId: 'synthetic-supplier', orderDate: new Date(), deliveryAddress: '', notes: 'Sintetis', shippingCost: 0, items: [{ id: 'synthetic-item', productVariantId: 'synthetic-a', quantity: 10, unitPrice: 120, discountPercent: 0, taxPercent: 0, dppOtherAmount: null, ppnMode: 'EXCLUDE' }] })).rejects.toThrow(/invoices already exist/);
+            expect(prisma.purchaseOrder.update).not.toHaveBeenCalled();
+        });
+        it('preserves zero/default totals', () => {
+            expect(calculatePurchaseOrderTotals([], null)).toEqual({ itemsWithTotals: [], finalTotal: 0, totalTax: 0, totalDiscount: 0, shippingCost: 0 });
+        });
     });
 
     describe('createOrder', () => {

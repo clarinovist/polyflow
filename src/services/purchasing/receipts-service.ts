@@ -652,6 +652,17 @@ export async function reverseGoodsReceipt(
             );
         }
 
+        if (gr.purchaseOrderId && await db.purchasePriceCorrection.findFirst({
+            where: { purchaseOrderId: gr.purchaseOrderId },
+            select: { id: true },
+        })) {
+            throw new BusinessRuleError(
+                'Penerimaan tidak dapat dibatalkan karena PO sudah memiliki koreksi harga. Minta Finance membuat koreksi harga baru bila diperlukan.',
+                { purchaseOrderId: gr.purchaseOrderId },
+                'PURCHASE_PRICE_CORRECTED',
+            );
+        }
+
         // 0. Reverse FIXED_ASSET path: delete FixedAsset cards + journal for this GR
         const linkedAssets = await db.fixedAsset.findMany({
             where: { goodsReceiptId },

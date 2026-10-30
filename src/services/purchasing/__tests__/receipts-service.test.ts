@@ -65,6 +65,7 @@ const { mockPrisma } = vi.hoisted(() => ({
         product: { productType: "RAW_MATERIAL", inventoryAccountId: "acc-inv" },
       }),
     },
+    purchasePriceCorrection: { findFirst: vi.fn().mockResolvedValue(null) },
     fixedAsset: {
       create: vi.fn(),
       findMany: vi.fn().mockResolvedValue([]),
@@ -99,6 +100,7 @@ vi.mock("@/services/accounting/account-resolver", () => ({
 // These unit fixtures have no prior GR rows; mirror the nested rows just created.
 function withReceiptAggregate(tx: any) {
   tx.$queryRaw ??= vi.fn().mockResolvedValue([]);
+  tx.purchasePriceCorrection ??= { findFirst: vi.fn().mockResolvedValue(null) };
   if (!tx.goodsReceipt?.create) return tx;
   return {
     ...tx,
@@ -167,6 +169,7 @@ describe("receipts-service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.$queryRaw.mockResolvedValue([]);
+    mockPrisma.purchasePriceCorrection.findFirst.mockResolvedValue(null);
     mockPrisma.goodsReceipt.findMany.mockResolvedValue([]);
     // Reset implementations explicitly so scoped tests do not depend on order.
     mockPrisma.$transaction.mockImplementation((callback) => callback(withReceiptAggregate(mockPrisma)));
@@ -2081,6 +2084,7 @@ describe("receipts-service", () => {
             productVariant: { findUnique: vi.fn().mockResolvedValue({ skuCode: 'SYNTHETIC-SKU' }) },
             location: { findUnique: vi.fn().mockResolvedValue({ name: 'Gudang Sintetis' }) },
             fixedAsset: { findMany: vi.fn().mockResolvedValue([]) },
+            purchasePriceCorrection: { findFirst: vi.fn().mockResolvedValue(null) },
             goodsReceipt: { findUnique: vi.fn().mockResolvedValue(gr), delete: vi.fn() },
             goodsReceiptItem: { deleteMany: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
             stockMovement: { delete: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
@@ -2114,6 +2118,17 @@ describe("receipts-service", () => {
         vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) => cb(tx));
         return { tx, balance: () => balance };
     }
+
+    it('rejects corrected PO before any asset, stock, or journal mutation', async () => {
+        const { tx } = reversalFixture('12.3456');
+        tx.purchasePriceCorrection.findFirst.mockResolvedValue({ id: 'correction' });
+        await expect(reverseGoodsReceipt(grId, userId)).rejects.toMatchObject({ code: 'PURCHASE_PRICE_CORRECTED' });
+        expect(tx.fixedAsset.findMany).not.toHaveBeenCalled();
+        expect(tx.inventory.updateMany).not.toHaveBeenCalled();
+        expect(tx.journalLine.deleteMany).not.toHaveBeenCalled();
+        expect(tx.stockMovement.delete).not.toHaveBeenCalled();
+        expect(tx.goodsReceipt.delete).not.toHaveBeenCalled();
+    });
 
     it.each(['12.3456', '20'])('decrements the exact Decimal quantity with %s available before deleting evidence', async (available) => {
         const { tx, balance } = reversalFixture(available);

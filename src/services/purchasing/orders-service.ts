@@ -97,6 +97,38 @@ export async function createOrder(
     });
 }
 
+export function calculatePurchaseOrderTotals(
+    items: UpdatePurchaseOrderValues['items'],
+    shipping?: number | null,
+) {
+    let totalAmount = 0;
+    let totalDiscount = 0;
+    let totalTax = 0;
+    const itemsWithTotals = items.map((item) => {
+        const rawSubtotal = item.quantity * item.unitPrice;
+        const discountAmount = rawSubtotal * ((item.discountPercent || 0) / 100);
+        const subtotalAfterDiscount = rawSubtotal - discountAmount;
+        const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
+        const ppnResult = calculatePpn(subtotalAfterDiscount, item.taxPercent || 0, ppnMode);
+        totalDiscount += discountAmount;
+        totalTax += ppnResult.taxAmount;
+        totalAmount += ppnResult.total;
+        return {
+            productVariantId: item.productVariantId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercent: item.discountPercent || 0,
+            taxPercent: item.taxPercent || 0,
+            taxAmount: ppnResult.taxAmount,
+            subtotal: ppnResult.total,
+            dppOtherAmount: item.dppOtherAmount || null,
+            ppnMode,
+        };
+    });
+    const shippingCost = shipping || 0;
+    return { itemsWithTotals, totalDiscount, totalTax, shippingCost, finalTotal: totalAmount + shippingCost };
+}
+
 export async function updateOrder(data: UpdatePurchaseOrderValues) {
     return (getTenantDbFromContext() ?? prisma).$transaction(
         async (tx) => {
@@ -194,41 +226,8 @@ export async function updateOrder(data: UpdatePurchaseOrderValues) {
             }
 
             // === CALCULATE TOTALS ===
-            let totalAmount = 0;
-            let totalDiscount = 0;
-            let totalTax = 0;
-
-            const itemsWithTotals = data.items.map((item) => {
-                const rawSubtotal = item.quantity * item.unitPrice;
-                const discountAmount =
-                    rawSubtotal * ((item.discountPercent || 0) / 100);
-                const subtotalAfterDiscount = rawSubtotal - discountAmount;
-                const ppnMode = (item.ppnMode || 'EXCLUDE') as PpnMode;
-                const ppnResult = calculatePpn(
-                    subtotalAfterDiscount,
-                    item.taxPercent || 0,
-                    ppnMode,
-                );
-
-                totalDiscount += discountAmount;
-                totalTax += ppnResult.taxAmount;
-                totalAmount += ppnResult.total;
-
-                return {
-                    productVariantId: item.productVariantId,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    discountPercent: item.discountPercent || 0,
-                    taxPercent: item.taxPercent || 0,
-                    taxAmount: ppnResult.taxAmount,
-                    subtotal: ppnResult.total,
-                    dppOtherAmount: item.dppOtherAmount || null,
-                    ppnMode: ppnMode,
-                };
-            });
-
-            const shippingCost = data.shippingCost || 0;
-            const finalTotal = totalAmount + shippingCost;
+            const { itemsWithTotals, totalDiscount, totalTax, shippingCost, finalTotal } =
+                calculatePurchaseOrderTotals(data.items, data.shippingCost);
 
             // === APPLY CHANGES ===
             // For received items: preserve their receivedQty by updating in-place
