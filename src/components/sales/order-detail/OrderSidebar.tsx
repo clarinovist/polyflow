@@ -90,7 +90,9 @@ export function OrderSidebar({
                             </ul>
                         ) : (
                             <p className="text-sm text-muted-foreground">
-                                {salesLabels.emptyInvoices}
+                                {order.orderType === 'MAKLON_JASA'
+                                    ? salesLabels.emptyInvoicesMaklon
+                                    : salesLabels.emptyInvoices}
                             </p>
                         )}
                     </CardContent>

@@ -45,6 +45,8 @@ export const salesLabels = {
         'Belum ada surat jalan. Buat Surat Jalan dari detail Sales Order yang telah dikonfirmasi.',
     emptyInvoices:
         'Belum ada invoice penjualan. Invoice dapat dibuat setelah pesanan dikirim ke customer.',
+    emptyInvoicesMaklon:
+        'Belum ada invoice. Draf invoice dibuat otomatis saat order ditutup lewat "Tutup Order Jasa".',
     emptyReturns:
         'Belum ada retur penjualan. Retur dibuat untuk mencatat pengembalian barang dari customer.',
     allReturns: 'Semua Retur',

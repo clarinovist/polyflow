@@ -25,6 +25,11 @@ const orderSteps: Step[] = [
     { key: 'DELIVERED', label: 'Selesai' },
 ];
 
+// Maklon jasa is closed, not shipped (no Surat Jalan).
+const maklonOrderSteps: Step[] = orderSteps.map((step) =>
+    step.key === 'SHIPPED' ? { ...step, label: 'Jasa Ditutup' } : step,
+);
+
 function getProgress(order: SerializedSalesOrder) {
     if (order.status.startsWith('QUOTATION')) {
         const index =
@@ -51,7 +56,8 @@ function getProgress(order: SerializedSalesOrder) {
         DELIVERED: 4,
     };
     return {
-        steps: orderSteps,
+        steps:
+            order.orderType === 'MAKLON_JASA' ? maklonOrderSteps : orderSteps,
         activeIndex: indexByStatus[order.status] ?? -1,
         terminal: order.status === 'CANCELLED',
     };

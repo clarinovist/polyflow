@@ -19,7 +19,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import {
-    getStatusLabel,
+    getSalesStatusLabel,
     salesLabels,
     formLabels,
     actionLabels,
@@ -159,8 +159,13 @@ export function SalesOrderDetailClient({
     const primaryOpenDo =
         openDeliveryOrders.length === 1 ? openDeliveryOrders[0] : null;
 
+    // Maklon jasa has no Surat Jalan: once production is done, closing the
+    // service is the main next step, so it gets its own button.
+    const showMaklonClose =
+        !warehouseMode && isMaklonOrder && order.status === 'READY_TO_SHIP';
     const showQuickShip =
         !warehouseMode &&
+        !showMaklonClose &&
         (order.status === 'CONFIRMED' ||
             order.status === 'READY_TO_SHIP' ||
             (order.status === 'IN_PRODUCTION' && !!primaryOpenDo));
@@ -193,7 +198,7 @@ export function SalesOrderDetailClient({
                 return 'Pantau pemenuhan produksi sebelum melanjutkan pengiriman.';
             case 'READY_TO_SHIP':
                 return isMaklonOrder
-                    ? 'Selesaikan alur jasa melalui tindakan lanjutan.'
+                    ? 'Klik "Tutup Order Jasa" untuk menutup order dan membuat draf invoice. Order jasa tidak memakai Surat Jalan.'
                     : 'Buat atau buka Surat Jalan untuk proses gudang.';
             case 'SHIPPED':
                 return 'Pantau pengiriman, lalu tandai diterima saat serah-terima selesai.';
@@ -371,7 +376,7 @@ export function SalesOrderDetailClient({
                 variant="secondary"
                 className={styles[status] || styles.DRAFT}
             >
-                {getStatusLabel(status, 'sales')}
+                {getSalesStatusLabel(status, order.orderType)}
             </Badge>
         );
     };
@@ -790,6 +795,16 @@ export function SalesOrderDetailClient({
                             {isMaklonOrder
                                 ? 'Produksi Selesai / Siap Tutup Jasa'
                                 : 'Produksi Selesai'}
+                        </Button>
+                    )}
+
+                    {showMaklonClose && (
+                        <Button
+                            onClick={() => setIsShipDialogOpen(true)}
+                            disabled={isLoading}
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                            <Truck className="mr-2 h-4 w-4" /> Tutup Order Jasa
                         </Button>
                     )}
 

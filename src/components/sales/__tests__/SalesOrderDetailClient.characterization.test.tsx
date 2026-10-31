@@ -348,13 +348,26 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         }
     });
 
-    it('keeps maklon closure in the advanced menu without offering physical delivery creation', async () => {
+    it('makes maklon closure the primary action once production is done, without physical delivery creation', async () => {
         renderOrder({ status: 'READY_TO_SHIP', orderType: 'MAKLON_JASA' });
         expect(screen.queryByRole('button', { name: 'Buat Surat Jalan' })).toBeNull();
+        expect(screen.getAllByText('Siap penutupan jasa').length).toBeGreaterThan(0);
+        expect(screen.queryByText('Siap Kirim')).toBeNull();
+        expect(screen.getByText('Jasa Ditutup')).toBeTruthy();
+        expect(screen.getByText(/Draf invoice dibuat otomatis/)).toBeTruthy();
         const menu = await openMoreActions();
-        fireEvent.click(within(menu).getByRole('menuitem', { name: 'Tutup Order Jasa' }));
+        expect(within(menu).queryByRole('menuitem', { name: 'Tutup Order Jasa' })).toBeNull();
+        fireEvent.keyDown(menu, { key: 'Escape' });
+        fireEvent.click(screen.getByRole('button', { name: 'Tutup Order Jasa' }));
         const dialog = await screen.findByRole('dialog', { name: 'Synthetic shipment' });
         expect(dialog.getAttribute('data-default-invoice-date')).toBe('2026-09-14');
+    });
+
+    it('keeps early maklon closure in the advanced menu before production is done', async () => {
+        renderOrder({ status: 'CONFIRMED', orderType: 'MAKLON_JASA' });
+        expect(screen.queryByRole('button', { name: 'Tutup Order Jasa' })).toBeNull();
+        const menu = await openMoreActions();
+        expect(within(menu).getByRole('menuitem', { name: 'Tutup Order Jasa' })).toBeTruthy();
     });
 
     it('keeps shipping guidance and warehouse navigation visible while details live in info', async () => {

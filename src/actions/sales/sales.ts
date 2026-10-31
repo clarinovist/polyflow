@@ -18,7 +18,12 @@ import {
     reopenQuotation,
     updateFollowUpDate,
 } from '@/services/sales/quotation-service';
-import { Prisma, SalesLostReason, SalesOrderStatus } from '@prisma/client';
+import {
+    Prisma,
+    ProductType,
+    SalesLostReason,
+    SalesOrderStatus,
+} from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import {
@@ -218,7 +223,15 @@ export const checkSalesOrderFulfillment = withTenant(
             const order = await prisma.salesOrder.findUnique({
                 where: { id },
                 include: {
-                    items: true,
+                    items: {
+                        include: {
+                            productVariant: {
+                                select: {
+                                    product: { select: { productType: true } },
+                                },
+                            },
+                        },
+                    },
                     productionOrders: {
                         select: {
                             status: true,
@@ -231,7 +244,13 @@ export const checkSalesOrderFulfillment = withTenant(
 
             if (!order) throw new NotFoundError('Sales Order', id);
 
-            const productVariantIds = order.items.map(
+            // Service lines (maklon jasa) never hold stock, so they cannot be short.
+            const stockItems = order.items.filter(
+                (item) =>
+                    item.productVariant.product.productType !==
+                    ProductType.SERVICE,
+            );
+            const productVariantIds = stockItems.map(
                 (item) => item.productVariantId,
             );
             const sourceLocationId = order.sourceLocationId || '';
@@ -268,7 +287,7 @@ export const checkSalesOrderFulfillment = withTenant(
             );
 
             const shortages = [];
-            for (const item of order.items) {
+            for (const item of stockItems) {
                 const reservedQuantity =
                     reservationMap.get(item.productVariantId) || 0;
                 const rawAvailable = stockMap.get(item.productVariantId) || 0;

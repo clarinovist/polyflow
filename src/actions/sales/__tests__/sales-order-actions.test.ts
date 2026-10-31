@@ -447,11 +447,17 @@ describe('sales order actions', () => {
     });
 
     describe('checkSalesOrderFulfillment', () => {
-        function stockFor(quantity: number) {
+        function stockFor(quantity: number, productType = 'FINISHED_GOOD') {
             vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue({
                 id: 'so-1',
                 sourceLocationId: 'loc-1',
-                items: [{ productVariantId: 'pv-1', quantity: 10 }],
+                items: [
+                    {
+                        productVariantId: 'pv-1',
+                        quantity: 10,
+                        productVariant: { product: { productType } },
+                    },
+                ],
                 productionOrders: [],
             } as never);
             vi.mocked(prisma.inventory.findMany).mockResolvedValue([
@@ -534,6 +540,21 @@ describe('sales order actions', () => {
             // Assert
             expect(dataOf(res).canFulfill).toBe(false);
             expect(dataOf(res).shortages[0].available).toBe(0);
+        });
+
+        it('never reports a service line as short of stock', async () => {
+            // Arrange — maklon jasa line with no inventory row at all
+            stockFor(0, 'SERVICE');
+            vi.mocked(prisma.inventory.findMany).mockResolvedValue([] as never);
+            vi.mocked(prisma.stockReservation.groupBy).mockResolvedValue(
+                [] as never,
+            );
+
+            // Act
+            const res = await checkSalesOrderFulfillment('so-1');
+
+            // Assert
+            expect(dataOf(res)).toEqual({ canFulfill: true, shortages: [] });
         });
 
         it('fails when the order does not exist', async () => {
