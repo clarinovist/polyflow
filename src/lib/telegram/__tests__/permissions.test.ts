@@ -136,6 +136,63 @@ describe('resolveAllowedResourcesForTenant', () => {
     expect(result).toBe('ALL');
   });
 
+  it('returns ALL for a tenant ADMIN by primary role (matches app route guard)', async () => {
+    const tenantDb = makeTenantDb({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          role: 'ADMIN',
+          isSuperAdmin: false,
+          isActive: true,
+        }),
+      },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
+    expect(result).toBe('ALL');
+    // ADMIN has no RolePermission rows; it must not depend on them.
+    expect(tenantDb.rolePermission.findMany).not.toHaveBeenCalled();
+  });
+
+  it('returns ALL for a user holding ADMIN as a secondary UserRole', async () => {
+    const tenantDb = makeTenantDb({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          role: 'SALES',
+          isSuperAdmin: false,
+          isActive: true,
+        }),
+      },
+      userRole: { findMany: vi.fn().mockResolvedValue([{ role: 'ADMIN' }]) },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
+    expect(result).toBe('ALL');
+  });
+
+  it('returns empty array for an inactive user, even an ADMIN', async () => {
+    const tenantDb = makeTenantDb({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          role: 'ADMIN',
+          isSuperAdmin: true,
+          isActive: false,
+        }),
+      },
+    });
+
+    const result = await resolveAllowedResourcesForTenant(
+      tenantDb as never,
+      'user-1',
+    );
+    expect(result).toEqual([]);
+  });
+
   it('returns empty array on tenantDb error', async () => {
     const tenantDb = makeTenantDb({
       user: { findUnique: vi.fn().mockRejectedValue(new Error('DB down')) },

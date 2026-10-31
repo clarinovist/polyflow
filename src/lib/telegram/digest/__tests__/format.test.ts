@@ -136,6 +136,25 @@ describe('toDigestFindings', () => {
     expect(toDigestFindings(results)).toHaveLength(0);
   });
 
+  it('skips detectors with status skipped (module not entitled) entirely', () => {
+    const results: DetectionResult[] = [
+      makeResult({
+        status: 'skipped',
+        items: [
+          {
+            entityKey: 'critical_stock:v-1',
+            entityType: 'ProductVariant',
+            entityId: 'v-1',
+            severity: 'warning',
+            headline: 'should never surface',
+          },
+        ],
+      }),
+    ];
+
+    expect(toDigestFindings(results)).toHaveLength(0);
+  });
+
   it('caps at maxItems and appends a summary row without overwriting real headlines', () => {
     const items = Array.from({ length: 7 }, (_, i) => ({
       entityKey: `critical_stock:p-${i}`,

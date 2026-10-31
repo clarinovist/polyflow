@@ -15,10 +15,10 @@ export async function resolveAllowedResourcesForTenant(
     try {
         const user = await tenantDb.user.findUnique({
             where: { id: userId },
-            select: { role: true, isSuperAdmin: true },
+            select: { role: true, isSuperAdmin: true, isActive: true },
         });
 
-        if (!user) return [];
+        if (!user || user.isActive === false) return [];
 
         if (user.isSuperAdmin) return 'ALL';
 
@@ -32,6 +32,10 @@ export async function resolveAllowedResourcesForTenant(
         ) as Role[];
 
         if (allRoles.length === 0) return [];
+
+        // Same rule as the app's route guard: ADMIN (primary or secondary
+        // role) has full access and has no RolePermission rows of its own.
+        if (allRoles.includes('ADMIN' as Role)) return 'ALL';
 
         const perms = await tenantDb.rolePermission.findMany({
             where: { role: { in: allRoles }, canAccess: true },

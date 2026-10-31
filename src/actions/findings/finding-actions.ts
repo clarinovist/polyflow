@@ -5,6 +5,8 @@ import { prisma } from '@/lib/core/prisma';
 import { withTenant } from '@/lib/core/tenant';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { resolveAllowedResources } from '@/lib/telegram/permissions';
+import { canSeeFinding } from '@/lib/findings/finding-access';
+import { isConditionDetector } from '@/lib/findings/detector-catalog';
 import { serializeData } from '@/lib/utils/utils';
 import { safeAction } from '@/lib/errors/errors';
 import {
@@ -20,14 +22,16 @@ const DEFAULT_LIST_STATUSES: FindingStatus[] = [
     'SNOOZED',
 ];
 
+// Visibility uses prefix semantics, which Prisma's array filters cannot
+// express, so the list is filtered in memory after a bounded fetch.
+const MAX_LISTED_FINDINGS = 500;
+
 async function assertCanActOnFinding(
     userId: string,
     requiredResources: string[],
 ) {
     const allowed = await resolveAllowedResources(userId);
-    if (allowed === 'ALL') return;
-    const hasAccess = requiredResources.some((r) => allowed.includes(r));
-    if (!hasAccess) {
+    if (!canSeeFinding(allowed, requiredResources)) {
         throw new BusinessRuleError(
             'Anda tidak memiliki izin untuk temuan ini.',
         );
@@ -43,20 +47,19 @@ export const listMyFindings = withTenant(async function listMyFindings(opts?: {
         const statuses = opts?.statuses ?? DEFAULT_LIST_STATUSES;
 
         const findings = await prisma.finding.findMany({
-            where: {
-                status: { in: statuses },
-                ...(allowed === 'ALL'
-                    ? {}
-                    : { requiredResources: { hasSome: allowed } }),
-            },
+            where: { status: { in: statuses } },
             orderBy: [{ severity: 'desc' }, { firstSeenAt: 'asc' }],
+            take: MAX_LISTED_FINDINGS,
             include: {
                 claimedBy: { select: { id: true, name: true, email: true } },
                 resolvedBy: { select: { id: true, name: true, email: true } },
             },
         });
 
-        return serializeData(findings);
+        const visible = findings.filter((f) =>
+            canSeeFinding(allowed, f.requiredResources),
+        );
+        return serializeData(visible);
     });
 });
 
@@ -113,13 +116,20 @@ export const resolveFinding = withTenant(async function resolveFinding(
 
         const finding = await prisma.finding.findUnique({
             where: { id: findingId },
-            select: { status: true, requiredResources: true },
+            select: { status: true, requiredResources: true, detector: true },
         });
         if (!finding) throw new NotFoundError('Temuan', findingId);
         if (finding.status === 'RESOLVED') {
             throw new ConflictError('Temuan ini sudah selesai.');
         }
         await assertCanActOnFinding(session.user.id, finding.requiredResources);
+        if (isConditionDetector(finding.detector)) {
+            // The next sync would reopen it with a fresh SLA while the
+            // condition (unpaid invoice, low stock, ...) still holds.
+            throw new BusinessRuleError(
+                'Temuan ini tertutup otomatis saat kondisinya sudah beres. Gunakan Tunda dengan tanggal dan catatan.',
+            );
+        }
 
         const result = await prisma.$transaction(async (tx) => {
             const updated = await tx.finding.update({
@@ -152,10 +162,17 @@ export const resolveFinding = withTenant(async function resolveFinding(
 
 const MIN_SNOOZE_DAYS = 1;
 const MAX_SNOOZE_DAYS = 14;
+const MIN_SNOOZE_NOTE_LENGTH = 3;
+const MAX_SNOOZE_NOTE_LENGTH = 500;
 
+/**
+ * Snooze is the manual action for condition findings (see resolveFinding),
+ * so it must say why: e.g. "customer janji bayar tgl 15".
+ */
 export const snoozeFinding = withTenant(async function snoozeFinding(
     findingId: string,
     days: number,
+    note: string,
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
@@ -167,6 +184,15 @@ export const snoozeFinding = withTenant(async function snoozeFinding(
         ) {
             throw new BusinessRuleError(
                 `Durasi snooze harus antara ${MIN_SNOOZE_DAYS}-${MAX_SNOOZE_DAYS} hari.`,
+            );
+        }
+        const trimmedNote = typeof note === 'string' ? note.trim() : '';
+        if (
+            trimmedNote.length < MIN_SNOOZE_NOTE_LENGTH ||
+            trimmedNote.length > MAX_SNOOZE_NOTE_LENGTH
+        ) {
+            throw new BusinessRuleError(
+                `Catatan tunda wajib diisi (${MIN_SNOOZE_NOTE_LENGTH}-${MAX_SNOOZE_NOTE_LENGTH} karakter).`,
             );
         }
 
@@ -195,7 +221,7 @@ export const snoozeFinding = withTenant(async function snoozeFinding(
                     actorId: session.user.id,
                     fromStatus: finding.status,
                     toStatus: 'SNOOZED',
-                    note: `${days} hari`,
+                    note: `${days} hari: ${trimmedNote}`,
                 },
             });
             return updated;

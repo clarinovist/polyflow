@@ -1,5 +1,4 @@
 import { getMainPrisma, getTenantDb } from '@/lib/core/prisma';
-import { hasTenantModuleDirect } from '@/lib/modules/tenant-entitlements';
 import {
     getPilotSubdomain,
     isKillSwitchActive,
@@ -12,24 +11,13 @@ import {
     isDuplicate,
     recordNotificationAttempt,
 } from '@/lib/telegram/notification-dedup';
-import {
-    detectCriticalStock,
-    detectMissingFinanceJournals,
-    detectStuckSalesOrders,
-    detectOverdueAr,
-    detectOverdueAp,
-    detectProductionNoProgress,
-} from './detectors';
-import { emptyDetectionResult, type DetectionResult } from './detection-types';
+import { runEntitledDetectors } from './run-detectors';
 import {
     formatDigestMarkdown,
     toDigestFindings,
     type DigestFinding,
 } from './format';
 import { isFeatureEnabled } from '@/lib/bot/feature-flags';
-import { syncFindings } from '@/lib/findings/finding-sync';
-import { notifyNewFindings } from '@/lib/findings/finding-notify';
-import { escalateOverdueFindings } from '@/lib/findings/finding-escalate';
 import { isInQuietHours } from '@/lib/telegram/quiet-hours';
 
 export type DigestResult = {
@@ -39,15 +27,6 @@ export type DigestResult = {
     skipped: number;
     failed: number;
 };
-
-// Fase 1 rollout scope (docs/plan/2026-08-14-ai-manager-l2-finding-lifecycle.md
-// §0): only production + warehouse detectors feed the claimable Finding
-// lifecycle for now. stuck_so/overdue_ar/overdue_ap still run (for the
-// Telegram digest) but are not synced into Finding until a later rollout.
-const LIFECYCLE_SCOPED_DETECTORS = new Set([
-    'critical_stock',
-    'production_no_progress',
-]);
 
 async function getPilotTenant() {
     try {
@@ -72,9 +51,9 @@ export async function runDigest(): Promise<DigestResult> {
         failed: 0,
     };
 
-    const digestEnabled = isFeatureEnabled('assistant.proactiveDigest');
-    const lifecycleEnabled = isFeatureEnabled('assistant.findingLifecycle');
-    if (!digestEnabled && !lifecycleEnabled) {
+    // Legacy pilot Telegram digest (TelegramIdentity bot). The Finding
+    // lifecycle no longer runs here — see src/lib/findings/findings-cycle.ts.
+    if (!isFeatureEnabled('assistant.proactiveDigest')) {
         return empty;
     }
 
@@ -95,123 +74,12 @@ export async function runDigest(): Promise<DigestResult> {
 
     const { tenantId, tenantDb } = pilot;
 
-    // No ambient tenantIdContext here (pilot tenant resolved directly, not
-    // via withTenant), so use the direct/tenantId-explicit entitlement check.
-    const [
-        inventoryEntitled,
-        salesEntitled,
-        financeEntitled,
-        productionEntitled,
-    ] = await Promise.all([
-        hasTenantModuleDirect(tenantId, 'INVENTORY'),
-        hasTenantModuleDirect(tenantId, 'SALES'),
-        hasTenantModuleDirect(tenantId, 'FINANCE'),
-        hasTenantModuleDirect(tenantId, 'PRODUCTION'),
-    ]);
-
-    const skippedModules = [
-        !inventoryEntitled && 'INVENTORY',
-        !salesEntitled && 'SALES',
-        !financeEntitled && 'FINANCE',
-        !productionEntitled && 'PRODUCTION',
-    ].filter((m): m is string => m !== false);
-    if (skippedModules.length > 0) {
-        console.log(
-            `[DIGEST] Skipping detectors for non-entitled modules: ${skippedModules.join(', ')}`,
-        );
-    }
-
-    // 1. Run all entitled detectors in parallel. Detectors resolve their own
-    // internal errors into { status: 'failed' } rather than rejecting, but
-    // allSettled stays as defense-in-depth against anything that still throws.
-    const results = await Promise.allSettled([
-        inventoryEntitled
-            ? detectCriticalStock(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('critical_stock', [
-                      '/warehouse/inventory',
-                  ]),
-              ),
-        salesEntitled
-            ? detectStuckSalesOrders(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('stuck_so', ['/sales/orders']),
-              ),
-        financeEntitled
-            ? detectOverdueAr(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('overdue_ar', ['/finance/invoices']),
-              ),
-        financeEntitled
-            ? detectOverdueAp(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('overdue_ap', ['/purchasing/invoices']),
-              ),
-        financeEntitled
-            ? detectMissingFinanceJournals(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('missing_finance_journal', [
-                      '/finance/journals',
-                  ]),
-              ),
-        productionEntitled
-            ? detectProductionNoProgress(tenantDb)
-            : Promise.resolve(
-                  emptyDetectionResult('production_no_progress', [
-                      '/production/orders',
-                  ]),
-              ),
-    ]);
-
-    const detectionResults: DetectionResult[] = [];
-    for (const r of results) {
-        if (r.status === 'fulfilled') {
-            detectionResults.push(r.value);
-            if (r.value.status === 'failed') {
-                console.error(
-                    `[DIGEST] detector ${r.value.detector} failed:`,
-                    r.value.error,
-                );
-            }
-        } else {
-            console.error('[DIGEST] detector rejected:', r.reason);
-        }
-    }
-
-    // Sync into the claimable Finding lifecycle BEFORE the empty-findings
-    // early return below — an empty detection result is exactly the signal
-    // that lets auto-resolve close findings that stopped recurring, so sync
-    // must run even when there's nothing left to send via Telegram.
-    if (lifecycleEnabled) {
-        const scopedResults = detectionResults.filter((r) =>
-            LIFECYCLE_SCOPED_DETECTORS.has(r.detector),
-        );
-        try {
-            const outcome = await syncFindings(tenantDb, scopedResults);
-            await notifyNewFindings(tenantDb, [
-                ...outcome.created,
-                ...outcome.reopened,
-            ]);
-        } catch (error) {
-            console.error('[DIGEST] finding sync/notify failed:', error);
-        }
-
-        // No separate findings-escalate cron: this cron is the only place
-        // detectors run at all (once/day, 07:00 WIB per VPS crontab), so a
-        // finer-grained escalation check would not catch anything sooner —
-        // it would just poll a fact that can't have changed. Escalation
-        // check runs after sync/notify so it can act on findings created in
-        // THIS run once their SLA has already elapsed from a past run.
-        try {
-            await escalateOverdueFindings(tenantDb);
-        } catch (error) {
-            console.error('[DIGEST] finding escalation failed:', error);
-        }
-    }
-
+    // 1. Run entitled detectors. Never rejects: non-entitled modules come
+    // back `skipped`, errors come back `failed`; toDigestFindings drops both.
+    const detectionResults = await runEntitledDetectors(tenantId, tenantDb);
     const findings: DigestFinding[] = toDigestFindings(detectionResults);
 
-    if (!digestEnabled || findings.length === 0) {
+    if (findings.length === 0) {
         return { ...empty, findings };
     }
 

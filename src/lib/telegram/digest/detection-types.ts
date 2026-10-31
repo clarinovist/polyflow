@@ -7,7 +7,14 @@ export type DetectedItem = {
     detail?: string;
 };
 
-type DetectionStatus = 'ok' | 'failed' | 'truncated';
+/**
+ * - ok:        the detector scanned everything; absent items are resolved.
+ * - truncated: hit the fetch cap; absence proves nothing.
+ * - failed:    the detector errored; absence proves nothing.
+ * - skipped:   the detector did not run (module not entitled, or the
+ *              entitlement check itself failed); absence proves nothing.
+ */
+type DetectionStatus = 'ok' | 'failed' | 'truncated' | 'skipped';
 
 export type DetectionResult = {
     detector: string;
@@ -17,9 +24,16 @@ export type DetectionResult = {
     items: DetectedItem[];
 };
 
-export function emptyDetectionResult(
+export function skippedDetectionResult(
     detector: string,
     requiredResources: string[],
+    reason?: string,
 ): DetectionResult {
-    return { detector, status: 'ok', requiredResources, items: [] };
+    return {
+        detector,
+        status: 'skipped',
+        ...(reason ? { error: reason } : {}),
+        requiredResources,
+        items: [],
+    };
 }

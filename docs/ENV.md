@@ -77,6 +77,19 @@ authorization, or mutations. Keep its key in runtime secrets and never
 use a `NEXT_PUBLIC_` prefix. Production CI also requires the repository Actions secret
 `SYSTEMONE_API_KEY` for the provider contract gate.
 
+## Findings Lifecycle Rollout (Optional)
+
+Per-tenant mode for the daily Finding sync run by `/api/cron/digest`
+(`src/lib/findings/findings-mode.ts`). Values are comma-separated tenant
+subdomains; unlisted tenants are `off`. Changing them needs an app container restart.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `FINDINGS_OBSERVE_TENANTS` | Sync detectors into `Finding` as baseline (no SLA); sends nothing | empty |
+| `FINDINGS_NOTIFY_TENANTS` | Sync with SLA for newly detected items; delivery arrives in later phases | empty |
+
+A subdomain listed in both resolves to `observe`.
+
 ## Company Configuration (Optional)
 
 Used for print templates (invoices, delivery orders, etc.):

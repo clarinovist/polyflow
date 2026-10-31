@@ -40,7 +40,9 @@ export function toDigestFindings(
     const findings: DigestFinding[] = [];
 
     for (const result of results) {
-        if (result.status === 'failed') continue;
+        if (result.status === 'failed' || result.status === 'skipped') {
+            continue;
+        }
 
         const shown = result.items.slice(0, maxItems);
         for (const item of shown) {

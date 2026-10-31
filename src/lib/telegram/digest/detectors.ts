@@ -3,12 +3,31 @@ import type { PrismaClient } from '@prisma/client';
 import { collectFinanceJournalIssues } from '@/services/finance/journal-health-service';
 import { collectBarterHealth } from '@/services/finance/barter-health-service';
 import type { DetectedItem, DetectionResult } from './detection-types';
+import { detectorResources } from '@/lib/findings/detector-catalog';
+import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
 // Safety cap on rows fetched per detector. Not a display limit (that lives in
 // format.ts) — this only guards against pathological result sets. If a run
 // hits it, status is 'truncated' so callers (auto-resolve in particular) know
 // not to trust "item disappeared" as "item resolved" for this run.
 const FETCH_CAP = 500;
+
+// Severity policy: docs/plan/2026-10-31-finding-digest.md §6 K2.
+const OVERDUE_CRITICAL_DAYS = 30;
+const LOW_STOCK_CRITICAL_RATIO = 0.5;
+const MS_PER_DAY = 86_400_000;
+
+export function daysOverdue(dueDate: Date | null, now: Date): number {
+    if (!dueDate) return 0;
+    return Math.max(0, Math.floor((now.getTime() - dueDate.getTime()) / MS_PER_DAY));
+}
+
+export function overdueSeverity(days: number): DetectedItem['severity'] {
+    return days > OVERDUE_CRITICAL_DAYS ? 'critical' : 'warning';
+}
+
+const formatQty = (n: number) => n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
 
 function buildResult(
     detector: string,
@@ -38,42 +57,54 @@ function failedResult(
     };
 }
 
-type CriticalStockRow = {
-    productId: string;
-    product: string;
-    qty: Prisma.Decimal;
-    threshold: Prisma.Decimal;
-};
-
+/**
+ * Same business definition as the legacy LOW_STOCK producer
+ * (InventoryCoreService.checkLowStockTriggers): per variant, only internal
+ * RAW_MATERIAL/FINISHED_GOOD locations count, and 0 < qty < minStockAlert.
+ */
 export async function detectCriticalStock(
     tenantDb: PrismaClient,
 ): Promise<DetectionResult> {
-    const requiredResources = ['/warehouse/inventory'];
+    const requiredResources = detectorResources('critical_stock');
     try {
-        const rows = await tenantDb.$queryRaw<CriticalStockRow[]>(Prisma.sql`
-      SELECT p.id AS "productId", p.name AS product, SUM(i.quantity) AS qty, SUM(pv."minStockAlert") AS threshold
-      FROM "Inventory" i
-      JOIN "ProductVariant" pv ON i."productVariantId" = pv.id
-      JOIN "Product" p ON pv."productId" = p.id
-      GROUP BY p.id, p.name
-      HAVING SUM(i.quantity) < SUM(pv."minStockAlert") AND SUM(pv."minStockAlert") > 0
-      ORDER BY qty ASC
-      LIMIT ${FETCH_CAP}
-    `);
+        const variants = await tenantDb.productVariant.findMany({
+            where: { minStockAlert: { not: null }, archivedAt: null },
+            select: {
+                id: true,
+                name: true,
+                minStockAlert: true,
+                inventories: {
+                    select: {
+                        quantity: true,
+                        location: { select: { locationType: true, locationPurpose: true } },
+                    },
+                },
+            },
+            orderBy: { id: 'asc' },
+            take: FETCH_CAP,
+        });
 
-        const items: DetectedItem[] = rows.map((row) => ({
-            entityKey: `critical_stock:${row.productId}`,
-            entityType: 'Product',
-            entityId: row.productId,
-            severity: 'critical',
-            headline: `${row.product}: ${Number(row.qty).toFixed(0)} < ${Number(row.threshold).toFixed(0)}`,
-        }));
+        const items: DetectedItem[] = [];
+        for (const variant of variants) {
+            const threshold = Number(variant.minStockAlert ?? 0);
+            const qty = variant.inventories
+                .filter((inv) => isLowStockAlertLocation(inv.location))
+                .reduce((sum, inv) => sum + Number(inv.quantity), 0);
+            if (!(qty > 0 && qty < threshold)) continue;
+            items.push({
+                entityKey: `critical_stock:${variant.id}`,
+                entityType: 'ProductVariant',
+                entityId: variant.id,
+                severity: qty <= threshold * LOW_STOCK_CRITICAL_RATIO ? 'critical' : 'warning',
+                headline: `${variant.name}: ${formatQty(qty)} < ${formatQty(threshold)}`,
+            });
+        }
 
         return buildResult(
             'critical_stock',
             requiredResources,
             items,
-            rows.length === FETCH_CAP,
+            variants.length === FETCH_CAP,
         );
     } catch (error) {
         return failedResult('critical_stock', requiredResources, error);
@@ -83,7 +114,7 @@ export async function detectCriticalStock(
 export async function detectStuckSalesOrders(
     tenantDb: PrismaClient,
 ): Promise<DetectionResult> {
-    const requiredResources = ['/sales/orders'];
+    const requiredResources = detectorResources('stuck_so');
     try {
         const threshold = new Date();
         threshold.setDate(threshold.getDate() - 3);
@@ -137,19 +168,22 @@ type OverdueArRow = {
     priceAdjustmentAmount: Prisma.Decimal;
     dueDate: Date | null;
     soNumber: string | null;
+    customerName: string | null;
 };
 
 export async function detectOverdueAr(
     tenantDb: PrismaClient,
+    now: Date = new Date(),
 ): Promise<DetectionResult> {
-    const requiredResources = ['/finance/invoices'];
+    const requiredResources = detectorResources('overdue_ar');
     try {
         const rows = await tenantDb.$queryRaw<OverdueArRow[]>(Prisma.sql`
       SELECT i.id AS "invoiceId", i."invoiceNumber", i."totalAmount", i."paidAmount", i."creditedAmount", i."priceAdjustmentAmount", i."dueDate",
-             so."orderNumber" AS "soNumber"
+             so."orderNumber" AS "soNumber", c.name AS "customerName"
       FROM "Invoice" i
       LEFT JOIN "SalesOrder" so ON i."salesOrderId" = so.id
-      WHERE i."dueDate" < NOW()
+      LEFT JOIN "Customer" c ON so."customerId" = c.id
+      WHERE i."dueDate" < ${now}
         AND i."totalAmount" + i."priceAdjustmentAmount" > i."paidAmount" + i."creditedAmount"
         AND i.status IN ('UNPAID', 'PARTIAL', 'OVERDUE')
       ORDER BY i."dueDate" ASC
@@ -159,13 +193,14 @@ export async function detectOverdueAr(
         const items: DetectedItem[] = rows.map((row) => {
             const outstanding =
                 Number(row.totalAmount) + Number(row.priceAdjustmentAmount ?? 0) - Number(row.paidAmount) - Number(row.creditedAmount ?? 0);
+            const days = daysOverdue(row.dueDate, now);
             return {
                 entityKey: `overdue_ar:${row.invoiceId}`,
                 entityType: 'Invoice',
                 entityId: row.invoiceId,
-                severity: 'critical',
-                headline: `Invoice ${row.invoiceNumber} (SO: ${row.soNumber || '-'})`,
-                detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
+                severity: overdueSeverity(days),
+                headline: `Invoice ${row.invoiceNumber} — ${row.customerName ?? 'Tanpa customer'} (SO: ${row.soNumber || '-'})`,
+                detail: `Lewat jatuh tempo ${days} hari, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
             };
         });
 
@@ -187,19 +222,27 @@ type OverdueApRow = {
     paidAmount: Prisma.Decimal;
     dueDate: Date | null;
     poNumber: string | null;
+    supplierName: string | null;
 };
 
+/**
+ * Same boundary as the legacy OVERDUE_AP producer: due before the start of
+ * today's WIB business day, status UNPAID/PARTIAL.
+ */
 export async function detectOverdueAp(
     tenantDb: PrismaClient,
+    now: Date = new Date(),
 ): Promise<DetectionResult> {
-    const requiredResources = ['/purchasing/invoices'];
+    const requiredResources = detectorResources('overdue_ap');
     try {
+        const businessDayStart = getWibDayBounds(toBusinessDateString(now)).startOfDay;
         const rows = await tenantDb.$queryRaw<OverdueApRow[]>(Prisma.sql`
       SELECT pi.id AS "invoiceId", pi."invoiceNumber", pi."totalAmount", pi."paidAmount", pi."dueDate",
-             po."orderNumber" AS "poNumber"
+             po."orderNumber" AS "poNumber", s.name AS "supplierName"
       FROM "PurchaseInvoice" pi
       LEFT JOIN "PurchaseOrder" po ON pi."purchaseOrderId" = po.id
-      WHERE pi."dueDate" < NOW()
+      LEFT JOIN "Supplier" s ON po."supplierId" = s.id
+      WHERE pi."dueDate" < ${businessDayStart}
         AND pi.status IN ('UNPAID', 'PARTIAL')
       ORDER BY pi."dueDate" ASC
       LIMIT ${FETCH_CAP}
@@ -208,13 +251,14 @@ export async function detectOverdueAp(
         const items: DetectedItem[] = rows.map((row) => {
             const outstanding =
                 Number(row.totalAmount) - Number(row.paidAmount);
+            const days = daysOverdue(row.dueDate, now);
             return {
                 entityKey: `overdue_ap:${row.invoiceId}`,
                 entityType: 'PurchaseInvoice',
                 entityId: row.invoiceId,
-                severity: 'critical',
-                headline: `Invoice ${row.invoiceNumber} (PO: ${row.poNumber || '-'})`,
-                detail: `Jatuh tempo, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
+                severity: overdueSeverity(days),
+                headline: `Invoice ${row.invoiceNumber} — ${row.supplierName ?? 'Tanpa supplier'} (PO: ${row.poNumber || '-'})`,
+                detail: `Lewat jatuh tempo ${days} hari, sisa Rp ${outstanding.toLocaleString('id-ID')}`,
             };
         });
 
@@ -239,7 +283,7 @@ type ProductionNoProgressRow = {
 export async function detectProductionNoProgress(
     tenantDb: PrismaClient,
 ): Promise<DetectionResult> {
-    const requiredResources = ['/production/orders'];
+    const requiredResources = detectorResources('production_no_progress');
     try {
         const cutoff = new Date();
         cutoff.setHours(cutoff.getHours() - 24);
@@ -292,7 +336,7 @@ const rupiah = (n: number) => `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 export async function detectMissingFinanceJournals(
     tenantDb: Prisma.TransactionClient | PrismaClient,
 ): Promise<DetectionResult> {
-    const requiredResources = ['/finance/journals'];
+    const requiredResources = detectorResources('missing_finance_journal');
     try {
         const issues = await collectFinanceJournalIssues(tenantDb);
         // Continue bounded pages, but never let a large tenant monopolize the digest.

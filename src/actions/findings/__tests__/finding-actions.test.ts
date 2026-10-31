@@ -58,20 +58,28 @@ describe('listMyFindings', () => {
     mockFinding.findMany.mockResolvedValue([]);
   });
 
-  it('filters by requiredResources when the user does not have ALL access', async () => {
-    vi.mocked(resolveAllowedResources).mockResolvedValue([
-      '/production/orders',
+  it('keeps only findings the user can open, using prefix semantics', async () => {
+    vi.mocked(resolveAllowedResources).mockResolvedValue(['/finance']);
+    mockFinding.findMany.mockResolvedValue([
+      { id: 'ar', requiredResources: ['/sales/invoices', '/finance/invoices'] },
+      { id: 'stock', requiredResources: ['/warehouse/inventory'] },
+      { id: 'journal', requiredResources: ['/finance/journals'] },
     ]);
+
+    const result = await listMyFindings();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect((result.data as Array<{ id: string }>).map((f) => f.id)).toEqual(['ar', 'journal']);
+    }
+  });
+
+  it('bounds the fetch since filtering happens in memory', async () => {
+    vi.mocked(resolveAllowedResources).mockResolvedValue(['/finance']);
 
     await listMyFindings();
 
-    expect(mockFinding.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          requiredResources: { hasSome: ['/production/orders'] },
-        }),
-      }),
-    );
+    expect(mockFinding.findMany.mock.calls[0][0].take).toBe(500);
   });
 
   it('does not filter by requiredResources for ALL access', async () => {
@@ -200,6 +208,7 @@ describe('resolveFinding', () => {
     mockFinding.findUnique.mockResolvedValue({
       status: 'CLAIMED',
       requiredResources: ['/warehouse/inventory'],
+      detector: 'manual_review',
     });
     mockFinding.update.mockResolvedValue({ id: 'f-1', status: 'RESOLVED' });
 
@@ -228,6 +237,7 @@ describe('resolveFinding', () => {
     mockFinding.findUnique.mockResolvedValue({
       status: 'UNCLAIMED',
       requiredResources: ['/warehouse/inventory'],
+      detector: 'manual_review',
     });
     mockFinding.update.mockResolvedValue({ id: 'f-1', status: 'RESOLVED' });
 
@@ -254,6 +264,38 @@ describe('resolveFinding', () => {
     }
     expect(mockFinding.update).not.toHaveBeenCalled();
   });
+
+  it('refuses a manual resolve on a condition detector (would reopen next sync)', async () => {
+    mockFinding.findUnique.mockResolvedValue({
+      status: 'CLAIMED',
+      requiredResources: ['/purchasing/invoices'],
+      detector: 'overdue_ap',
+    });
+
+    const result = await resolveFinding('f-1', 'sudah saya telepon');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain('Tunda');
+    }
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it('checks permission before revealing the condition-detector rule', async () => {
+    vi.mocked(resolveAllowedResources).mockResolvedValue(['/sales/orders']);
+    mockFinding.findUnique.mockResolvedValue({
+      status: 'CLAIMED',
+      requiredResources: ['/purchasing/invoices'],
+      detector: 'overdue_ap',
+    });
+
+    const result = await resolveFinding('f-1');
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error).toContain('izin');
+    }
+  });
 });
 
 describe('snoozeFinding', () => {
@@ -270,7 +312,7 @@ describe('snoozeFinding', () => {
     });
     mockFinding.update.mockResolvedValue({ id: 'f-1', status: 'SNOOZED' });
 
-    const result = await snoozeFinding('f-1', 3);
+    const result = await snoozeFinding('f-1', 3, '  janji bayar Jumat  ');
 
     expect(result.success).toBe(true);
     expect(mockFinding.update).toHaveBeenCalledWith({
@@ -278,14 +320,14 @@ describe('snoozeFinding', () => {
       data: { status: 'SNOOZED', snoozedUntil: expect.any(Date) },
     });
     expect(mockFindingEvent.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ action: 'SNOOZED', note: '3 hari' }),
+      data: expect.objectContaining({ action: 'SNOOZED', note: '3 hari: janji bayar Jumat' }),
     });
   });
 
   it.each([0, 15, Number.NaN])(
     'rejects an out-of-range day count: %s',
     async (days) => {
-      const result = await snoozeFinding('f-1', days);
+      const result = await snoozeFinding('f-1', days, 'catatan valid');
       expect(result.success).toBe(false);
       expect(mockFinding.findUnique).not.toHaveBeenCalled();
     },
@@ -297,11 +339,23 @@ describe('snoozeFinding', () => {
       requiredResources: ['/warehouse/inventory'],
     });
 
-    const result = await snoozeFinding('f-1', 3);
+    const result = await snoozeFinding('f-1', 3, 'catatan valid');
 
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.code).toBe('CONFLICT');
     }
   });
+
+  it.each(['', '  ', 'ok', 'x'.repeat(501)])(
+    'requires a 3-500 character note: %j',
+    async (note) => {
+      const result = await snoozeFinding('f-1', 3, note);
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toContain('Catatan');
+      }
+      expect(mockFinding.findUnique).not.toHaveBeenCalled();
+    },
+  );
 });

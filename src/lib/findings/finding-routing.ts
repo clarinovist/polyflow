@@ -1,11 +1,16 @@
-import type { PrismaClient } from '@prisma/client';
+import type { PrismaClient, Role } from '@prisma/client';
+import { canSeeFinding } from './finding-access';
+
+const FULL_ACCESS_RESOURCE = 'ALL';
 
 /**
  * Reverse of resolveAllowedResourcesForTenant (@/lib/telegram/permissions):
  * given the resources a Finding requires, return every active user in the
- * tenant who can act on it — anyone whose role(s) grant at least one of
- * those resources, plus superadmins regardless of role. No PIC mapping
- * table: routing is derived entirely from RolePermission, so it stays
+ * tenant who can act on it. Mirrors the app's route guard:
+ * - ADMIN (primary or secondary role) and superadmins always qualify;
+ * - other roles qualify when one of their RolePermission resources covers a
+ *   required resource with prefix semantics (`/finance` → `/finance/invoices`).
+ * No PIC mapping table: routing is derived from RolePermission, so it stays
  * correct as staff change roles or leave.
  */
 export async function resolveUsersForResources(
@@ -14,37 +19,33 @@ export async function resolveUsersForResources(
 ): Promise<string[]> {
     if (requiredResources.length === 0) return [];
 
-    const [permittedRoles, superAdmins] = await Promise.all([
-        tenantDb.rolePermission.findMany({
-            where: { resource: { in: requiredResources }, canAccess: true },
-            select: { role: true },
-        }),
-        tenantDb.user.findMany({
-            where: { isSuperAdmin: true, isActive: true },
-            select: { id: true },
-        }),
-    ]);
+    const permissions = await tenantDb.rolePermission.findMany({
+        where: { canAccess: true },
+        select: { role: true, resource: true },
+    });
 
-    const roles = [...new Set(permittedRoles.map((p) => p.role))];
+    const grantingRoles = new Set<Role>(['ADMIN' as Role]);
+    for (const permission of permissions) {
+        if (
+            permission.resource === FULL_ACCESS_RESOURCE ||
+            canSeeFinding([permission.resource], requiredResources)
+        ) {
+            grantingRoles.add(permission.role);
+        }
+    }
+    const roles = [...grantingRoles];
 
-    const roleUsers =
-        roles.length === 0
-            ? []
-            : await tenantDb.user.findMany({
-                  where: {
-                      isActive: true,
-                      OR: [
-                          { role: { in: roles } },
-                          { roles: { some: { role: { in: roles } } } },
-                      ],
-                  },
-                  select: { id: true },
-              });
+    const users = await tenantDb.user.findMany({
+        where: {
+            isActive: true,
+            OR: [
+                { isSuperAdmin: true },
+                { role: { in: roles } },
+                { roles: { some: { role: { in: roles } } } },
+            ],
+        },
+        select: { id: true },
+    });
 
-    const userIds = new Set<string>([
-        ...roleUsers.map((u) => u.id),
-        ...superAdmins.map((u) => u.id),
-    ]);
-
-    return [...userIds];
+    return [...new Set(users.map((u) => u.id))];
 }

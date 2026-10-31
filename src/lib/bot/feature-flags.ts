@@ -10,7 +10,6 @@ export type AssistantFeatureFlag =
     | 'assistant.crossModuleDiagnosis'
     | 'assistant.sensitiveDomains'
     | 'assistant.proactiveDigest'
-    | 'assistant.findingLifecycle'
     | 'assistant.contextualWorkProfiles';
 
 const FEATURE_FLAGS: Record<
@@ -42,11 +41,6 @@ const FEATURE_FLAGS: Record<
         enabled: false,
         description:
             'Enable proactive daily exception digest via Telegram cron',
-    },
-    'assistant.findingLifecycle': {
-        enabled: false,
-        description:
-            'Sync detector results into claimable Finding records (production + warehouse only for now)',
     },
     'assistant.contextualWorkProfiles': {
         enabled: false,

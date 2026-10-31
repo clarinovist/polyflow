@@ -427,4 +427,203 @@ describe('syncFindings', () => {
     expect(outcome.autoResolved).toEqual(['f-1']);
     expect(store.get('f-2')!.status).toBe('UNCLAIMED');
   });
+
+  describe('baseline (observe mode)', () => {
+    const item = {
+      entityKey: 'overdue_ap:pi-1',
+      entityType: 'PurchaseInvoice',
+      entityId: 'pi-1',
+      severity: 'critical' as const,
+      headline: 'Invoice PI-1',
+    };
+
+    it('creates baseline findings with no SLA and a DETECTED_BASELINE event', async () => {
+      const { tenantDb, store } = makeFakeTenantDb();
+
+      await syncFindings(
+        tenantDb,
+        [detectionResult({ detector: 'overdue_ap', requiredResources: ['/purchasing/invoices'], items: [item] })],
+        { baseline: true },
+      );
+
+      const created = [...store.values()][0];
+      expect(created.slaDueAt).toBeNull();
+      const createArgs = vi.mocked(tenantDb.finding.create).mock.calls[0][0] as {
+        data: { events: { create: { action: string } } };
+      };
+      expect(createArgs.data.events.create.action).toBe('DETECTED_BASELINE');
+    });
+
+    it('reopens without an SLA while still in observe mode', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([
+        {
+          id: 'f-1',
+          fingerprint: 'overdue_ap:pi-1',
+          detector: 'overdue_ap',
+          severity: 'CRITICAL',
+          status: 'RESOLVED',
+          headline: 'Invoice PI-1',
+          requiredResources: ['/purchasing/invoices'],
+          autoResolved: true,
+          slaDueAt: null,
+          occurrences: 1,
+        },
+      ]);
+
+      await syncFindings(
+        tenantDb,
+        [detectionResult({ detector: 'overdue_ap', requiredResources: ['/purchasing/invoices'], items: [item] })],
+        { baseline: true },
+      );
+
+      expect(store.get('f-1')!.status).toBe('UNCLAIMED');
+      expect(store.get('f-1')!.slaDueAt).toBeNull();
+    });
+
+    it('gives a baseline item an SLA once it auto-resolved and recurs in notify mode', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([
+        {
+          id: 'f-1',
+          fingerprint: 'overdue_ap:pi-1',
+          detector: 'overdue_ap',
+          severity: 'CRITICAL',
+          status: 'RESOLVED',
+          headline: 'Invoice PI-1',
+          requiredResources: ['/purchasing/invoices'],
+          autoResolved: true,
+          slaDueAt: null,
+          occurrences: 1,
+        },
+      ]);
+
+      await syncFindings(tenantDb, [
+        detectionResult({ detector: 'overdue_ap', requiredResources: ['/purchasing/invoices'], items: [item] }),
+      ]);
+
+      expect(store.get('f-1')!.slaDueAt).toEqual(new Date('2026-08-15T00:00:00Z'));
+    });
+
+    it('does not add an SLA to a still-open baseline item after moving to notify', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([
+        {
+          id: 'f-1',
+          fingerprint: 'overdue_ap:pi-1',
+          detector: 'overdue_ap',
+          severity: 'CRITICAL',
+          status: 'UNCLAIMED',
+          headline: 'Invoice PI-1',
+          requiredResources: ['/purchasing/invoices'],
+          autoResolved: false,
+          slaDueAt: null,
+          occurrences: 1,
+        },
+      ]);
+
+      await syncFindings(tenantDb, [
+        detectionResult({ detector: 'overdue_ap', requiredResources: ['/purchasing/invoices'], items: [item] }),
+      ]);
+
+      expect(store.get('f-1')!.slaDueAt).toBeNull();
+    });
+  });
+
+  describe('severity and resources on refresh', () => {
+    function openFinding(severity: 'WARNING' | 'CRITICAL') {
+      return {
+        id: 'f-1',
+        fingerprint: 'overdue_ar:inv-1',
+        detector: 'overdue_ar',
+        severity,
+        status: 'CLAIMED' as const,
+        headline: 'Invoice INV-1',
+        requiredResources: ['/finance/invoices'],
+        claimedById: 'user-1',
+        autoResolved: false,
+        slaDueAt: new Date('2026-08-20T00:00:00Z'),
+        occurrences: 1,
+      };
+    }
+
+    function arResult(severity: 'warning' | 'critical') {
+      return detectionResult({
+        detector: 'overdue_ar',
+        requiredResources: ['/sales/invoices', '/finance/invoices'],
+        items: [
+          {
+            entityKey: 'overdue_ar:inv-1',
+            entityType: 'Invoice',
+            entityId: 'inv-1',
+            severity,
+            headline: 'Invoice INV-1',
+          },
+        ],
+      });
+    }
+
+    it('raises severity with a SEVERITY_RAISED event but keeps SLA and claim', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([openFinding('WARNING')]);
+
+      const outcome = await syncFindings(tenantDb, [arResult('critical')]);
+
+      const updated = store.get('f-1')!;
+      expect(updated.severity).toBe('CRITICAL');
+      expect(updated.slaDueAt).toEqual(new Date('2026-08-20T00:00:00Z'));
+      expect(updated.claimedById).toBe('user-1');
+      expect(outcome.severityRaised).toEqual(['f-1']);
+      const updateArgs = vi.mocked(tenantDb.finding.update).mock.calls[0][0] as {
+        data: { events?: { create: Array<{ action: string }> } };
+      };
+      expect(updateArgs.data.events?.create.map((e) => e.action)).toEqual(['SEVERITY_RAISED']);
+    });
+
+    it('lowers severity silently without an event', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([openFinding('CRITICAL')]);
+
+      const outcome = await syncFindings(tenantDb, [arResult('warning')]);
+
+      expect(store.get('f-1')!.severity).toBe('WARNING');
+      expect(outcome.severityRaised).toEqual([]);
+      const updateArgs = vi.mocked(tenantDb.finding.update).mock.calls[0][0] as {
+        data: { events?: unknown };
+      };
+      expect(updateArgs.data.events).toBeUndefined();
+    });
+
+    it('refreshes requiredResources from the latest detector catalog', async () => {
+      const { tenantDb, store } = makeFakeTenantDb([openFinding('WARNING')]);
+
+      await syncFindings(tenantDb, [arResult('warning')]);
+
+      expect(store.get('f-1')!.requiredResources).toEqual(['/sales/invoices', '/finance/invoices']);
+    });
+  });
+
+  it('does NOT auto-resolve when the detector was skipped (module not entitled)', async () => {
+    const { tenantDb, store } = makeFakeTenantDb([
+      {
+        id: 'f-1',
+        fingerprint: 'critical_stock:v-1',
+        detector: 'critical_stock',
+        severity: 'WARNING',
+        status: 'UNCLAIMED',
+        headline: 'stock finding',
+        requiredResources: ['/warehouse/inventory'],
+        autoResolved: false,
+        occurrences: 1,
+      },
+    ]);
+
+    const outcome = await syncFindings(tenantDb, [
+      detectionResult({
+        detector: 'critical_stock',
+        status: 'skipped',
+        requiredResources: ['/warehouse/inventory'],
+        items: [],
+      }),
+    ]);
+
+    expect(outcome.autoResolved).toEqual([]);
+    expect(outcome.skippedDetectors).toEqual(['critical_stock']);
+    expect(store.get('f-1')!.status).toBe('UNCLAIMED');
+  });
 });
