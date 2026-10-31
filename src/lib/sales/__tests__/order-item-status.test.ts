@@ -118,3 +118,26 @@ describe('order-item-status', () => {
         expect(map.get('v2')).toBe(3);
     });
 });
+
+describe('order-item-status untuk baris jasa (maklon)', () => {
+    const service = (orderStatus: Parameters<typeof getOrderItemStatus>[0]['orderStatus']) =>
+        getOrderItemStatus({ orderStatus, quantity: 100, deliveredQty: 0, isService: true });
+
+    it('mengikuti status SO karena qty terkirim jasa tidak pernah bergerak', () => {
+        expect(service('IN_PRODUCTION')).toMatchObject({ key: 'in_production', label: 'Dalam produksi' });
+        expect(service('READY_TO_SHIP')).toMatchObject({ key: 'service_ready', label: 'Siap penutupan jasa' });
+        expect(service('SHIPPED')).toMatchObject({ key: 'service_closed', label: 'Jasa ditutup' });
+        expect(service('DELIVERED')).toMatchObject({ key: 'service_done', label: 'Jasa selesai' });
+    });
+
+    it('tetap draft dan dibatalkan seperti baris barang', () => {
+        expect(service('DRAFT').key).toBe('draft');
+        expect(service('CANCELLED').key).toBe('cancelled');
+    });
+
+    it('baris barang yang belum terkirim tetap dalam produksi meski SO sudah dikirim', () => {
+        expect(
+            getOrderItemStatus({ orderStatus: 'SHIPPED', quantity: 10, deliveredQty: 0 }).key,
+        ).toBe('in_production');
+    });
+});

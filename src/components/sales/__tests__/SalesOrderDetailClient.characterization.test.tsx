@@ -701,6 +701,31 @@ describe('SalesOrderDetailClient existing behavior (UI visibility is not authori
         expect(screen.queryByRole('combobox', { name: /status|retur/i })).toBeNull();
     });
 
+    it('labels a closed maklon service line from the order status instead of delivered qty', () => {
+        const serviceItem: SerializedSalesOrder['items'][number] = {
+            id: 'fixture-service-item', salesOrderId: 'fixture-order', productVariantId: 'fixture-service',
+            quantity: 100, unitPrice: 2_000, subtotal: 200_000, deliveredQty: 0,
+            enteredQuantity: null, enteredUnit: null, enteredUnitPrice: null, conversionFactorSnapshot: null,
+            isFreeItem: false, discountPercent: null, taxPercent: null, taxAmount: null, dppOtherAmount: null,
+            ppnMode: 'EXCLUDE', createdAt: NOW, updatedAt: NOW,
+            productVariant: {
+                id: 'fixture-service', productId: 'fixture-service-product', name: 'Synthetic service', skuCode: 'FIXTURE-SVC',
+                primaryUnit: 'KG', salesUnit: null, conversionFactor: 1, packagingContainerSize: null,
+                attributes: null, leadTimeDays: null, preferredSupplierId: null,
+                revenueAccountId: null, returnAccountId: null, archivedAt: null, createdAt: NOW, updatedAt: NOW,
+                product: {
+                    id: 'fixture-service-product', name: 'Synthetic Service', productType: 'SERVICE',
+                    assetCategory: null, cogsAccountId: null, inventoryAccountId: null,
+                    revenueAccountId: null, wipAccountId: null, createdAt: NOW, updatedAt: NOW,
+                },
+            },
+        };
+        render(<SalesOrderDetailClient order={order({ status: 'SHIPPED', orderType: 'MAKLON_JASA', items: [serviceItem] })} />);
+        const row = within(screen.getByRole('table')).getAllByRole('row')[1];
+        expect(within(row).getByText('Jasa ditutup')).toBeTruthy();
+        expect(within(row).queryByText('Dalam produksi')).toBeNull();
+    });
+
     it('requires notes for LAINNYA and trims rejection payload before closing', async () => {
         renderOrder({ status: 'QUOTATION' });
         fireEvent.click(screen.getByRole('button', { name: 'Tolak' }));

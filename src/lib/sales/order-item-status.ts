@@ -20,7 +20,10 @@ export type OrderItemStatusKey =
     | 'partial'
     | 'delivered'
     | 'returned_partial'
-    | 'returned_full';
+    | 'returned_full'
+    | 'service_ready'
+    | 'service_closed'
+    | 'service_done';
 
 export interface OrderItemStatusInput {
     orderStatus: SalesOrderStatus;
@@ -28,6 +31,8 @@ export interface OrderItemStatusInput {
     deliveredQty: number;
     /** Agregat returnedQty dari SalesReturn non-CANCELLED untuk varian ini. */
     returnedQty?: number | null;
+    /** Baris jasa (maklon): deliveredQty tidak pernah bergerak, status mengikuti SO. */
+    isService?: boolean;
 }
 
 export interface OrderItemStatus {
@@ -45,6 +50,15 @@ export const ORDER_ITEM_STATUS_LABELS: Record<OrderItemStatusKey, string> = {
     delivered: 'Terkirim',
     returned_partial: 'Retur sebagian',
     returned_full: 'Retur',
+    service_ready: 'Siap penutupan jasa',
+    service_closed: 'Jasa ditutup',
+    service_done: 'Jasa selesai',
+};
+
+const SERVICE_STATUS_KEYS: Partial<Record<SalesOrderStatus, OrderItemStatusKey>> = {
+    READY_TO_SHIP: 'service_ready',
+    SHIPPED: 'service_closed',
+    DELIVERED: 'service_done',
 };
 
 function toFiniteNumber(value: unknown): number {
@@ -77,6 +91,12 @@ export function getOrderItemStatus(input: OrderItemStatusInput): OrderItemStatus
 
     if (isPreConfirm(input.orderStatus)) {
         return { key: 'draft', label: ORDER_ITEM_STATUS_LABELS.draft, returnedQty };
+    }
+
+    // Menutup order jasa tidak mengisi deliveredQty, jadi baris jasa mengikuti status SO.
+    const serviceKey = input.isService ? SERVICE_STATUS_KEYS[input.orderStatus] : undefined;
+    if (serviceKey) {
+        return { key: serviceKey, label: ORDER_ITEM_STATUS_LABELS[serviceKey], returnedQty };
     }
 
     if (delivered <= 0) {

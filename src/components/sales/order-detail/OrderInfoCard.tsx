@@ -61,6 +61,12 @@ export function OrderInfoCard({
             'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
         returned_full:
             'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400',
+        service_ready:
+            'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400',
+        service_closed:
+            'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+        service_done:
+            'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
     };
 
     return (
@@ -249,6 +255,9 @@ export function OrderInfoCard({
                                         returnedQtyByVariant.get(
                                             item.productVariantId,
                                         ) ?? 0,
+                                    isService:
+                                        item.productVariant.product
+                                            .productType === 'SERVICE',
                                 });
                                 return (
                                 <tr key={item.id} className="hover:bg-muted/50">
