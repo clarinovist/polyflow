@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sortByDocumentLineName } from '@/lib/utils/document-line-order';
 
 const money = z.string().regex(/^\d+\.\d{2}$/);
 const quantity = z.number().finite().nonnegative();
@@ -92,7 +93,11 @@ export function invoiceSnapshotOrder(value: unknown) {
         taxAmount: Number(snapshot.taxAmount),
         discountAmount: Number(snapshot.discountAmount),
         shippingCost: Number(snapshot.shippingAmount),
-        items: snapshot.items.map((item) => ({
+        // Snapshot items are stored by internal id; show them in the same order as the Surat Jalan.
+        items: sortByDocumentLineName(
+            snapshot.items,
+            (item) => item.name || item.product.name,
+        ).map((item) => ({
             id: item.sourceItemId,
             productVariantId: item.productVariantId,
             quantity: item.quantity,

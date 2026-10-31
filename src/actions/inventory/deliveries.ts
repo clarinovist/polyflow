@@ -27,6 +27,10 @@ import { requireWarehouseResourcePermission } from '@/lib/tools/auth-checks';
 import { logger } from '@/lib/config/logger';
 import { DELIVERY_ORDERS_LIST_ROUTE } from '@/lib/constants/performance';
 import { normalizeToBusinessDay } from '@/lib/utils/timezone';
+import {
+    documentLineName,
+    sortByDocumentLineName,
+} from '@/lib/utils/document-line-order';
 import { requireDeliveryAccess } from '@/lib/auth/sales-access';
 import type { DeliveryListQuery } from '@/lib/sales/delivery-list';
 import { queryDeliveryOrdersPage } from '@/services/sales/delivery-list-service';
@@ -309,7 +313,15 @@ export const getDeliveryOrderById = withTenant(
                 },
             });
 
-            return deliveryOrder;
+            if (!deliveryOrder) return deliveryOrder;
+            // Detail, print and warehouse pages list lines in the invoice's order.
+            return {
+                ...deliveryOrder,
+                items: sortByDocumentLineName(
+                    deliveryOrder.items,
+                    documentLineName,
+                ),
+            };
         });
     },
 );

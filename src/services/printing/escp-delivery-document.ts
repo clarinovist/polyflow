@@ -7,6 +7,10 @@
 
 import { prisma } from '@/lib/core/prisma';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
+import {
+    documentLineName,
+    sortByDocumentLineName,
+} from '@/lib/utils/document-line-order';
 import type { EscpDocument } from './escp-documents';
 import {
     generateEscpDeliveryNote,
@@ -55,19 +59,18 @@ export async function buildDeliveryNoteDocument(
         deliveryDate: new Date(order.deliveryDate),
         salesOrderNumber: order.salesOrder?.orderNumber || '',
         vehiclePlate: order.vehicle?.plateNumber || '',
-        items: order.items.map((item) => ({
-            name:
-                item.productVariant?.name ||
-                item.productVariant?.product?.name ||
-                '-',
-            qty: Number(item.enteredQuantity ?? item.quantity ?? 0),
-            unit:
-                item.enteredUnit ||
-                item.productVariant?.salesUnit ||
-                item.productVariant?.primaryUnit ||
-                '',
-            note: item.notes || '',
-        })),
+        items: sortByDocumentLineName(order.items, documentLineName).map(
+            (item) => ({
+                name: documentLineName(item) || '-',
+                qty: Number(item.enteredQuantity ?? item.quantity ?? 0),
+                unit:
+                    item.enteredUnit ||
+                    item.productVariant?.salesUnit ||
+                    item.productVariant?.primaryUnit ||
+                    '',
+                note: item.notes || '',
+            }),
+        ),
         paperHeightCm: company.paperSize.heightCm,
         paperWidthCm: company.paperSize.widthCm,
     };

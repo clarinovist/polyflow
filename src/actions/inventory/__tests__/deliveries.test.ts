@@ -448,16 +448,26 @@ describe('getOpenDeliveryOrderCount', () => {
 
 describe('getDeliveryOrderById', () => {
     it('returns the delivery order when found', async () => {
+        const line = (id: string, name: string) => ({
+            id,
+            productVariant: { name, product: { name: 'Produk' } },
+        });
         vi.mocked(prisma.deliveryOrder.findUnique).mockResolvedValue({
             id: 'do-1',
             orderNumber: 'DO-2026-0001',
+            items: [line('a', 'WARNA B 15'), line('b', 'WARNA A 21'), line('c', 'WARNA A 9')],
         } as never);
 
         const result = await getDeliveryOrderById('do-1');
 
+        // Lines come back in invoice order (name A–Z, numbers natural), not insertion order.
         expect(result).toEqual({
             success: true,
-            data: { id: 'do-1', orderNumber: 'DO-2026-0001' },
+            data: {
+                id: 'do-1',
+                orderNumber: 'DO-2026-0001',
+                items: [line('c', 'WARNA A 9'), line('b', 'WARNA A 21'), line('a', 'WARNA B 15')],
+            },
         });
         expect(prisma.deliveryOrder.findUnique).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ salesOrder: expect.objectContaining({ include: expect.objectContaining({ items: { select: { productVariantId: true, quantity: true, deliveredQty: true } } }) }) }) }));
     });
