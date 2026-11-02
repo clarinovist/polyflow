@@ -182,6 +182,45 @@ describe('checkProductionCostHealth', () => {
         if (version === 2) expect(line).toContain('[per akun: 50.00, -10.00; NEGATIVE_ACCOUNT_POOLS_RETAINED:1]');
         expect(line).not.toMatch(HOST_ALERT_PATTERN);
     });
+    describe('ATK stocked at an accepted Rp0', () => {
+        const LONG_AGO = new Date('2026-06-29T00:00:00Z');
+        const zeroRow = (overrides: Record<string, unknown> = {}) => ({
+            id: 'v9', skuCode: 'ATK-9', stockValue: d(0), quantity: d(1),
+            lastMovementAt: LONG_AGO, hasCostedMovement: false, ...overrides,
+        });
+        const run = async (row: Record<string, unknown>, basisValue = 0) => {
+            tx.$queryRaw
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([row]);
+            basis.mockResolvedValue(new Map(basisValue ? [['acc', d(basisValue)]] : []));
+            return checkProductionCostHealth(NOW);
+        };
+
+        it('moves a long-settled Rp0 SKU that never carried a cost out of the findings', async () => {
+            const health = await run(zeroRow());
+            expect(health.operationalWithoutBasis).toEqual([]);
+            expect(health.zeroCostRetained).toEqual([{ skuCode: 'ATK-9', quantity: '1' }]);
+            expect(health.findings).toBe(0);
+            const line = summarizeProductionCostHealth('acme', health);
+            expect(line).toBe('[ProductionCostHealth] acme: ok — ATK biaya Rp0 dipertahankan (ATK-9 1)');
+            expect(line).not.toMatch(HOST_ALERT_PATTERN);
+        });
+
+        it.each([
+            ['moved within the last 24 hours', { lastMovementAt: new Date('2026-10-28T10:00:00Z') }, 0],
+            ['has no movement history to show it is settled', { lastMovementAt: null }, 0],
+            ['ever carried a positive cost', { hasCostedMovement: true }, 0],
+            ['has a journal basis although valued at Rp0', {}, 500],
+            ['has stock value that the basis does not fund', { stockValue: d(40000) }, 32000],
+        ])('still flags a SKU that %s', async (_label, overrides, basisValue) => {
+            const health = await run(zeroRow(overrides), basisValue);
+            expect(health.operationalWithoutBasis.map((sku) => sku.skuCode)).toEqual(['ATK-9']);
+            expect(health.zeroCostRetained ?? []).toEqual([]);
+            expect(health.findings).toBe(1);
+        });
+    });
+
     it('does not hide an unexpected failure as a finding', async () => {
         tx.productionOrder.findMany.mockResolvedValue([{ id: 'a', orderNumber: 'WO-A', status: 'IN_PROGRESS' }]);
         available.mockRejectedValue(new Error('connection lost'));
@@ -207,6 +246,14 @@ describe('summarizeProductionCostHealth', () => {
         const line = summarizeProductionCostHealth('acme', { ...clean, retainedHistory });
         expect(line).toBe('[ProductionCostHealth] acme: ok — biaya historis dipertahankan, bukan dana hasil baru (WO-HISTORY Rp40.00)');
         expect(line).not.toMatch(HOST_ALERT_PATTERN);
+    });
+
+    it('keeps Rp0 retained ATK informational next to a real finding', () => {
+        const line = summarizeProductionCostHealth('acme', {
+            ...clean, nullCostScrapOrders: ['WO-A'], zeroCostRetained: [{ skuCode: 'ATK-9', quantity: '1' }], findings: 1,
+        });
+        expect(line).toContain('check failed for acme: 1 temuan');
+        expect(line).toContain('ATK biaya Rp0 dipertahankan (ATK-9 1)');
     });
 
     it.each<{ label: string; finding: Partial<ProductionCostHealth>; count: number }>([

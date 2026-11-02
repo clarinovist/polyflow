@@ -28,6 +28,8 @@ export interface ProductionCostHealth {
     zeroCostOutputs: Array<{ orderNumber: string; skuCode: string; quantity: string }>;
     /** Stocked ATK whose stock value no SKU-linked journal funds. */
     operationalWithoutBasis: Array<{ skuCode: string; stockValue: string; basis: string }>;
+    /** Informational ATK held at Rp0 with no cost ever and no movement for a day: excluded from findings. */
+    zeroCostRetained?: Array<{ skuCode: string; quantity: string }>;
     /** Re-entries of a voided output in the last 24h with no less output but less affal or material. */
     revisionShortfalls: Array<{ orderNumber: string; changes: string[] }>;
     /** Non-affal stock adjusted in during the last 24h at Rp0: no entered, average, standard or buy cost. */
@@ -108,22 +110,42 @@ async function findZeroCostOutputs(tx: Tx, now: Date) {
     return rows.map((row) => ({ orderNumber: row.orderNumber, skuCode: row.skuCode, quantity: new Prisma.Decimal(row.quantity).toString() }));
 }
 
-async function findOperationalWithoutBasis(tx: Tx) {
-    const stocked = await tx.$queryRaw<Array<{ id: string; skuCode: string; stockValue: Prisma.Decimal }>>`
-        SELECT v.id, v."skuCode", COALESCE(SUM(i.quantity * COALESCE(i."averageCost", 0)), 0) AS "stockValue"
+type StockedOperationalRow = {
+    id: string;
+    skuCode: string;
+    stockValue: Prisma.Decimal;
+    quantity: Prisma.Decimal;
+    lastMovementAt: Date | null;
+    hasCostedMovement: boolean;
+};
+
+async function findOperationalWithoutBasis(tx: Tx, now: Date) {
+    const stocked = await tx.$queryRaw<StockedOperationalRow[]>`
+        SELECT v.id, v."skuCode", COALESCE(SUM(i.quantity * COALESCE(i."averageCost", 0)), 0) AS "stockValue",
+            COALESCE(SUM(i.quantity), 0) AS quantity,
+            (SELECT MAX(m."createdAt") FROM "StockMovement" m WHERE m."productVariantId" = v.id) AS "lastMovementAt",
+            EXISTS (SELECT 1 FROM "StockMovement" m WHERE m."productVariantId" = v.id AND COALESCE(m.cost, 0) > 0) AS "hasCostedMovement"
         FROM "Inventory" i JOIN "ProductVariant" v ON v.id = i."productVariantId" JOIN "Product" p ON p.id = v."productId"
         WHERE p."productType" = 'OPERATIONAL' AND i.quantity > 0
         GROUP BY v.id, v."skuCode" ORDER BY v."skuCode"`;
+    const settledBefore = now.getTime() - RECENT_WINDOW_MS;
     const gaps: ProductionCostHealth['operationalWithoutBasis'] = [];
+    const zeroCostRetained: NonNullable<ProductionCostHealth['zeroCostRetained']> = [];
     for (const sku of stocked) {
         const stockValue = new Prisma.Decimal(sku.stockValue);
         const basis = [...(await skuInventoryBasis(tx, sku.id)).values()]
             .reduce((sum, value) => sum.plus(value), new Prisma.Decimal(0));
-        if (!stockValue.gt(0) || basis.lt(stockValue.minus(VALUE_TOLERANCE))) {
+        // Rp0 stock is a standing decision only when it never had a price, nothing funds it,
+        // and nothing touched it today; a fresh Rp0 entry still alerts on its first day.
+        const isSettledZeroCost = stockValue.isZero() && basis.isZero() && !sku.hasCostedMovement &&
+            sku.lastMovementAt != null && new Date(sku.lastMovementAt).getTime() < settledBefore;
+        if (isSettledZeroCost) {
+            zeroCostRetained.push({ skuCode: sku.skuCode, quantity: new Prisma.Decimal(sku.quantity).toString() });
+        } else if (!stockValue.gt(0) || basis.lt(stockValue.minus(VALUE_TOLERANCE))) {
             gaps.push({ skuCode: sku.skuCode, stockValue: stockValue.toFixed(2), basis: basis.toFixed(2) });
         }
     }
-    return gaps;
+    return { gaps, zeroCostRetained };
 }
 
 type RevisionRow = {
@@ -207,14 +229,14 @@ export async function checkProductionCostHealth(now = new Date()): Promise<Produ
         const nullCostScrapOrders = await findNullCostScrapOrders(tx);
         const uncostedMovements = await countUncostedMovements(tx, now);
         const zeroCostOutputs = await findZeroCostOutputs(tx, now);
-        const operationalWithoutBasis = await findOperationalWithoutBasis(tx);
+        const { gaps: operationalWithoutBasis, zeroCostRetained } = await findOperationalWithoutBasis(tx, now);
         const revisionShortfalls = await findRevisionShortfalls(tx, now);
         const zeroCostAdjustments = await findZeroCostAdjustments(tx, now);
         const findings = blockedOrders.length + completedResidual.length + nullCostScrapOrders.length +
             uncostedMovements.reduce((sum, row) => sum + row.count, 0) + zeroCostOutputs.length + operationalWithoutBasis.length +
             revisionShortfalls.length + zeroCostAdjustments.length;
         return { blockedOrders, completedResidual, retainedHistory, nullCostScrapOrders, uncostedMovements, zeroCostOutputs, operationalWithoutBasis,
-            revisionShortfalls, zeroCostAdjustments, findings };
+            zeroCostRetained, revisionShortfalls, zeroCostAdjustments, findings };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead, timeout: HEALTH_TX_TIMEOUT_MS });
 }
 
@@ -228,6 +250,7 @@ export function summarizeProductionCostHealth(tenant: string, health: Production
         health.uncostedMovements.length && `movement produksi tanpa biaya 24 jam: ${health.uncostedMovements.map((m) => `${m.type} ${m.count}`).join(', ')}`,
         health.zeroCostOutputs.length && `hasil bernilai Rp0 24 jam (${health.zeroCostOutputs.map((o) => `${o.orderNumber} ${o.skuCode} ${o.quantity}`).join('; ')})`,
         health.operationalWithoutBasis.length && `${health.operationalWithoutBasis.length} SKU ATK tanpa basis (${health.operationalWithoutBasis.map((s) => s.skuCode).join(', ')})`,
+        health.zeroCostRetained?.length && `ATK biaya Rp0 dipertahankan (${health.zeroCostRetained.map((s) => `${s.skuCode} ${s.quantity}`).join(', ')})`,
         health.revisionShortfalls.length && `${health.revisionShortfalls.length} revisi SPK mengurangi affal/bahan dari isian yang di-void (${health.revisionShortfalls.map((r) => `${r.orderNumber}: ${r.changes.join(', ')}`).join('; ')})`,
         health.zeroCostAdjustments.length && `penyesuaian masuk Rp0 tanpa sumber harga 24 jam (${health.zeroCostAdjustments.map((a) => `${a.skuCode} ${a.quantity}`).join('; ')})`,
     ].filter(Boolean);
