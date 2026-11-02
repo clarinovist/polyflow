@@ -8,6 +8,7 @@ import type {
     StockLedgerPairHistory,
 } from '@/services/inventory/stock-ledger-health-service';
 import { Badge } from '@/components/ui/badge';
+import { formatWIB } from '@/lib/utils/timezone';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -34,10 +35,9 @@ function classifyDiff(diff: string): 'pembulatan' | 'material' {
         : 'material';
 }
 
+// DB stores UTC; the evidence must be read in the same WIB day as the opname.
 function formatDateTime(iso: string): string {
-    const parsed = new Date(iso);
-    if (Number.isNaN(parsed.getTime())) return iso;
-    return parsed.toISOString().replace('T', ' ').slice(0, 19);
+    return formatWIB(iso, 'dd MMM yyyy HH:mm:ss');
 }
 
 export function StockLedgerGaps({ health }: { health: StockLedgerHealth }) {
@@ -257,7 +257,7 @@ export function StockLedgerGaps({ health }: { health: StockLedgerHealth }) {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Tanggal</TableHead>
+                                        <TableHead>Tanggal (WIB)</TableHead>
                                         <TableHead>Jenis</TableHead>
                                         <TableHead>Referensi</TableHead>
                                         <TableHead className="text-right">

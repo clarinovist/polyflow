@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { savePendingAtkRecovery, clearPendingAtkRecovery } from './atk-recovery-pending';
+import { isAtkNotAppliedFailure } from './atk-recovery-errors';
 
 const unitCost = (value: string) => new Intl.NumberFormat('id-ID', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(Number(value));
 const money = (value: string) =>
@@ -105,14 +106,7 @@ export function AtkCostRecovery({
                     setError(
                         `${result.error} Periksa nomor permintaan sebelum membuat koreksi lain.`,
                     );
-                    const rejected = [
-                        'ATK_RECOVERY_BLOCKED',
-                        'PURCHASE_PRICE_CORRECTED',
-                        'ATK_BACKUP_FAILED',
-                        'VALIDATION_ERROR',
-                        'AUTHORIZATION_ERROR',
-                        'FISCAL_PERIOD_CLOSED',
-                    ].includes(result.code ?? '');
+                    const rejected = isAtkNotAppliedFailure(result.code);
                     setUncertain(!rejected);
                     if (rejected) {
                         clearPendingAtkRecovery(recoveryScope, request.requestId);

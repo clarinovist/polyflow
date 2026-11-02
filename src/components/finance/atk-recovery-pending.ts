@@ -30,7 +30,28 @@ export function savePendingAtkRecovery(scope: string, request: AtkRecoveryApply)
     window.dispatchEvent(new Event(eventName));
 }
 export function clearPendingAtkRecovery(scope: string, requestId: string) {
-    const raw = sessionStorage.getItem(key(scope));
-    if (raw && JSON.parse(raw).requestId === requestId) sessionStorage.removeItem(key(scope));
+    const storageKey = key(scope);
+    try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (raw) {
+            let savedId: unknown;
+            let unreadable = false;
+            try {
+                savedId = (JSON.parse(raw) as { requestId?: unknown } | null)
+                    ?.requestId;
+            } catch {
+                unreadable = true;
+            }
+            // An unreadable key cannot be confirmed against a committed
+            // correction; drop it instead of reporting "status unknown"
+            // forever after a successful apply.
+            if (unreadable || savedId === requestId) {
+                sessionStorage.removeItem(storageKey);
+            }
+        }
+    } catch {
+        // Storage is unavailable. The correction already committed; cleanup
+        // must not turn the success path into an uncertain result.
+    }
     window.dispatchEvent(new Event(eventName));
 }

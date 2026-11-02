@@ -174,6 +174,16 @@ describe('StockLedgerGaps', () => {
         expect(
             within(historyPanel).getByText(/Pertama kali kartu stok negatif/i),
         ).toBeTruthy();
+        // Evidence timestamps are WIB, not UTC: 08:00Z is 15:00 WIB.
+        expect(
+            within(historyPanel).getAllByText('02 Oct 2026 15:00:00').length,
+        ).toBeGreaterThan(0);
+        expect(
+            within(historyPanel).getByText('01 Oct 2026 15:00:00'),
+        ).toBeTruthy();
+        expect(
+            within(historyPanel).queryByText('2026-10-02 08:00:00'),
+        ).toBeNull();
         expect(within(historyPanel).getAllByText('-5').length).toBeGreaterThan(
             0,
         );

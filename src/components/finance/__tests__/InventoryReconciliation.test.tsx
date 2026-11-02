@@ -1,8 +1,13 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InventoryReconciliationDiagnosis } from '@/types/inventory-reconciliation';
 const m = vi.hoisted(() => ({ list: vi.fn(), inspect: vi.fn(), read: vi.fn(), preview: vi.fn(), apply: vi.fn(), receipt: vi.fn() }));
+// This file exercises transitions that resolve mocks across several renders.
+// Keep a CI-safe async/test budget; a disabled-control race is handled by
+// clickEnabled below rather than by waiting longer.
+configure({ asyncUtilTimeout: 3000 });
+vi.setConfig({ testTimeout: 15000 });
 vi.mock('@/actions/finance/inventory-reconciliation', () => ({ listInventoryReconciliation: m.list, inspectInventoryReconciliationAction: m.inspect, previewAtkRecoveryAction: m.preview, applyAtkRecoveryAction: m.apply, getAtkRecoveryReceiptAction: m.receipt }));
 vi.mock('@/lib/auth/finance-access', () => ({ requireFinanceAccess: m.read }));
 import { InventoryReconciliation } from '../InventoryReconciliation';
@@ -19,7 +24,25 @@ const diagnosis: InventoryReconciliationDiagnosis = {
 };
 beforeEach(() => { sessionStorage.clear(); vi.resetAllMocks(); m.list.mockResolvedValue({ success: true, data: { items: [item], page: 1, hasMore: true } }); m.inspect.mockResolvedValue({ success: true, data: diagnosis }); });
 afterEach(cleanup);
-async function search() { fireEvent.click(screen.getByRole('button', { name: 'Cari ATK' })); await screen.findByRole('button', { name: 'Periksa TEST-ATK' }); }
+
+// startTransition keeps `pending` true for a tick after the awaited mock
+// resolves. Clicking a disabled control is a silent no-op, so every action
+// waits for the same enabled state a real operator needs.
+async function clickEnabled(name: string | RegExp) {
+    await waitFor(() => {
+        const button = screen.getByRole('button', { name }) as HTMLButtonElement;
+        expect(button.disabled).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name }));
+}
+async function search() {
+    await clickEnabled('Cari ATK');
+    await waitFor(() =>
+        expect(
+            (screen.getByRole('button', { name: 'Periksa TEST-ATK' }) as HTMLButtonElement).disabled,
+        ).toBe(false),
+    );
+}
 
 describe('ATK reconciliation read-only UI', () => {
     it('retains unknown requests above replaceable diagnosis and restores them after refresh, tenant-scoped', async () => {
@@ -27,12 +50,18 @@ describe('ATK reconciliation read-only UI', () => {
         m.preview.mockResolvedValue({ success: true, data: { status: 'eligible', message: 'Preview valid', proposal: preview } });
         m.apply.mockRejectedValue(new Error('response lost'));
         const view = render(<InventoryReconciliation recoveryScope="test-tenant:actor" />); await search();
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa TEST-ATK' })); await screen.findByLabelText('Mutasi loss sumber');
-        fireEvent.change(screen.getByLabelText('Mutasi loss sumber'), { target: { value: 'm' } });
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa usulan koreksi' })); await screen.findByText('Preview valid');
+        await clickEnabled('Periksa TEST-ATK'); await screen.findByLabelText('Mutasi loss sumber');
+        const source = screen.getByLabelText('Mutasi loss sumber') as HTMLSelectElement;
+        await waitFor(() => expect(source.disabled).toBe(false));
+        fireEvent.change(source, { target: { value: 'm' } });
+        await clickEnabled('Periksa usulan koreksi'); await screen.findByText('Preview valid');
         expect(screen.getByText('Rp100,1234')).toBeTruthy();
-        fireEvent.change(screen.getByLabelText(/Alasan dan bukti/), { target: { value: 'Synthetic evidence checked' } }); fireEvent.click(screen.getByRole('checkbox'));
-        fireEvent.click(screen.getByRole('button', { name: 'Setujui dan terapkan koreksi' })); await screen.findByRole('region', { name: 'Permintaan koreksi belum terkonfirmasi' });
+        const reason = screen.getByLabelText(/Alasan dan bukti/) as HTMLTextAreaElement;
+        await waitFor(() => expect(reason.disabled).toBe(false));
+        fireEvent.change(reason, { target: { value: 'Synthetic evidence checked' } });
+        await waitFor(() => expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(false));
+        fireEvent.click(screen.getByRole('checkbox'));
+        await clickEnabled('Setujui dan terapkan koreksi'); await screen.findByRole('region', { name: 'Permintaan koreksi belum terkonfirmasi' });
         const req = m.apply.mock.calls[0][0];
         expect((screen.getByLabelText('Cari SKU atau nama barang') as HTMLInputElement).matches(':disabled')).toBe(true);
         expect((screen.getByRole('button', { name: 'Periksa ulang SKU' }) as HTMLButtonElement).disabled).toBe(true);
@@ -41,7 +70,7 @@ describe('ATK reconciliation read-only UI', () => {
         const refreshed = render(<InventoryReconciliation recoveryScope="test-tenant:actor" />);
         await screen.findByText(`Nomor permintaan: ${req.requestId}`);
         m.receipt.mockResolvedValue({ success: true, data: { id: 'stored-correction' } });
-        fireEvent.click(screen.getByRole('button', { name: 'Pulihkan bukti permintaan' })); await screen.findByText(/Koreksi tercatat: stored-correction/);
+        await clickEnabled('Pulihkan bukti permintaan'); await screen.findByText(/Koreksi tercatat: stored-correction/);
         expect(sessionStorage.getItem('atk-recovery:v1:test-tenant:actor')).toBeNull();
         refreshed.unmount(); sessionStorage.setItem('atk-recovery:v1:other-tenant:actor', JSON.stringify(req));
         render(<InventoryReconciliation recoveryScope="test-tenant:actor" />);
@@ -52,7 +81,7 @@ describe('ATK reconciliation read-only UI', () => {
         sessionStorage.setItem('atk-recovery:v1:test-tenant:actor', JSON.stringify(request));
         m.apply.mockResolvedValue({ success: false, code: 'PURCHASE_PRICE_CORRECTED', error: 'PO sudah memiliki koreksi harga.' });
         render(<InventoryReconciliation recoveryScope="test-tenant:actor" />);
-        fireEvent.click(await screen.findByRole('button', { name: 'Kirim ulang permintaan tersimpan' }));
+        await clickEnabled('Kirim ulang permintaan tersimpan');
         await screen.findByText('PO sudah memiliki koreksi harga.');
         await waitFor(() => expect((screen.getByLabelText('Cari SKU atau nama barang') as HTMLInputElement).matches(':disabled')).toBe(false));
         expect(m.apply).toHaveBeenCalledExactlyOnceWith(request);
@@ -68,7 +97,7 @@ describe('ATK reconciliation read-only UI', () => {
         render(<InventoryReconciliation recoveryScope="test-tenant:actor" />); expect(m.list).not.toHaveBeenCalled();
         fireEvent.change(screen.getByLabelText('Cari SKU atau nama barang'), { target: { value: 'TEST' } }); await search();
         expect(m.list).toHaveBeenCalledWith({ query: 'TEST', page: 1 });
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa TEST-ATK' }));
+        await clickEnabled('Periksa TEST-ATK');
         await screen.findByRole('region', { name: 'Diagnosis nilai ATK' });
         expect(m.inspect).toHaveBeenCalledWith({ variantId: 'sku' });
         expect(screen.getByText(/Kesiapan pemakaian belum diperiksa/)).toBeTruthy();
@@ -82,25 +111,25 @@ describe('ATK reconciliation read-only UI', () => {
     });
     it('distinguishes failure from empty results and clears previous SKU diagnosis on retry', async () => {
         render(<InventoryReconciliation recoveryScope="test-tenant:actor" />); await search();
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa TEST-ATK' })); await screen.findByRole('region', { name: 'Diagnosis nilai ATK' });
+        await clickEnabled('Periksa TEST-ATK'); await screen.findByRole('region', { name: 'Diagnosis nilai ATK' });
         m.inspect.mockRejectedValueOnce(new Error('network'));
         await waitFor(() => expect((screen.getByRole('button', { name: 'Periksa ulang SKU' }) as HTMLButtonElement).disabled).toBe(false));
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa ulang SKU' })); await screen.findByRole('alert');
+        await clickEnabled('Periksa ulang SKU'); await screen.findByRole('alert');
         expect(screen.queryByRole('region', { name: 'Diagnosis nilai ATK' })).toBeNull();
         expect(screen.getByRole('alert').textContent).toContain('tidak ada perubahan');
         m.list.mockResolvedValueOnce({ success: true, data: { items: [], page: 1, hasMore: false } });
-        fireEvent.click(screen.getByRole('button', { name: 'Cari ATK' }));
+        await clickEnabled('Cari ATK');
         await screen.findByText(/Tidak ada SKU pada halaman/); expect(screen.queryByRole('alert')).toBeNull();
     });
     it('uses the submitted search for pagination and shows returned failures', async () => {
         render(<InventoryReconciliation recoveryScope="test-tenant:actor" />); await search();
-        fireEvent.click(screen.getByRole('button', { name: 'Berikutnya' })); await screen.findByRole('button', { name: 'Periksa TEST-ATK' });
+        await clickEnabled('Berikutnya'); await screen.findByRole('button', { name: 'Periksa TEST-ATK' });
         expect(m.list).toHaveBeenLastCalledWith({ query: '', page: 2 });
         m.inspect.mockResolvedValueOnce({ success: false, error: 'Access denied' });
-        fireEvent.click(screen.getByRole('button', { name: 'Periksa TEST-ATK' })); await screen.findByRole('alert');
+        await clickEnabled('Periksa TEST-ATK'); await screen.findByRole('alert');
         expect(screen.getByRole('alert').textContent).toBe('Access denied');
         m.list.mockRejectedValueOnce(new Error('network'));
-        fireEvent.click(screen.getByRole('button', { name: 'Cari ATK' })); await screen.findByText(/Pemeriksaan belum berhasil/);
+        await clickEnabled('Cari ATK'); await screen.findByText(/Pemeriksaan belum berhasil/);
     });
     it('shows signed account balances and limited journal lines without declaring matched totals ready', () => {
         render(<InventoryReconciliationDetail data={{ ...diagnosis, healthFlagged: false, findings: [], variant: { ...item, archived: true },

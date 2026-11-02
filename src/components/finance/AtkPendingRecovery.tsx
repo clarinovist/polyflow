@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { applyAtkRecoveryAction, getAtkRecoveryReceiptAction } from '@/actions/finance/inventory-reconciliation';
 import { clearPendingAtkRecovery, usePendingAtkRecovery } from './atk-recovery-pending';
+import { isAtkNotAppliedFailure } from './atk-recovery-errors';
 import { Button } from '@/components/ui/button';
 
 /** Lives above the replaceable diagnosis. Restores the same request after refresh. */
@@ -24,7 +25,7 @@ export function AtkPendingRecovery({ scope }: { scope: string }) {
                 } else if (result.success) setMessage('Bukti belum ditemukan. Permintaan mungkin masih berjalan; ulangi hanya permintaan yang sama.');
                 else {
                     setMessage(result.error);
-                    if (retry && ['ATK_RECOVERY_BLOCKED', 'PURCHASE_PRICE_CORRECTED', 'ATK_BACKUP_FAILED', 'VALIDATION_ERROR', 'FISCAL_PERIOD_CLOSED'].includes(result.code ?? '')) clearPendingAtkRecovery(scope, request.requestId);
+                    if (retry && isAtkNotAppliedFailure(result.code)) clearPendingAtkRecovery(scope, request.requestId);
                 }
             } catch { setMessage('Status belum diketahui. Nomor permintaan tetap disimpan; jangan membuat koreksi berbeda.'); }
         });

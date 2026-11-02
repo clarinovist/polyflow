@@ -10,43 +10,59 @@ const proposal = { sourceMovementId: 'loss', kind: 'REFUND', fingerprint: 'a'.re
 const receipt = { id: 'correction', kind: 'REFUND', journalId: 'journal', amount: '20', postingDate: proposal.postingDate, sourceMovementId: 'loss', alreadyApplied: false };
 beforeEach(() => { sessionStorage.clear(); vi.resetAllMocks(); m.preview.mockResolvedValue({ success: true, data: { status: 'eligible', message: 'Preview valid', proposal } }); m.apply.mockResolvedValue({ success: true, data: receipt }); m.receipt.mockResolvedValue({ success: true, data: receipt }); });
 afterEach(cleanup);
+
+// startTransition keeps `pending` true for a tick after the awaited mock resolves.
+// Clicking a disabled control is a no-op, so every action waits for the same
+// enabled state a real operator needs instead of racing the transition.
+async function clickEnabled(name: string | RegExp) {
+    await waitFor(() => {
+        const button = screen.getByRole('button', { name }) as HTMLButtonElement;
+        expect(button.disabled).toBe(false);
+    });
+    fireEvent.click(screen.getByRole('button', { name }));
+}
 async function preview() {
-    fireEvent.change(screen.getByLabelText('Mutasi loss sumber'), { target: { value: 'loss' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa usulan koreksi' }));
+    const source = screen.getByLabelText('Mutasi loss sumber') as HTMLSelectElement;
+    await waitFor(() => expect(source.disabled).toBe(false));
+    fireEvent.change(source, { target: { value: 'loss' } });
+    await clickEnabled('Periksa usulan koreksi');
     await screen.findByText('Preview valid');
 }
-function confirm() {
-    fireEvent.change(screen.getByLabelText(/Alasan dan bukti/), { target: { value: 'Checked synthetic evidence' } });
+async function confirm() {
+    const reason = screen.getByLabelText(/Alasan dan bukti/) as HTMLTextAreaElement;
+    await waitFor(() => expect(reason.disabled).toBe(false));
+    fireEvent.change(reason, { target: { value: 'Checked synthetic evidence' } });
+    await waitFor(() =>
+        expect((screen.getByRole('checkbox') as HTMLInputElement).disabled).toBe(false),
+    );
     fireEvent.click(screen.getByRole('checkbox'));
 }
 it('requires preview, reason, confirmation and backup, then shows exact receipt', async () => {
     render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />);
     expect(screen.queryByRole('button', { name: 'Setujui dan terapkan koreksi' })).toBeNull();
     await preview(); const button = screen.getByRole('button', { name: 'Setujui dan terapkan koreksi' }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true); confirm(); expect(button.disabled).toBe(false);
-    fireEvent.click(button); await screen.findByText(/Koreksi tersimpan dan diverifikasi/);
+    expect(button.disabled).toBe(true); await confirm(); expect(button.disabled).toBe(false);
+    await clickEnabled('Setujui dan terapkan koreksi'); await screen.findByText(/Koreksi tersimpan dan diverifikasi/);
     expect(m.apply).toHaveBeenCalledWith(expect.objectContaining({ sourceMovementId: 'loss', fingerprint: proposal.fingerprint, reason: 'Checked synthetic evidence', confirmed: true }));
     expect(m.apply.mock.calls[0][0]).not.toHaveProperty('amount');
 });
 it('keeps the identical intent after lost response and finds its receipt', async () => {
     m.apply.mockRejectedValueOnce(new Error('network'));
-    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); confirm();
-    fireEvent.click(screen.getByRole('button', { name: 'Setujui dan terapkan koreksi' }));
+    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); await confirm();
+    await clickEnabled('Setujui dan terapkan koreksi');
     await screen.findByRole('alert');
     expect((screen.getByLabelText('Mutasi loss sumber') as HTMLSelectElement).disabled).toBe(true);
-    const retry = screen.getByRole('button', { name: 'Ulangi permintaan yang sama' }) as HTMLButtonElement;
-    await waitFor(() => expect(retry.disabled).toBe(false));
-    fireEvent.click(retry);
+    await clickEnabled('Ulangi permintaan yang sama');
     await screen.findByText(/Koreksi tersimpan dan diverifikasi/);
     expect(m.apply.mock.calls[0]).toEqual(m.apply.mock.calls[1]);
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa bukti tersimpan' }));
+    await clickEnabled('Periksa bukti tersimpan');
     await screen.findByText(/Bukti correction/);
     expect(m.receipt).toHaveBeenCalledWith({ requestId: m.apply.mock.calls[0][0].requestId });
 });
-it.each(['ATK_RECOVERY_BLOCKED', 'PURCHASE_PRICE_CORRECTED'])('invalidates a rejected preview and can inspect again after %s', async (code) => {
+it.each(['ATK_RECOVERY_BLOCKED', 'PURCHASE_PRICE_CORRECTED', 'BUSINESS_RULE_VIOLATION'])('invalidates a rejected preview and can inspect again after %s', async (code) => {
     m.apply.mockResolvedValueOnce({ success: false, code, error: 'Sumber harus diperiksa ulang' });
-    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); confirm();
-    fireEvent.click(screen.getByRole('button', { name: 'Setujui dan terapkan koreksi' })); await screen.findByRole('alert');
+    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); await confirm();
+    await clickEnabled('Setujui dan terapkan koreksi'); await screen.findByRole('alert');
     expect(screen.queryByRole('checkbox')).toBeNull();
     await waitFor(() => expect((screen.getByRole('button', { name: 'Periksa usulan koreksi' }) as HTMLButtonElement).disabled).toBe(false));
     expect(sessionStorage.getItem('atk-recovery:v1:test-tenant:actor')).toBeNull();
@@ -54,25 +70,28 @@ it.each(['ATK_RECOVERY_BLOCKED', 'PURCHASE_PRICE_CORRECTED'])('invalidates a rej
 });
 it('does not offer apply for blocked cases or unavailable storage', async () => {
     m.preview.mockResolvedValueOnce({ success: true, data: { status: 'blocked', message: 'Sumber ambigu' } });
-    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); fireEvent.change(screen.getByLabelText('Mutasi loss sumber'), { target: { value: 'loss' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa usulan koreksi' })); await screen.findByText('Sumber ambigu');
+    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />);
+    fireEvent.change(screen.getByLabelText('Mutasi loss sumber'), { target: { value: 'loss' } });
+    await clickEnabled('Periksa usulan koreksi'); await screen.findByText('Sumber ambigu');
     expect(screen.queryByRole('checkbox')).toBeNull();
     m.preview.mockResolvedValueOnce({ success: true, data: { status: 'eligible', message: 'Preview valid', proposal: { ...proposal, backupReady: false } } });
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa usulan koreksi' })); await screen.findByText('Preview valid'); confirm();
+    await clickEnabled('Periksa usulan koreksi'); await screen.findByText('Preview valid'); await confirm();
     expect((screen.getByRole('button', { name: 'Setujui dan terapkan koreksi' }) as HTMLButtonElement).disabled).toBe(true);
 });
 it('selecting compensation clears prior confirmation and sends the distinct kind', async () => {
-    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); confirm();
-    fireEvent.change(screen.getByLabelText('Tindakan'), { target: { value: 'COMPENSATION' } });
+    render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />); await preview(); await confirm();
+    const kind = screen.getByLabelText('Tindakan') as HTMLSelectElement;
+    await waitFor(() => expect(kind.disabled).toBe(false));
+    fireEvent.change(kind, { target: { value: 'COMPENSATION' } });
     expect(screen.queryByRole('checkbox')).toBeNull();
     m.preview.mockResolvedValueOnce({ success: true, data: { status: 'eligible', message: 'Inverse valid', proposal: { ...proposal, kind: 'COMPENSATION' } } });
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa usulan koreksi' })); await screen.findByText('Inverse valid');
+    await clickEnabled('Periksa usulan koreksi'); await screen.findByText('Inverse valid');
     expect(m.preview).toHaveBeenLastCalledWith({ sourceMovementId: 'loss', kind: 'COMPENSATION' });
     expect(screen.getByText(/Debit LOSS; kredit INV/)).toBeTruthy();
 });
 it('receipt lookup can recover across a page refresh without a new apply', async () => {
     render(<AtkCostRecovery data={data} recoveryScope="test-tenant:actor" />);
     fireEvent.change(screen.getByLabelText('Periksa nomor permintaan'), { target: { value: 'existing-request' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Periksa bukti tersimpan' })); await screen.findByText(/Bukti correction/);
+    await clickEnabled('Periksa bukti tersimpan'); await screen.findByText(/Bukti correction/);
     expect(m.apply).not.toHaveBeenCalled();
 });
