@@ -648,7 +648,10 @@ export class StockOpnameService {
                         oi."systemQuantity"::text AS "snapshotQuantity",
                         oi."countedQuantity"::text AS "storedCountedQuantity",
                         es.total::text AS "entryTotal",
-                        COALESCE(pv."standardCost", pv."buyPrice", pv.price, 0)::text AS "unitCost"
+                        COALESCE(pv."standardCost", pv."buyPrice", pv.price, 0)::text AS "unitCost",
+                        COALESCE(inv.quantity, 0)::text AS "liveQuantity",
+                        COALESCE(l.ledger, 0)::text AS "ledgerQuantity",
+                        COALESCE(l.cutoff, 0)::text AS "cutoffQuantity"
                     FROM "StockOpnameItem" oi
                     JOIN "ProductVariant" pv ON pv.id = oi."productVariantId"
                     LEFT JOIN LATERAL (

@@ -651,6 +651,24 @@ describe('StockOpnameService.previewFinalization', () => {
         expect(staleCountSql).not.toContain('oi."updatedAt"');
     });
 
+    it('selects the live, ledger and cutoff balances the guards compare, so a zero-stock item is validated for real', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([]);
+
+        await StockOpnameService.previewFinalization('opname-1', '2026-09-30');
+
+        const itemRowsSql = mockTx.$queryRaw.mock.calls
+            .map(([query]) => (query as { sql?: string }).sql ?? '')
+            .find((sql) => sql.includes('"unitCost"'));
+        expect(itemRowsSql).toBeDefined();
+        expect(itemRowsSql).toContain('AS "liveQuantity"');
+        expect(itemRowsSql).toContain('AS "ledgerQuantity"');
+        expect(itemRowsSql).toContain('AS "cutoffQuantity"');
+    });
+
     it('flags a quantity outlier and a high value impact', async () => {
         mockTx.$queryRaw
             .mockResolvedValueOnce([{ status: 'OPEN' }])
