@@ -635,6 +635,22 @@ describe('StockOpnameService.previewFinalization', () => {
         expect(warning?.items[0]?.detail).toContain('keluar 2350.0000');
     });
 
+    it('dates a count from its entries, never from a column StockOpnameItem lacks', async () => {
+        mockTx.$queryRaw
+            .mockResolvedValueOnce([{ status: 'OPEN' }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([]);
+
+        await StockOpnameService.previewFinalization('opname-1', '2026-09-30');
+
+        const staleCountSql = mockTx.$queryRaw.mock.calls
+            .map(([query]) => (query as { sql?: string }).sql ?? '')
+            .find((sql) => sql.includes('"StockOpnameEntry"') && sql.includes('LIMIT 200'));
+        expect(staleCountSql).toBeDefined();
+        expect(staleCountSql).not.toContain('oi."updatedAt"');
+    });
+
     it('flags a quantity outlier and a high value impact', async () => {
         mockTx.$queryRaw
             .mockResolvedValueOnce([{ status: 'OPEN' }])

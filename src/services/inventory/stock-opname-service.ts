@@ -847,16 +847,10 @@ export class StockOpnameService {
                           OR sm."toLocationId" = ${opname.locationId}
                       )
                       AND sm."createdAt" <= ${effectiveAt}
-                      AND sm."createdAt" > GREATEST(
-                          oi."updatedAt",
-                          COALESCE(
-                              (
-                                  SELECT MAX(e."createdAt")
-                                  FROM "StockOpnameEntry" e
-                                  WHERE e."opnameItemId" = oi."id"
-                              ),
-                              oi."updatedAt"
-                          )
+                      AND sm."createdAt" > (
+                          SELECT MAX(e."createdAt")
+                          FROM "StockOpnameEntry" e
+                          WHERE e."opnameItemId" = oi."id"
                       )
                     ORDER BY sm."createdAt"
                     LIMIT 200
