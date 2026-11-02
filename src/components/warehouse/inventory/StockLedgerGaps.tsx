@@ -40,7 +40,11 @@ function formatDateTime(iso: string): string {
     return formatWIB(iso, 'dd MMM yyyy HH:mm:ss');
 }
 
-export function StockLedgerGaps({ health }: { health: StockLedgerHealth }) {
+type StockLedgerGapsView = StockLedgerHealth & {
+    mismatchesTruncated?: boolean;
+};
+
+export function StockLedgerGaps({ health }: { health: StockLedgerGapsView }) {
     const [selectedPair, setSelectedPair] =
         useState<StockLedgerMismatch | null>(null);
     const [history, setHistory] = useState<StockLedgerPairHistory | null>(null);
@@ -127,6 +131,14 @@ export function StockLedgerGaps({ health }: { health: StockLedgerHealth }) {
                     </CardContent>
                 </Card>
             </div>
+
+            {health.mismatchesTruncated && (
+                <p role="status" className="text-sm text-muted-foreground">
+                    Menampilkan {health.mismatches.length} dari{' '}
+                    {health.findings} pasangan berselisih. Sempitkan
+                    pemeriksaan atau gunakan CLI untuk daftar lengkap.
+                </p>
+            )}
 
             {health.mismatches.length === 0 ? (
                 <div className="rounded-lg border p-8 text-center text-muted-foreground">

@@ -82,6 +82,33 @@ describe('listMyFindings', () => {
     expect(mockFinding.findMany.mock.calls[0][0].take).toBe(500);
   });
 
+  it('scans past an invisible first page instead of returning an empty list', async () => {
+    vi.mocked(resolveAllowedResources).mockResolvedValue(['/finance']);
+    const invisible = Array.from({ length: 500 }, (_, index) => ({
+      id: `x-${index}`,
+      requiredResources: ['/warehouse/inventory'],
+    }));
+    mockFinding.findMany
+      .mockResolvedValueOnce(invisible)
+      .mockResolvedValueOnce([
+        { id: 'fin', requiredResources: ['/finance/invoices'] },
+      ]);
+
+    const result = await listMyFindings();
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect((result.data as Array<{ id: string }>).map((f) => f.id)).toEqual([
+        'fin',
+      ]);
+    }
+    expect(mockFinding.findMany).toHaveBeenCalledTimes(2);
+    expect(mockFinding.findMany.mock.calls[1][0]).toMatchObject({
+      cursor: { id: 'x-499' },
+      skip: 1,
+    });
+  });
+
   it('does not filter by requiredResources for ALL access', async () => {
     vi.mocked(resolveAllowedResources).mockResolvedValue('ALL');
 

@@ -471,6 +471,17 @@ describe("ProductionMaterialService", () => {
       // Assert
       expect(prisma.materialIssue.create).toHaveBeenCalled();
       expect(prisma.stockMovement.create).toHaveBeenCalled();
+      const decrementOf = (call: unknown) =>
+        String(
+          (call as { data: { quantity: { decrement: unknown } } }).data
+            .quantity.decrement,
+        );
+      expect(
+        decrementOf(vi.mocked(prisma.inventory.update).mock.calls[0][0]),
+      ).toBe('30');
+      expect(
+        decrementOf(vi.mocked(prisma.inventory.update).mock.calls[1][0]),
+      ).toBe('10');
     });
 
     it("should issue materials without batch fallback", async () => {

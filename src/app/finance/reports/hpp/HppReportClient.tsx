@@ -75,12 +75,12 @@ export default function HppReportClient() {
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const { start: startDate, end: endDate } = getWibMonthBounds(
+            const { start: startDate } = getWibMonthBounds(
                 date.getFullYear(),
                 date.getMonth() + 1,
             );
 
-            const result = await getHppReportData(startDate, endDate);
+            const result = await getHppReportData(startDate);
             if (result && 'success' in result && result.success) {
                 const reportData = result.data as HppReportData;
                 setData(reportData);

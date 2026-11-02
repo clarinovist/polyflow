@@ -74,6 +74,9 @@ function createStatefulTx(
                 typeof query === 'object' && query !== null && 'strings' in query
                     ? (query as { strings: readonly string[] }).strings.join(' ')
                     : String(query);
+            if (sqlText.includes('current_database')) {
+                return [{ name: 'synthetic_test' }];
+            }
             if (sqlText.includes('FOR UPDATE')) {
                 return state.map((pair) => ({
                     id: `inv-${pair.productVariantId}-${pair.locationId}`,
@@ -174,6 +177,15 @@ describe('previewLedgerAlignment', () => {
             },
         ]);
         expect(preview.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    });
+
+    it('rejects a reviewed database that differs from the connected one', async () => {
+        await expect(
+            previewLedgerAlignment(
+                createFakeDb(createStatefulTx()) as never,
+                'other_database',
+            ),
+        ).rejects.toThrow('Database tujuan berbeda');
     });
 
     it('produces a canonical fingerprint independent of row order and changes when a candidate diff changes', async () => {

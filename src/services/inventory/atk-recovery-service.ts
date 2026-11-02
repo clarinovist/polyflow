@@ -511,7 +511,9 @@ export async function applyAtkRecovery(
             error instanceof Prisma.PrismaClientKnownRequestError &&
             (error.code === 'P2034' ||
                 error.code === 'P2028' ||
-                error.meta?.code === '55P03')
+                error.code === 'P2024' ||
+                error.meta?.code === '55P03' ||
+                error.meta?.code === '57014')
         )
             rejectAtk(
                 'Transaksi lain sedang aktif. Periksa riwayat/receipt, lalu periksa ulang sebelum mencoba lagi.',

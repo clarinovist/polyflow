@@ -7,10 +7,11 @@ export type NotifyOutcome = {
     notificationsSent: number;
 };
 
-// Fase 2 rollout scope — same two detectors as Fase 1 (see digest-service.ts
-// LIFECYCLE_SCOPED_DETECTORS). Maps detector -> HelpArticle.modules tag and
-// -> NotificationType so a new detector can't silently fall through either
-// mapping without a deliberate decision.
+// Fase 2 rollout scope — the catalog's condition detectors that have a help
+// and notification mapping (see src/lib/findings/detector-catalog.ts). Maps
+// detector -> HelpArticle.modules tag and -> NotificationType so a new
+// detector can't silently fall through either mapping without a deliberate
+// decision. Notification delivery is unwired until Fase 2/3.
 const DETECTOR_HELP_MODULE: Record<string, string> = {
     critical_stock: 'warehouse',
     production_no_progress: 'production',

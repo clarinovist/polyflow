@@ -42,13 +42,43 @@ describe('stock-ledger-gaps actions', () => {
 
         expect(await listStockLedgerGaps()).toEqual({
             success: true,
-            data: health,
+            data: { ...health, mismatchesTruncated: false },
         });
         expect(mocks.tenant).toHaveBeenCalledOnce();
         expect(mocks.permission).toHaveBeenCalledWith(
             '/warehouse/inventory/ledger-gaps',
         );
         expect(mocks.checkHealth).toHaveBeenCalledOnce();
+    });
+
+    it('caps the rendered mismatch list but keeps the full finding count', async () => {
+        const mismatches = Array.from({ length: 201 }, (_, index) => ({
+            productVariantId: `pv-${index}`,
+            locationId: 'loc-1',
+            skuCode: `SKU-${index}`,
+            locationName: 'Gudang A',
+            live: '1',
+            ledger: '0.9999',
+            diff: '0.0001',
+        }));
+        mocks.checkHealth.mockResolvedValue({
+            mismatches,
+            roundingCount: 201,
+            materialCount: 0,
+            findings: 201,
+        });
+
+        const result = await listStockLedgerGaps();
+        expect(result.success).toBe(true);
+        if (!result.success) return;
+        const data = result.data as {
+            mismatches: unknown[];
+            mismatchesTruncated: boolean;
+            findings: number;
+        };
+        expect(data.mismatches).toHaveLength(200);
+        expect(data.mismatchesTruncated).toBe(true);
+        expect(data.findings).toBe(201);
     });
 
     it('denies listStockLedgerGaps when unauthorized before querying health', async () => {

@@ -95,7 +95,6 @@ function formatPeriodLock(
 
 export const getHppReportData = withTenant(async function getHppReportData(
     startDate?: Date,
-    _endDate?: Date,
 ) {
     return safeAction(async () => {
         await requireFinanceAccess();

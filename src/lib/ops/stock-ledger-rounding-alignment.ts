@@ -182,16 +182,31 @@ async function inspectMismatches(tx: Prisma.TransactionClient) {
     };
 }
 
+async function assertDatabase(
+    tx: Prisma.TransactionClient,
+    database: string,
+): Promise<void> {
+    const [identity] = await tx.$queryRaw<{ name: string }[]>`
+        SELECT current_database() AS name`;
+    if (!identity || identity.name !== database) {
+        throw new ValidationError(
+            'Database tujuan berbeda dari database yang direview.',
+        );
+    }
+}
+
 /**
  * Read-only inspection of stock ledger mismatches. Only residuals with
  * 0 < |diff| < 0.01 are eligible candidates; >= 0.01 are reported separately.
  */
 export async function previewLedgerAlignment(
     db: PrismaClient,
+    expectedDatabase?: string,
 ): Promise<LedgerAlignmentPreview> {
     return db.$transaction(
         async (tx) => {
             await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+            if (expectedDatabase) await assertDatabase(tx, expectedDatabase);
             const { preview } = await inspectMismatches(tx);
             return preview;
         },
@@ -234,6 +249,7 @@ export async function applyLedgerAlignment(
                 select: { id: true },
             });
             if (!actor) throw new ValidationError('Actor user does not exist.');
+            await assertDatabase(tx, input.database);
 
             const initial = await inspectMismatches(tx);
             if (initial.preview.fingerprint !== input.fingerprint) {

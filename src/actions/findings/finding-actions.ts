@@ -14,7 +14,7 @@ import {
     ConflictError,
     BusinessRuleError,
 } from '@/lib/errors/errors';
-import type { FindingStatus } from '@prisma/client';
+import type { Finding, FindingStatus } from '@prisma/client';
 
 const DEFAULT_LIST_STATUSES: FindingStatus[] = [
     'UNCLAIMED',
@@ -23,8 +23,12 @@ const DEFAULT_LIST_STATUSES: FindingStatus[] = [
 ];
 
 // Visibility uses prefix semantics, which Prisma's array filters cannot
-// express, so the list is filtered in memory after a bounded fetch.
+// express, so the list is filtered in memory. Scan bounded pages instead of
+// taking the first 500 rows: a user with narrow grants must not see an empty
+// list while matching findings sit beyond the first page.
 const MAX_LISTED_FINDINGS = 500;
+const FINDINGS_PAGE_SIZE = 500;
+const MAX_SCANNED_FINDINGS = 5000;
 
 async function assertCanActOnFinding(
     userId: string,
@@ -46,20 +50,44 @@ export const listMyFindings = withTenant(async function listMyFindings(opts?: {
         const allowed = await resolveAllowedResources(session.user.id);
         const statuses = opts?.statuses ?? DEFAULT_LIST_STATUSES;
 
-        const findings = await prisma.finding.findMany({
-            where: { status: { in: statuses } },
-            orderBy: [{ severity: 'desc' }, { firstSeenAt: 'asc' }],
-            take: MAX_LISTED_FINDINGS,
-            include: {
-                claimedBy: { select: { id: true, name: true, email: true } },
-                resolvedBy: { select: { id: true, name: true, email: true } },
-            },
-        });
+        const visible: Finding[] = [];
+        let cursor: string | undefined;
+        let scanned = 0;
+        while (scanned < MAX_SCANNED_FINDINGS) {
+            const page = await prisma.finding.findMany({
+                where: { status: { in: statuses } },
+                orderBy: [
+                    { severity: 'desc' },
+                    { firstSeenAt: 'asc' },
+                    { id: 'asc' },
+                ],
+                take: FINDINGS_PAGE_SIZE,
+                ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+                include: {
+                    claimedBy: {
+                        select: { id: true, name: true, email: true },
+                    },
+                    resolvedBy: {
+                        select: { id: true, name: true, email: true },
+                    },
+                },
+            });
+            scanned += page.length;
+            for (const finding of page) {
+                if (canSeeFinding(allowed, finding.requiredResources)) {
+                    visible.push(finding);
+                }
+            }
+            if (
+                visible.length >= MAX_LISTED_FINDINGS ||
+                page.length < FINDINGS_PAGE_SIZE
+            ) {
+                break;
+            }
+            cursor = page[page.length - 1].id;
+        }
 
-        const visible = findings.filter((f) =>
-            canSeeFinding(allowed, f.requiredResources),
-        );
-        return serializeData(visible);
+        return serializeData(visible.slice(0, MAX_LISTED_FINDINGS));
     });
 });
 

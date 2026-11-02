@@ -151,4 +151,17 @@ describe('ATK recovery transaction orchestration', () => {
         f.tx.$executeRaw.mockImplementation(async (parts: TemplateStringsArray) => { if (parts.join('').includes('LOCK TABLE')) throw new Prisma.PrismaClientKnownRequestError('lock busy', { code: 'P2010', clientVersion: '5', meta: { code: '55P03' } }); });
         await expect(applyAtkRecovery(f.db, input, 'actor', f.backup)).rejects.toThrow('Transaksi lain'); expect(m.journal).not.toHaveBeenCalled();
     });
+
+    it.each([
+        ['statement timeout', { code: 'P2010', clientVersion: '5', meta: { code: '57014' } }],
+        ['pool timeout', { code: 'P2024', clientVersion: '5' }],
+    ])('maps %s to the same retry instruction', async (_label, options) => {
+        const f = fixture(); const input = await intent(f);
+        f.tx.$executeRaw.mockImplementation(async (parts: TemplateStringsArray) => {
+            if (parts.join('').includes('LOCK TABLE'))
+                throw new Prisma.PrismaClientKnownRequestError('timeout', options as never);
+        });
+        await expect(applyAtkRecovery(f.db, input, 'actor', f.backup)).rejects.toThrow('Transaksi lain');
+        expect(m.journal).not.toHaveBeenCalled();
+    });
 });

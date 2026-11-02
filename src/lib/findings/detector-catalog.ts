@@ -1,11 +1,10 @@
 /**
  * Single source for which app resources gate each detector's findings.
  *
- * Every path must be a real app route that RolePermission rows can grant
- * (prefix semantics, see isPathAllowedByResources). A finding is visible to a
- * user who can open ANY of its resources. The route-existence test keeps typos
- * such as `/finance/invoices` vs `/sales/invoices` from silently routing a
- * finding to nobody.
+ * Every path must be a real permission resource: a renderable app route
+ * (page/layout/route) or a prefix that owns one, so a grant can open it.
+ * The route-existence test keeps typos such as `/finance/invoices` vs
+ * `/sales/invoices` from silently routing a finding to nobody.
  */
 export const DETECTOR_RESOURCES = {
     critical_stock: ['/warehouse/inventory'],

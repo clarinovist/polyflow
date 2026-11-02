@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { PrismaClient } from '@prisma/client';
-import { ApplicationError } from '../src/lib/errors/errors';
+import { ApplicationError, ValidationError } from '../src/lib/errors/errors';
 import {
     applyLedgerAlignment,
     parseLedgerAlignmentRequest,
@@ -17,11 +17,13 @@ export function parseLedgerAlignmentArgs(args: string[]) {
     const allowed = (arg: string) =>
         arg.startsWith('--input=') || arg === '--execute' || arg === '--yes';
     if (inputs.length !== 1 || !args.every(allowed))
-        throw new Error('Use one --input file and optional --execute --yes.');
+        throw new ValidationError(
+            'Use one --input file and optional --execute --yes.',
+        );
     const path = inputs[0].slice('--input='.length);
     const execute = args.includes('--execute');
     if (!isAbsolute(path) || execute !== args.includes('--yes'))
-        throw new Error(
+        throw new ValidationError(
             'Absolute input file and explicit --execute --yes required.',
         );
     return { path, execute };
@@ -66,7 +68,7 @@ async function main() {
             );
             console.log(JSON.stringify({ phase: 'apply', ...applied }));
         }
-        const preview = await previewLedgerAlignment(db);
+        const preview = await previewLedgerAlignment(db, input.database);
         console.log(
             JSON.stringify({
                 phase: 'inspect',

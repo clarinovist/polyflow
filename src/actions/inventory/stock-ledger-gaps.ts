@@ -10,6 +10,9 @@ import {
 } from '@/services/inventory/stock-ledger-health-service';
 
 const LEDGER_GAPS_RESOURCE = '/warehouse/inventory/ledger-gaps';
+// The page is diagnostic; a tenant with thousands of blocked pairs must not
+// receive an unbounded payload. The total stays available in `findings`.
+const MAX_RETURNED_MISMATCHES = 200;
 
 const pairHistoryInputSchema = z.object({
     productVariantId: z
@@ -23,7 +26,16 @@ export const listStockLedgerGaps = withTenant(
     async function listStockLedgerGaps() {
         return safeAction(async () => {
             await requireWarehouseResourcePermission(LEDGER_GAPS_RESOURCE);
-            return checkStockLedgerHealth();
+            const health = await checkStockLedgerHealth();
+            return {
+                ...health,
+                mismatches: health.mismatches.slice(
+                    0,
+                    MAX_RETURNED_MISMATCHES,
+                ),
+                mismatchesTruncated:
+                    health.mismatches.length > MAX_RETURNED_MISMATCHES,
+            };
         });
     },
 );
