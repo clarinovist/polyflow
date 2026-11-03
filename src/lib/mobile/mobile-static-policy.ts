@@ -3,7 +3,9 @@ import {
     MOBILE_ROUTE_ALIASES,
 } from '@/lib/mobile/mobile-portal-registry';
 
-const MOBILE_STATIC_PATHS = ['/mobile', '/my'] as const;
+// `/owner` is the owner-only HPP calculator; its pages and actions enforce the
+// real access check (owner allowlist), this only lets phones reach the route.
+const MOBILE_STATIC_PATHS = ['/mobile', '/my', '/owner'] as const;
 
 /**
  * Static Proxy allowlist. Planned portals are intentionally excluded even

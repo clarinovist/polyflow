@@ -85,6 +85,7 @@ model User {
   bankReconciliations            BankReconciliation[]
   voidedPettyCashReports         PettyCashDailyReport[]           @relation("PettyCashReportVoider")
   lockedPeriods                  PeriodLock[]
+  ownerHppWorkspace              OwnerHppWorkspace?
   salesVisits                    SalesVisit[]                     @relation("SalesVisitCreator")
   routePlans                     SalesRoutePlan[]
   customerSalesAssignments       CustomerSalesAssignment[]        @relation("CustomerSalesAssignee")
@@ -3979,6 +3980,19 @@ model PettyCashDailyReport {
 
   @@index([reportDate])
   @@index([status, reportDate])
+}
+
+/// Private scratch workspace for the owner HPP calculator (/owner/hpp).
+/// One JSON document per user; never read by or written from any ERP flow.
+model OwnerHppWorkspace {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  document  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("owner_hpp_workspaces")
 }
 
 model PeriodLock {
