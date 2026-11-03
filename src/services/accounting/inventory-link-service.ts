@@ -5,6 +5,8 @@ import { updateStandardCostInternal } from '@/actions/finance/cost-history';
 import { NotFoundError, BusinessRuleError } from '@/lib/errors/errors';
 import { resolveAccountCode } from './account-mapping-policy';
 import { allocateProductionWip } from './production-wip-provenance';
+import { resolveOutboundCostBasis } from './outbound-cost-basis';
+import { logger } from '@/lib/config/logger';
 import {
     allocateOperationalLossCredit,
     isOperationalLoss,
@@ -279,14 +281,54 @@ export async function recordInventoryMovement(
     if (stockLoss) movement = await withStockLossCost(db, movement);
 
     const date = movement.createdAt || new Date();
-    // Priority: Persisted movement cost -> Standard Cost -> Buy Price -> Sell Price
-    const currentCost = Number(
-        movement.cost ??
-            productVariant.standardCost ??
-            productVariant.buyPrice ??
-            productVariant.price ??
-            0,
-    );
+    // A sale price is never a cost. Outbound stock is relieved at its persisted
+    // cost, then SKU standard cost, buy price, and finally the source-location
+    // WAC that capitalized it. Only when none of those exist does the journal
+    // value stay an explicit zero (by-product policy for affal).
+    const needsLocationWac =
+        movement.type === 'OUT' &&
+        movement.fromLocationId != null &&
+        movement.cost == null &&
+        productVariant.standardCost == null &&
+        productVariant.buyPrice == null;
+    const locationWac =
+        needsLocationWac && movement.fromLocationId
+            ? (
+                  await db.inventory.findUnique({
+                      where: {
+                          locationId_productVariantId: {
+                              locationId: movement.fromLocationId,
+                              productVariantId: movement.productVariantId,
+                          },
+                      },
+                      select: { averageCost: true },
+                  })
+              )?.averageCost ?? null
+            : null;
+    const { cost: resolvedCost, source: costSource } = resolveOutboundCostBasis({
+        movementCost: movement.cost,
+        standardCost: productVariant.standardCost,
+        buyPrice: productVariant.buyPrice,
+        locationWac,
+    });
+    // A sale with no cost basis at all is a master-data gap, not a silent zero.
+    // Keep the journal explicit (by-product policy) but leave a trace Finance can act on.
+    if (
+        costSource === 'ZERO' &&
+        movement.type === 'OUT' &&
+        movement.salesOrderId
+    ) {
+        logger.warn(
+            'Outbound stock has no cost basis; journal valued at explicit zero',
+            {
+                module: 'inventory-link',
+                movementId: movement.id,
+                sku: productVariant.name,
+                fromLocationId: movement.fromLocationId,
+            },
+        );
+    }
+    const currentCost = Number(resolvedCost);
     let cost = currentCost;
 
     // If this is a Goods Receipt, use the persisted receipt movement cost as the

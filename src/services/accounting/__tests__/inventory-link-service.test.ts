@@ -237,6 +237,114 @@ describe("inventory-link-service", () => {
       vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(null);
     });
 
+    it("relieves outbound stock at source-location WAC, never at the sale price", async () => {
+      vi.mocked(prisma.productVariant.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue({ averageCost: dec("3") } as never);
+
+      await recordInventoryMovement({
+        ...baseMovement,
+        type: "OUT",
+        salesOrderId: "so-1",
+        fromLocationId: "loc-1",
+        cost: null,
+        productVariant: {
+          name: "Affal Prongkol",
+          standardCost: null,
+          buyPrice: null,
+          price: dec("7000"),
+          product: { ...baseProduct, productType: "SCRAP" },
+        },
+      } as never);
+
+      expect(prisma.inventory.findUnique).toHaveBeenCalledWith({
+        where: {
+          locationId_productVariantId: {
+            locationId: "loc-1",
+            productVariantId: "pv-1",
+          },
+        },
+        select: { averageCost: true },
+      });
+      expect(mockCreateJournalEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({ debit: 300 }),
+            expect.objectContaining({ credit: 300 }),
+          ]),
+        }),
+        undefined,
+      );
+    });
+
+    it("keeps the SKU standard cost and skips the WAC lookup", async () => {
+      vi.mocked(prisma.productVariant.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.inventory.findUnique).mockClear();
+
+      await recordInventoryMovement({
+        ...baseMovement,
+        type: "OUT",
+        salesOrderId: "so-1",
+        fromLocationId: "loc-1",
+        cost: null,
+        productVariant: {
+          name: "Affal Prongkol",
+          standardCost: dec("2"),
+          buyPrice: null,
+          price: dec("7000"),
+          product: { ...baseProduct, productType: "SCRAP" },
+        },
+      } as never);
+
+      expect(prisma.inventory.findUnique).not.toHaveBeenCalled();
+      expect(mockCreateJournalEntry).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: expect.arrayContaining([
+            expect.objectContaining({ debit: 200 }),
+            expect.objectContaining({ credit: 200 }),
+          ]),
+        }),
+        undefined,
+      );
+    });
+
+    it("posts no journal when outbound SKU has no cost basis and no location WAC", async () => {
+      vi.mocked(prisma.productVariant.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.inventory.findUnique).mockResolvedValue(null);
+
+      await recordInventoryMovement({
+        ...baseMovement,
+        type: "OUT",
+        salesOrderId: "so-1",
+        fromLocationId: "loc-1",
+        cost: null,
+        productVariant: {
+          name: "Affal Daun",
+          standardCost: null,
+          buyPrice: null,
+          price: dec("7000"),
+          product: { ...baseProduct, productType: "SCRAP" },
+        },
+      } as never);
+
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
+    it("never values inbound stock at the master sale price", async () => {
+      await recordInventoryMovement({
+        ...baseMovement,
+        cost: null,
+        productVariant: {
+          name: "Material X",
+          standardCost: null,
+          buyPrice: null,
+          price: dec("7000"),
+          product: { ...baseProduct },
+        },
+      } as never);
+
+      expect(mockCreateJournalEntry).not.toHaveBeenCalled();
+    });
+
     it("returns early when isMaklon via goodsReceipt", async () => {
       vi.mocked(prisma.goodsReceipt.findUnique).mockResolvedValue({
         id: "gr-1",
