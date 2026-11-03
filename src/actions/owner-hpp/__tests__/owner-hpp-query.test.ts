@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
     readDefault: vi.fn(),
     workspaceFindUnique: vi.fn(),
-    workspaceUpsert: vi.fn(),
+    workspaceCreate: vi.fn(),
+    workspaceUpdateMany: vi.fn(),
     bomFindMany: vi.fn(),
 }));
 
@@ -11,7 +12,7 @@ vi.mock('@/actions/production/hpp-price-simulator-query', () => ({
     readHppPriceSimulatorDefault: mocks.readDefault,
 }));
 
-import { ValidationError } from '@/lib/errors/errors';
+import { ConflictError, ValidationError } from '@/lib/errors/errors';
 import { chainScenario } from '@/lib/owner-hpp/__tests__/fixtures';
 import {
     ERP_CHAIN_MAX_DEPTH,
@@ -23,7 +24,8 @@ import {
 const db = {
     ownerHppWorkspace: {
         findUnique: mocks.workspaceFindUnique,
-        upsert: mocks.workspaceUpsert,
+        create: mocks.workspaceCreate,
+        updateMany: mocks.workspaceUpdateMany,
     },
     bom: { findMany: mocks.bomFindMany },
 } as never;
@@ -104,20 +106,57 @@ describe('readOwnerHppWorkspace', () => {
 });
 
 describe('writeOwnerHppWorkspace', () => {
+    const workspace = { version: 2 as const, scenarios: [chainScenario()] };
+    const loadedAt = '2026-11-03T07:00:00.000Z';
+
     beforeEach(() => vi.resetAllMocks());
 
-    it('upserts the document for that user only', async () => {
+    it('creates the row for that user when nothing was loaded', async () => {
         const updatedAt = new Date('2026-11-03T08:00:00Z');
-        mocks.workspaceUpsert.mockResolvedValue({ updatedAt });
-        const workspace = { version: 2 as const, scenarios: [chainScenario()] };
+        mocks.workspaceCreate.mockResolvedValue({ updatedAt });
 
-        const result = await writeOwnerHppWorkspace(db, 'u1', workspace);
+        const result = await writeOwnerHppWorkspace(db, 'u1', workspace, null);
 
         expect(result.updatedAt).toBe(updatedAt.toISOString());
-        const call = mocks.workspaceUpsert.mock.calls[0][0];
-        expect(call.where).toEqual({ userId: 'u1' });
-        expect(call.create).toEqual({ userId: 'u1', document: workspace });
-        expect(call.update).toEqual({ document: workspace });
+        const call = mocks.workspaceCreate.mock.calls[0][0];
+        expect(call.data).toEqual({ userId: 'u1', document: workspace });
+    });
+
+    it('reports a conflict when another device created the row first', async () => {
+        mocks.workspaceCreate.mockRejectedValue({ code: 'P2002' });
+
+        await expect(
+            writeOwnerHppWorkspace(db, 'u1', workspace, null),
+        ).rejects.toBeInstanceOf(ConflictError);
+    });
+
+    it('rethrows other create failures untouched', async () => {
+        const failure = new Error('db down');
+        mocks.workspaceCreate.mockRejectedValue(failure);
+
+        await expect(
+            writeOwnerHppWorkspace(db, 'u1', workspace, null),
+        ).rejects.toBe(failure);
+    });
+
+    it('updates only when the stored version is still the one that was loaded', async () => {
+        mocks.workspaceUpdateMany.mockResolvedValue({ count: 1 });
+
+        const result = await writeOwnerHppWorkspace(db, 'u1', workspace, loadedAt);
+
+        const call = mocks.workspaceUpdateMany.mock.calls[0][0];
+        expect(call.where).toEqual({ userId: 'u1', updatedAt: new Date(loadedAt) });
+        expect(call.data.document).toEqual(workspace);
+        expect(call.data.updatedAt).toBeInstanceOf(Date);
+        expect(result.updatedAt).toBe(call.data.updatedAt.toISOString());
+    });
+
+    it('reports a conflict when the row changed since it was loaded', async () => {
+        mocks.workspaceUpdateMany.mockResolvedValue({ count: 0 });
+
+        await expect(
+            writeOwnerHppWorkspace(db, 'u1', workspace, loadedAt),
+        ).rejects.toThrow(/perangkat lain/i);
     });
 });
 

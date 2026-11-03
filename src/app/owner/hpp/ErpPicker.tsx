@@ -1,6 +1,9 @@
 'use client';
 
-import { getOwnerHppErpChain, listOwnerHppVariantOptions } from '@/actions/owner-hpp/owner-hpp';
+import {
+    getOwnerHppErpChain,
+    listOwnerHppVariantOptions,
+} from '@/actions/owner-hpp/owner-hpp';
 import type { HppPriceSimulatorVariantOptionDTO } from '@/actions/production/hpp-price-simulator-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,7 +24,9 @@ interface PendingChain {
 
 export function ErpPicker({ onApply }: ErpPickerProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const [options, setOptions] = useState<HppPriceSimulatorVariantOptionDTO[] | null>(null);
+    const [options, setOptions] = useState<
+        HppPriceSimulatorVariantOptionDTO[] | null
+    >(null);
     const [query, setQuery] = useState('');
     const [isBusy, setIsBusy] = useState(false);
     const [pending, setPending] = useState<PendingChain | null>(null);
@@ -63,13 +68,24 @@ export function ErpPicker({ onApply }: ErpPickerProps) {
 
     const needle = query.trim().toLowerCase();
     const visible = (options ?? [])
-        .filter((option) => !needle || `${option.name} ${option.skuCode}`.toLowerCase().includes(needle))
+        .filter(
+            (option) =>
+                !needle ||
+                `${option.name} ${option.skuCode}`
+                    .toLowerCase()
+                    .includes(needle),
+        )
         .slice(0, MAX_VISIBLE_OPTIONS);
 
     return (
-        <section aria-label="Isi dari ERP" className="w-full space-y-3 rounded-lg border bg-card p-3 md:p-4">
+        <section
+            aria-label="Isi dari ERP"
+            className="w-full space-y-3 rounded-lg border bg-card p-3 md:p-4"
+        >
             <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold">Isi dari ERP (hanya membaca)</h2>
+                <h2 className="text-sm font-semibold">
+                    Isi dari ERP (hanya membaca)
+                </h2>
                 <Button type="button" variant="ghost" size="sm" onClick={close}>
                     Tutup
                 </Button>
@@ -78,8 +94,10 @@ export function ErpPicker({ onApply }: ErpPickerProps) {
             {pending ? (
                 <div className="space-y-3">
                     <p className="text-sm">
-                        <strong>{pending.productName}</strong>: {pending.chain.stages.length} tahap dari BOM default.
-                        Ini <strong>mengganti semua tahap</strong> skenario aktif; nama dan harga jual tetap.
+                        <strong>{pending.productName}</strong>:{' '}
+                        {pending.chain.stages.length} tahap dari BOM default.
+                        Ini <strong>mengganti semua tahap</strong> skenario
+                        aktif; nama dan harga jual tetap.
                     </p>
                     {pending.chain.warnings.length > 0 ? (
                         <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
@@ -99,7 +117,11 @@ export function ErpPicker({ onApply }: ErpPickerProps) {
                         >
                             Terapkan
                         </Button>
-                        <Button type="button" variant="outline" onClick={() => setPending(null)}>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setPending(null)}
+                        >
                             Pilih produk lain
                         </Button>
                     </div>
@@ -112,7 +134,9 @@ export function ErpPicker({ onApply }: ErpPickerProps) {
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                     />
-                    {isBusy ? <p className="text-sm text-muted-foreground">Memuat…</p> : null}
+                    {isBusy ? (
+                        <p className="text-sm text-muted-foreground">Memuat…</p>
+                    ) : null}
                     <ul className="max-h-64 divide-y overflow-auto rounded-md border">
                         {visible.map((option) => (
                             <li key={option.id}>
@@ -122,16 +146,21 @@ export function ErpPicker({ onApply }: ErpPickerProps) {
                                     className="flex min-h-11 w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-accent"
                                     onClick={() => choose(option)}
                                 >
-                                    <span className="min-w-0 truncate">{option.name}</span>
+                                    <span className="min-w-0 truncate">
+                                        {option.name}
+                                    </span>
                                     <span className="shrink-0 text-xs text-muted-foreground">
-                                        {option.skuCode} · {option.primaryOutputUnit}
+                                        {option.skuCode} ·{' '}
+                                        {option.primaryOutputUnit}
                                     </span>
                                 </button>
                             </li>
                         ))}
                     </ul>
                     {options !== null && visible.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">Tidak ada produk yang cocok.</p>
+                        <p className="text-sm text-muted-foreground">
+                            Tidak ada produk yang cocok.
+                        </p>
                     ) : null}
                 </div>
             )}

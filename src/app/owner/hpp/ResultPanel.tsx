@@ -19,18 +19,30 @@ function pct(value: number | null): string {
     return value === null ? '-' : `${formatDecimal(value, 1)} %`;
 }
 
-export function ResultPanel({ scenario, result, onSellPriceChange, onSelectStage }: ResultPanelProps) {
+export function ResultPanel({
+    scenario,
+    result,
+    onSellPriceChange,
+    onSelectStage,
+}: ResultPanelProps) {
     const warnings = result.stages.flatMap((stage) => stage.warnings);
-    const counted = result.stages.filter((stage) => stage.contributionPct !== null);
+    const counted = result.stages.filter(
+        (stage) => stage.contributionPct !== null,
+    );
 
     return (
-        <aside className="space-y-4 rounded-lg border bg-card p-4 lg:sticky lg:top-4" aria-label="Hasil">
+        <aside
+            className="space-y-4 rounded-lg border bg-card p-4 lg:sticky lg:top-4"
+            aria-label="Hasil"
+        >
             <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
                     HPP akhir per {result.finalUnit || 'satuan'}
                 </p>
                 <p className="font-mono text-3xl font-semibold tabular-nums">
-                    {result.finalHpp === null ? '-' : formatRupiah(result.finalHpp)}
+                    {result.finalHpp === null
+                        ? '-'
+                        : formatRupiah(result.finalHpp)}
                 </p>
             </div>
 
@@ -44,28 +56,48 @@ export function ResultPanel({ scenario, result, onSellPriceChange, onSelectStage
                 <NumberField
                     label={`Harga jual per ${result.finalUnit || 'satuan'}`}
                     showLabel
-                    positive={false}
+                    kind="money"
                     value={scenario.sellPrice ?? 0}
-                    onChange={(price) => onSellPriceChange(price > 0 ? price : null)}
+                    onChange={(price) =>
+                        onSellPriceChange(price > 0 ? price : null)
+                    }
                 />
                 <dl className="grid grid-cols-2 gap-x-3 text-sm">
-                    <dt className="text-muted-foreground">Margin atas harga jual</dt>
-                    <dd className="text-right font-mono font-semibold tabular-nums">{pct(result.marginPercent)}</dd>
-                    <dt className="text-muted-foreground">Laba per {result.finalUnit || 'satuan'}</dt>
+                    <dt className="text-muted-foreground">
+                        Margin atas harga jual
+                    </dt>
+                    <dd className="text-right font-mono font-semibold tabular-nums">
+                        {pct(result.marginPercent)}
+                    </dd>
+                    <dt className="text-muted-foreground">
+                        Laba per {result.finalUnit || 'satuan'}
+                    </dt>
                     <dd className="text-right font-mono tabular-nums">
-                        {result.profitPerOutput === null ? '-' : formatRupiah(result.profitPerOutput)}
+                        {result.profitPerOutput === null
+                            ? '-'
+                            : formatRupiah(result.profitPerOutput)}
                     </dd>
                 </dl>
             </div>
 
             {counted.length > 0 ? (
                 <div className="space-y-2 border-t pt-3">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Biaya tambah per tahap</p>
-                    <div className="flex h-3 overflow-hidden rounded-full bg-muted" role="img" aria-label="Porsi biaya tiap tahap">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                        Biaya tambah per tahap
+                    </p>
+                    <div
+                        className="flex h-3 overflow-hidden rounded-full bg-muted"
+                        role="img"
+                        aria-label="Porsi biaya tiap tahap"
+                    >
                         {counted.map((stage, index) => (
                             <div
                                 key={stage.stageId}
-                                className={STAGE_BAR_COLORS[index % STAGE_BAR_COLORS.length]}
+                                className={
+                                    STAGE_BAR_COLORS[
+                                        index % STAGE_BAR_COLORS.length
+                                    ]
+                                }
                                 style={{ width: `${stage.contributionPct}%` }}
                             />
                         ))}
@@ -80,10 +112,19 @@ export function ResultPanel({ scenario, result, onSellPriceChange, onSelectStage
                                 >
                                     <span
                                         aria-hidden="true"
-                                        className={cn('size-2.5 shrink-0 rounded-full', STAGE_BAR_COLORS[index % STAGE_BAR_COLORS.length])}
+                                        className={cn(
+                                            'size-2.5 shrink-0 rounded-full',
+                                            STAGE_BAR_COLORS[
+                                                index % STAGE_BAR_COLORS.length
+                                            ],
+                                        )}
                                     />
-                                    <span className="min-w-0 flex-1 truncate">{stage.name}</span>
-                                    <span className="font-mono tabular-nums">{pct(stage.contributionPct)}</span>
+                                    <span className="min-w-0 flex-1 truncate">
+                                        {stage.name}
+                                    </span>
+                                    <span className="font-mono tabular-nums">
+                                        {pct(stage.contributionPct)}
+                                    </span>
                                 </button>
                             </li>
                         ))}
@@ -95,7 +136,10 @@ export function ResultPanel({ scenario, result, onSellPriceChange, onSelectStage
                 <ul className="space-y-1 border-t pt-3 text-sm text-muted-foreground">
                     {warnings.map((warning) => (
                         <li key={warning} className="flex gap-2">
-                            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                            <AlertTriangle
+                                className="mt-0.5 size-4 shrink-0"
+                                aria-hidden="true"
+                            />
                             {warning}
                         </li>
                     ))}
@@ -110,14 +154,20 @@ export function ResultBar({ result }: { result: ScenarioResult }) {
     return (
         <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
             <div>
-                <p className="text-xs text-muted-foreground">HPP akhir per {result.finalUnit || 'satuan'}</p>
+                <p className="text-xs text-muted-foreground">
+                    HPP akhir per {result.finalUnit || 'satuan'}
+                </p>
                 <p className="font-mono text-xl font-semibold tabular-nums">
-                    {result.finalHpp === null ? '-' : formatRupiah(result.finalHpp)}
+                    {result.finalHpp === null
+                        ? '-'
+                        : formatRupiah(result.finalHpp)}
                 </p>
             </div>
             <div className="text-right">
                 <p className="text-xs text-muted-foreground">Margin</p>
-                <p className="font-mono text-lg font-semibold tabular-nums">{pct(result.marginPercent)}</p>
+                <p className="font-mono text-lg font-semibold tabular-nums">
+                    {pct(result.marginPercent)}
+                </p>
             </div>
         </div>
     );

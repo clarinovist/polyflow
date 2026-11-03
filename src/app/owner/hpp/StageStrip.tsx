@@ -16,13 +16,28 @@ interface StageStripProps {
 }
 
 /** Stages in the order they are made; each chip shows that stage's HPP. */
-export function StageStrip({ scenario, result, activeStageId, onSelect, onAdd }: StageStripProps) {
-    const hppById = new Map(result.stages.map((stage) => [stage.stageId, stage.hppPerOutput]));
-    const ordered = result.stages.length > 0
-        ? result.stages.map((stage) => scenario.stages.find((s) => s.id === stage.stageId)!)
-        : scenario.stages;
+export function StageStrip({
+    scenario,
+    result,
+    activeStageId,
+    onSelect,
+    onAdd,
+}: StageStripProps) {
+    const hppById = new Map(
+        result.stages.map((stage) => [stage.stageId, stage.hppPerOutput]),
+    );
+    const ordered =
+        result.stages.length > 0
+            ? result.stages.map(
+                  (stage) =>
+                      scenario.stages.find((s) => s.id === stage.stageId)!,
+              )
+            : scenario.stages;
     return (
-        <nav aria-label="Tahap produksi" className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:px-0">
+        <nav
+            aria-label="Tahap produksi"
+            className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 md:mx-0 md:px-0"
+        >
             {ordered.map((stage) => {
                 const hpp = hppById.get(stage.id);
                 const isActive = stage.id === activeStageId;
@@ -34,15 +49,21 @@ export function StageStrip({ scenario, result, activeStageId, onSelect, onAdd }:
                         onClick={() => onSelect(stage.id)}
                         className={cn(
                             'flex min-h-11 min-w-28 shrink-0 flex-col items-start rounded-md border px-3 py-1.5 text-left',
-                            isActive ? 'border-foreground border-2 bg-card' : 'bg-transparent text-muted-foreground',
+                            isActive
+                                ? 'border-foreground border-2 bg-card'
+                                : 'bg-transparent text-muted-foreground',
                         )}
                     >
                         <span className="max-w-40 truncate text-sm font-medium">
                             {stage.name}
-                            {stage.id === scenario.finalStageId ? ' · akhir' : ''}
+                            {stage.id === scenario.finalStageId
+                                ? ' · akhir'
+                                : ''}
                         </span>
                         <span className="font-mono text-xs tabular-nums">
-                            {hpp === null || hpp === undefined ? '-' : formatRupiah(hpp)}
+                            {hpp === null || hpp === undefined
+                                ? '-'
+                                : formatRupiah(hpp)}
                         </span>
                     </button>
                 );

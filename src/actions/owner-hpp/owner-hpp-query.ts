@@ -2,14 +2,17 @@ import {
     readHppPriceSimulatorDefault,
     type HppPriceSimulatorDefaultDTO,
 } from '@/actions/production/hpp-price-simulator-query';
-import { ValidationError } from '@/lib/errors/errors';
+import { ConflictError, ValidationError } from '@/lib/errors/errors';
 import type { ErpBomNode } from '@/lib/owner-hpp/erp-chain';
 import {
     OWNER_HPP_LIMITS,
     parseOwnerHppWorkspace,
     type OwnerHppWorkspace,
 } from '@/lib/owner-hpp/workspace-schema';
-import { createDefaultWorkspace, randomId } from '@/lib/owner-hpp/workspace-edit';
+import {
+    createDefaultWorkspace,
+    randomId,
+} from '@/lib/owner-hpp/workspace-edit';
 import type { HppSimulatorNumberInput } from '@/lib/production/hpp-price-simulator';
 import type { Prisma, PrismaClient } from '@prisma/client';
 
@@ -57,20 +60,52 @@ export async function readOwnerHppWorkspace(
     };
 }
 
-/** The only write this feature makes, and only to its own table. */
+const CONFLICT_MESSAGE =
+    'Dokumen sudah diubah dari perangkat lain. Ekspor pekerjaan Anda bila perlu, lalu muat ulang halaman.';
+
+function isUniqueViolation(error: unknown): boolean {
+    return (
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code: unknown }).code === 'P2002'
+    );
+}
+
+/**
+ * The only write this feature makes, and only to its own table. HP and PC edit
+ * the same document, so a save only succeeds when the stored version is still
+ * the one this device loaded; otherwise the other device's work would be lost.
+ */
 export async function writeOwnerHppWorkspace(
     db: PrismaClient,
     userId: string,
     workspace: OwnerHppWorkspace,
+    loadedUpdatedAt: string | null,
 ): Promise<{ updatedAt: string }> {
     const document = workspace as unknown as Prisma.InputJsonValue;
-    const row = await db.ownerHppWorkspace.upsert({
-        where: { userId },
-        create: { userId, document },
-        update: { document },
-        select: { updatedAt: true },
+
+    if (loadedUpdatedAt === null) {
+        try {
+            const row = await db.ownerHppWorkspace.create({
+                data: { userId, document },
+                select: { updatedAt: true },
+            });
+            return { updatedAt: row.updatedAt.toISOString() };
+        } catch (error) {
+            if (isUniqueViolation(error))
+                throw new ConflictError(CONFLICT_MESSAGE);
+            throw error;
+        }
+    }
+
+    const updatedAt = new Date();
+    const { count } = await db.ownerHppWorkspace.updateMany({
+        where: { userId, updatedAt: new Date(loadedUpdatedAt) },
+        data: { document, updatedAt },
     });
-    return { updatedAt: row.updatedAt.toISOString() };
+    if (count === 0) throw new ConflictError(CONFLICT_MESSAGE);
+    return { updatedAt: updatedAt.toISOString() };
 }
 
 function numberOf(input: HppSimulatorNumberInput): number | null {

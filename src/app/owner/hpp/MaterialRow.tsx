@@ -4,9 +4,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { StageResult } from '@/lib/owner-hpp/calculate-chain';
-import { materialSourceTag, type MaterialSourceTag } from '@/lib/owner-hpp/material-source';
+import {
+    materialSourceTag,
+    type MaterialSourceTag,
+} from '@/lib/owner-hpp/material-source';
 import { formatDecimal } from '@/lib/owner-hpp/number-input';
-import type { OwnerHppMaterial, OwnerHppStage } from '@/lib/owner-hpp/workspace-schema';
+import type {
+    OwnerHppMaterial,
+    OwnerHppStage,
+} from '@/lib/owner-hpp/workspace-schema';
 import { formatRupiah } from '@/lib/utils/utils';
 import { Trash2 } from 'lucide-react';
 import { NumberField } from './NumberField';
@@ -35,7 +41,11 @@ interface MaterialRowProps {
 
 function Tag({ tag }: { tag: MaterialSourceTag | 'stage' }) {
     return (
-        <Badge variant={tag === 'edited' || tag === 'empty' ? 'outline' : 'secondary'}>
+        <Badge
+            variant={
+                tag === 'edited' || tag === 'empty' ? 'outline' : 'secondary'
+            }
+        >
             {TAG_LABELS[tag]}
         </Badge>
     );
@@ -73,12 +83,16 @@ export function MaterialRow({
         return (
             <div className={MATERIAL_GRID}>
                 <label className="col-span-2 flex flex-col gap-1 md:col-span-1">
-                    <span className="text-xs text-muted-foreground md:sr-only">Dari tahap</span>
+                    <span className="text-xs text-muted-foreground md:sr-only">
+                        Dari tahap
+                    </span>
                     <select
                         aria-label="Dari tahap"
                         className={SELECT_CLASS}
                         value={material.from}
-                        onChange={(event) => onChange({ from: event.target.value })}
+                        onChange={(event) =>
+                            onChange({ from: event.target.value })
+                        }
                     >
                         {upstreamOptions.map((stage) => (
                             <option key={stage.id} value={stage.id}>
@@ -90,7 +104,11 @@ export function MaterialRow({
                 <p className="self-end pb-2 text-sm text-muted-foreground">
                     {upstreamResult?.outputUnit ?? '-'}
                 </p>
-                <NumberField label="Jumlah" value={material.qty} onChange={(qty) => onChange({ qty })} />
+                <NumberField
+                    label="Jumlah"
+                    value={material.qty}
+                    onChange={(qty) => onChange({ qty })}
+                />
                 <NumberField
                     label="Susut %"
                     value={material.scrapPercent}
@@ -114,7 +132,9 @@ export function MaterialRow({
     return (
         <div className={MATERIAL_GRID}>
             <label className="col-span-2 flex flex-col gap-1 md:col-span-1">
-                <span className="text-xs text-muted-foreground md:sr-only">Nama bahan</span>
+                <span className="text-xs text-muted-foreground md:sr-only">
+                    Nama bahan
+                </span>
                 <Input
                     aria-label="Nama bahan"
                     maxLength={80}
@@ -123,7 +143,9 @@ export function MaterialRow({
                 />
             </label>
             <label className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground md:sr-only">Satuan</span>
+                <span className="text-xs text-muted-foreground md:sr-only">
+                    Satuan
+                </span>
                 <Input
                     aria-label="Satuan"
                     maxLength={16}
@@ -131,13 +153,22 @@ export function MaterialRow({
                     onChange={(event) => onChange({ unit: event.target.value })}
                 />
             </label>
-            <NumberField label="Jumlah" value={material.qty} onChange={(qty) => onChange({ qty })} />
+            <NumberField
+                label="Jumlah"
+                value={material.qty}
+                onChange={(qty) => onChange({ qty })}
+            />
             <NumberField
                 label="Susut %"
                 value={material.scrapPercent}
                 onChange={(scrapPercent) => onChange({ scrapPercent })}
             />
-            <NumberField label="Harga" value={material.price} onChange={(price) => onChange({ price })} />
+            <NumberField
+                label="Harga"
+                kind="money"
+                value={material.price}
+                onChange={(price) => onChange({ price })}
+            />
             <div className="md:pb-1.5">
                 <Tag tag={tag} />
                 {tag === 'edited' && material.erpPrice !== null ? (

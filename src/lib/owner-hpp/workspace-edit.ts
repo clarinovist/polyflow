@@ -18,7 +18,14 @@ export function randomId(): string {
 }
 
 function emptyStage(id: string, name: string): OwnerHppStage {
-    return { id, name, outputUnit: 'KG', outputQty: 1, materials: [], costs: [] };
+    return {
+        id,
+        name,
+        outputUnit: 'KG',
+        outputQty: 1,
+        materials: [],
+        costs: [],
+    };
 }
 
 export function createDefaultScenario(
@@ -65,7 +72,9 @@ export function removeStage(
                     material.kind !== 'stage' || material.from !== stageId,
             ),
         }));
-    const finalStageId = stages.some((stage) => stage.id === scenario.finalStageId)
+    const finalStageId = stages.some(
+        (stage) => stage.id === scenario.finalStageId,
+    )
         ? scenario.finalStageId
         : stages[stages.length - 1].id;
     return { ...scenario, stages, finalStageId };
@@ -139,17 +148,22 @@ export function removeMaterial(
 ): OwnerHppStage {
     return {
         ...stage,
-        materials: stage.materials.filter((material) => material.id !== materialId),
+        materials: stage.materials.filter(
+            (material) => material.id !== materialId,
+        ),
     };
 }
 
-function emptyCost(
-    formula: OwnerHppCost['formula'],
-    id: string,
-): OwnerHppCost {
+function emptyCost(formula: OwnerHppCost['formula'], id: string): OwnerHppCost {
     switch (formula) {
         case 'fixed-per-output':
-            return { id, label: 'Biaya tetap', formula, category: 'conversion', value: 0 };
+            return {
+                id,
+                label: 'Biaya tetap',
+                formula,
+                category: 'conversion',
+                value: 0,
+            };
         case 'quantity-times-unit-cost':
             return {
                 id,
@@ -214,8 +228,14 @@ export function changeCostFormula(
     };
 }
 
-export function removeCost(stage: OwnerHppStage, costId: string): OwnerHppStage {
-    return { ...stage, costs: stage.costs.filter((cost) => cost.id !== costId) };
+export function removeCost(
+    stage: OwnerHppStage,
+    costId: string,
+): OwnerHppStage {
+    return {
+        ...stage,
+        costs: stage.costs.filter((cost) => cost.id !== costId),
+    };
 }
 
 function dependsOn(

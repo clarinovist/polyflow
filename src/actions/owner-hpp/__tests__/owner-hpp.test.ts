@@ -21,7 +21,7 @@ vi.mock('@/actions/production/hpp-price-simulator-query', () => ({
     readHppPriceSimulatorVariantOptions: mocks.readOptions,
 }));
 
-import { AuthorizationError } from '@/lib/errors/errors';
+import { AuthorizationError, ConflictError } from '@/lib/errors/errors';
 import { chainScenario } from '@/lib/owner-hpp/__tests__/fixtures';
 import {
     getOwnerHppErpChain,
@@ -40,7 +40,7 @@ describe('owner HPP server actions', () => {
 
     it.each([
         ['getOwnerHppWorkspace', () => getOwnerHppWorkspace()],
-        ['saveOwnerHppWorkspace', () => saveOwnerHppWorkspace({})],
+        ['saveOwnerHppWorkspace', () => saveOwnerHppWorkspace({}, null)],
         ['listOwnerHppVariantOptions', () => listOwnerHppVariantOptions()],
         ['getOwnerHppErpChain', () => getOwnerHppErpChain('v1')],
     ])('%s is denied without touching data when the guard rejects', async (_name, call) => {
@@ -65,20 +65,54 @@ describe('owner HPP server actions', () => {
     });
 
     it('rejects an invalid document before writing', async () => {
-        const result = await saveOwnerHppWorkspace({ version: 2, scenarios: [] });
+        const result = await saveOwnerHppWorkspace({ version: 2, scenarios: [] }, null);
 
         expect(result).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
         expect(mocks.writeWorkspace).not.toHaveBeenCalled();
     });
 
-    it('saves a valid document under the authenticated user', async () => {
+    it('saves a valid document under the authenticated user with the loaded version', async () => {
         const workspace = { version: 2, scenarios: [chainScenario()] };
         mocks.writeWorkspace.mockResolvedValue({ updatedAt: 'now' });
 
-        const result = await saveOwnerHppWorkspace(workspace);
+        const result = await saveOwnerHppWorkspace(workspace, '2026-11-03T07:00:00.000Z');
 
         expect(result).toEqual({ success: true, data: { updatedAt: 'now' } });
-        expect(mocks.writeWorkspace).toHaveBeenCalledWith(db, 'u1', workspace);
+        expect(mocks.writeWorkspace).toHaveBeenCalledWith(
+            db,
+            'u1',
+            workspace,
+            '2026-11-03T07:00:00.000Z',
+        );
+    });
+
+    it('accepts null as the loaded version for a first save', async () => {
+        mocks.writeWorkspace.mockResolvedValue({ updatedAt: 'now' });
+
+        await saveOwnerHppWorkspace({ version: 2, scenarios: [chainScenario()] }, null);
+
+        expect(mocks.writeWorkspace.mock.calls[0][3]).toBeNull();
+    });
+
+    it('rejects a loaded version that is not a date before writing', async () => {
+        const result = await saveOwnerHppWorkspace(
+            { version: 2, scenarios: [chainScenario()] },
+            'not-a-date',
+        );
+
+        expect(result).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
+        expect(mocks.writeWorkspace).not.toHaveBeenCalled();
+    });
+
+    it('passes a write conflict back to the caller', async () => {
+        mocks.writeWorkspace.mockRejectedValue(new ConflictError('sudah diubah'));
+
+        const result = await saveOwnerHppWorkspace(
+            { version: 2, scenarios: [chainScenario()] },
+            '2026-11-03T07:00:00.000Z',
+        );
+
+        expect(result).toMatchObject({ success: false, code: 'CONFLICT' });
     });
 
     it('lists product options through the existing read-only query', async () => {

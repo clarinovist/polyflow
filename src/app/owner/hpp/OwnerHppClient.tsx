@@ -36,24 +36,50 @@ const SAVED_AT_FORMAT = new Intl.DateTimeFormat('id-ID', {
     timeStyle: 'short',
 });
 
-export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }) {
-    const [workspace, setWorkspace] = useState<OwnerHppWorkspace>(initial.workspace);
-    const [activeScenarioId, setActiveScenarioId] = useState(initial.workspace.scenarios[0].id);
-    const [activeStageId, setActiveStageId] = useState(initial.workspace.scenarios[0].stages[0].id);
-    const [savedJson, setSavedJson] = useState(() => JSON.stringify(initial.workspace));
+export function OwnerHppClient({
+    initial,
+}: {
+    initial: StoredOwnerHppWorkspace;
+}) {
+    const [workspace, setWorkspace] = useState<OwnerHppWorkspace>(
+        initial.workspace,
+    );
+    const [activeScenarioId, setActiveScenarioId] = useState(
+        initial.workspace.scenarios[0].id,
+    );
+    const [activeStageId, setActiveStageId] = useState(
+        initial.workspace.scenarios[0].stages[0].id,
+    );
+    const [savedJson, setSavedJson] = useState(() =>
+        JSON.stringify(initial.workspace),
+    );
     const [savedAt, setSavedAt] = useState(initial.updatedAt);
     const [isSaving, startSaving] = useTransition();
 
-    const scenario = workspace.scenarios.find((entry) => entry.id === activeScenarioId) ?? workspace.scenarios[0];
-    const activeStage = scenario.stages.find((stage) => stage.id === activeStageId) ?? scenario.stages[0];
+    const scenario =
+        workspace.scenarios.find((entry) => entry.id === activeScenarioId) ??
+        workspace.scenarios[0];
+    const activeStage =
+        scenario.stages.find((stage) => stage.id === activeStageId) ??
+        scenario.stages[0];
     const result = useMemo(() => calculateScenario(scenario), [scenario]);
-    const stageResults = useMemo(() => new Map(result.stages.map((stage) => [stage.stageId, stage])), [result]);
-    const isDirty = useMemo(() => JSON.stringify(workspace) !== savedJson, [workspace, savedJson]);
+    const stageResults = useMemo(
+        () => new Map(result.stages.map((stage) => [stage.stageId, stage])),
+        [result],
+    );
+    const isDirty = useMemo(
+        () => JSON.stringify(workspace) !== savedJson,
+        [workspace, savedJson],
+    );
 
-    function patchScenario(update: (current: OwnerHppScenario) => OwnerHppScenario) {
+    function patchScenario(
+        update: (current: OwnerHppScenario) => OwnerHppScenario,
+    ) {
         setWorkspace((previous) => ({
             ...previous,
-            scenarios: previous.scenarios.map((entry) => (entry.id === scenario.id ? update(entry) : entry)),
+            scenarios: previous.scenarios.map((entry) =>
+                entry.id === scenario.id ? update(entry) : entry,
+            ),
         }));
     }
 
@@ -63,7 +89,10 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
     }
 
     function appendScenario(next: OwnerHppScenario) {
-        setWorkspace((previous) => ({ ...previous, scenarios: [...previous.scenarios, next] }));
+        setWorkspace((previous) => ({
+            ...previous,
+            scenarios: [...previous.scenarios, next],
+        }));
         selectScenario(next);
     }
 
@@ -74,7 +103,9 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
     }
 
     function handleDeleteScenario() {
-        const remaining = workspace.scenarios.filter((entry) => entry.id !== scenario.id);
+        const remaining = workspace.scenarios.filter(
+            (entry) => entry.id !== scenario.id,
+        );
         if (remaining.length === 0) return;
         setWorkspace((previous) => ({ ...previous, scenarios: remaining }));
         selectScenario(remaining[0]);
@@ -83,7 +114,9 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
     function handleApplyChain(chain: ErpChainResult) {
         patchScenario((current) => applyErpChain(current, chain));
         setActiveStageId(chain.finalStageId);
-        toast.success(`${chain.stages.length} tahap diisi dari ERP. Periksa harga lalu simpan.`);
+        toast.success(
+            `${chain.stages.length} tahap diisi dari ERP. Periksa harga lalu simpan.`,
+        );
     }
 
     function handleSave() {
@@ -94,7 +127,7 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
         }
         const snapshot = JSON.stringify(workspace);
         startSaving(async () => {
-            const response = await saveOwnerHppWorkspace(workspace);
+            const response = await saveOwnerHppWorkspace(workspace, savedAt);
             if (!response.success) {
                 toast.error(response.error);
                 return;
@@ -122,7 +155,9 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
 
     function statusText(): string {
         if (isDirty) return 'Belum disimpan';
-        return savedAt ? `Tersimpan ${SAVED_AT_FORMAT.format(new Date(savedAt))}` : 'Belum pernah disimpan';
+        return savedAt
+            ? `Tersimpan ${SAVED_AT_FORMAT.format(new Date(savedAt))}`
+            : 'Belum pernah disimpan';
     }
 
     return (
@@ -132,7 +167,10 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
                 <ErpPicker onApply={handleApplyChain} />
             </header>
             {initial.notice ? (
-                <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">
+                <p
+                    role="status"
+                    className="rounded-md border p-3 text-sm text-muted-foreground"
+                >
                     {initial.notice}
                 </p>
             ) : null}
@@ -140,19 +178,40 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
             <ScenarioBar
                 scenarios={workspace.scenarios}
                 activeId={scenario.id}
-                canAdd={workspace.scenarios.length < OWNER_HPP_LIMITS.maxScenarios}
+                canAdd={
+                    workspace.scenarios.length < OWNER_HPP_LIMITS.maxScenarios
+                }
                 isDirty={isDirty}
                 isSaving={isSaving}
                 statusText={statusText()}
-                onSelect={(id) => selectScenario(workspace.scenarios.find((entry) => entry.id === id) ?? scenario)}
-                onRename={(name) => patchScenario((current) => ({ ...current, name }))}
-                onAdd={() =>
-                    appendScenario(createDefaultScenario(randomId, `Skenario ${workspace.scenarios.length + 1}`))
+                onSelect={(id) =>
+                    selectScenario(
+                        workspace.scenarios.find((entry) => entry.id === id) ??
+                            scenario,
+                    )
                 }
-                onDuplicate={() => appendScenario(duplicateScenario(scenario, randomId))}
+                onRename={(name) =>
+                    patchScenario((current) => ({ ...current, name }))
+                }
+                onAdd={() =>
+                    appendScenario(
+                        createDefaultScenario(
+                            randomId,
+                            `Skenario ${workspace.scenarios.length + 1}`,
+                        ),
+                    )
+                }
+                onDuplicate={() =>
+                    appendScenario(duplicateScenario(scenario, randomId))
+                }
                 onDelete={handleDeleteScenario}
                 onSave={handleSave}
-                onExport={() => downloadJson(`kalkulator-hpp-${toBusinessDateString(new Date())}.json`, workspace)}
+                onExport={() =>
+                    downloadJson(
+                        `kalkulator-hpp-${toBusinessDateString(new Date())}.json`,
+                        workspace,
+                    )
+                }
                 onImport={handleImport}
             />
 
@@ -171,14 +230,29 @@ export function OwnerHppClient({ initial }: { initial: StoredOwnerHppWorkspace }
                     result={stageResults.get(activeStage.id)}
                     stageResults={stageResults}
                     canDelete={scenario.stages.length > 1}
-                    onChange={(next: OwnerHppStage) => patchScenario((current) => updateStage(current, activeStage.id, () => next))}
-                    onSetFinal={() => patchScenario((current) => ({ ...current, finalStageId: activeStage.id }))}
-                    onDelete={() => patchScenario((current) => removeStage(current, activeStage.id))}
+                    onChange={(next: OwnerHppStage) =>
+                        patchScenario((current) =>
+                            updateStage(current, activeStage.id, () => next),
+                        )
+                    }
+                    onSetFinal={() =>
+                        patchScenario((current) => ({
+                            ...current,
+                            finalStageId: activeStage.id,
+                        }))
+                    }
+                    onDelete={() =>
+                        patchScenario((current) =>
+                            removeStage(current, activeStage.id),
+                        )
+                    }
                 />
                 <ResultPanel
                     scenario={scenario}
                     result={result}
-                    onSellPriceChange={(sellPrice) => patchScenario((current) => ({ ...current, sellPrice }))}
+                    onSellPriceChange={(sellPrice) =>
+                        patchScenario((current) => ({ ...current, sellPrice }))
+                    }
                     onSelectStage={setActiveStageId}
                 />
             </div>

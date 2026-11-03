@@ -25,8 +25,10 @@ interface ScenarioBarProps {
 }
 
 export function ScenarioBar(props: ScenarioBarProps) {
-    const { scenarios, activeId, canAdd, isDirty, isSaving, statusText } = props;
-    const active = scenarios.find((scenario) => scenario.id === activeId) ?? scenarios[0];
+    const { scenarios, activeId, canAdd, isDirty, isSaving, statusText } =
+        props;
+    const active =
+        scenarios.find((scenario) => scenario.id === activeId) ?? scenarios[0];
     const fileInput = useRef<HTMLInputElement>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -34,7 +36,9 @@ export function ScenarioBar(props: ScenarioBarProps) {
         <div className="space-y-2">
             <div className="flex flex-wrap items-end gap-2">
                 <label className="flex w-full flex-col gap-1 sm:w-56">
-                    <span className="text-xs text-muted-foreground">Skenario</span>
+                    <span className="text-xs text-muted-foreground">
+                        Skenario
+                    </span>
                     <select
                         aria-label="Skenario"
                         className={SELECT_CLASS}
@@ -52,13 +56,33 @@ export function ScenarioBar(props: ScenarioBarProps) {
                     </select>
                 </label>
                 <label className="flex min-w-0 flex-1 basis-40 flex-col gap-1">
-                    <span className="text-xs text-muted-foreground">Nama skenario</span>
-                    <Input maxLength={80} value={active.name} onChange={(event) => props.onRename(event.target.value)} />
+                    <span className="text-xs text-muted-foreground">
+                        Nama skenario
+                    </span>
+                    <Input
+                        maxLength={80}
+                        value={active.name}
+                        onChange={(event) => props.onRename(event.target.value)}
+                    />
                 </label>
-                <Button type="button" variant="outline" size="icon" aria-label="Skenario baru" disabled={!canAdd} onClick={props.onAdd}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Skenario baru"
+                    disabled={!canAdd}
+                    onClick={props.onAdd}
+                >
                     <Plus />
                 </Button>
-                <Button type="button" variant="outline" size="icon" aria-label="Gandakan skenario" disabled={!canAdd} onClick={props.onDuplicate}>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Gandakan skenario"
+                    disabled={!canAdd}
+                    onClick={props.onDuplicate}
+                >
                     <Copy />
                 </Button>
                 {isConfirmingDelete ? (
@@ -86,17 +110,35 @@ export function ScenarioBar(props: ScenarioBarProps) {
                 )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" onClick={props.onSave} disabled={isSaving || !isDirty}>
+                <Button
+                    type="button"
+                    onClick={props.onSave}
+                    disabled={isSaving || !isDirty}
+                >
                     <Save /> {isSaving ? 'Menyimpan…' : 'Simpan'}
                 </Button>
-                <span className="text-sm text-muted-foreground" aria-live="polite" suppressHydrationWarning>
+                <span
+                    className="text-sm text-muted-foreground"
+                    aria-live="polite"
+                    suppressHydrationWarning
+                >
                     {statusText}
                 </span>
                 <div className="ml-auto flex gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={props.onExport}>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={props.onExport}
+                    >
                         <Download /> Ekspor
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => fileInput.current?.click()}>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => fileInput.current?.click()}
+                    >
                         <Upload /> Impor
                     </Button>
                     <input

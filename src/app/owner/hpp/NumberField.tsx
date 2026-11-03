@@ -5,6 +5,7 @@ import {
     draftFromNumber,
     formatDecimal,
     parseDecimalInput,
+    type NumberInputKind,
 } from '@/lib/owner-hpp/number-input';
 import { cn } from '@/lib/utils/utils';
 import { useState } from 'react';
@@ -17,6 +18,8 @@ interface NumberFieldProps {
     positive?: boolean;
     maxFractionDigits?: number;
     className?: string;
+    /** Money accepts "14.500"; quantities treat a lone dot as a decimal point. */
+    kind?: NumberInputKind;
     /** Show the label on wide screens too (default: phones only). */
     showLabel?: boolean;
 }
@@ -31,13 +34,14 @@ export function NumberField({
     onChange,
     positive = false,
     maxFractionDigits = 4,
+    kind = 'quantity',
     className,
     showLabel = false,
 }: NumberFieldProps) {
     // While focused the field shows what was typed; otherwise the formatted value.
     const [draft, setDraft] = useState<string | null>(null);
 
-    const parsed = draft === null ? value : parseDecimalInput(draft);
+    const parsed = draft === null ? value : parseDecimalInput(draft, kind);
     const isInvalid =
         draft !== null &&
         draft.trim() !== '' &&
@@ -45,7 +49,8 @@ export function NumberField({
 
     function handleChange(text: string) {
         setDraft(text);
-        const next = text.trim() === '' && !positive ? 0 : parseDecimalInput(text);
+        const next =
+            text.trim() === '' && !positive ? 0 : parseDecimalInput(text, kind);
         if (next !== null && isAccepted(next, positive)) onChange(next);
     }
 

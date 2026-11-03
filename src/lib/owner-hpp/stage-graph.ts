@@ -28,7 +28,9 @@ export function orderStages(
     for (const stage of stages) {
         for (const from of upstreamIds(stage)) {
             if (from === stage.id) {
-                return failure(`Tahap "${stage.name}" memakai dirinya sendiri.`);
+                return failure(
+                    `Tahap "${stage.name}" memakai dirinya sendiri.`,
+                );
             }
             if (!byId.has(from)) {
                 return failure(

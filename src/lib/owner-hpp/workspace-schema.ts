@@ -22,11 +22,7 @@ const textSchema = z
     .trim()
     .min(1, 'Teks tidak boleh kosong.')
     .max(OWNER_HPP_LIMITS.maxTextLength);
-const unitSchema = z
-    .string()
-    .trim()
-    .min(1)
-    .max(OWNER_HPP_LIMITS.maxUnitLength);
+const unitSchema = z.string().trim().min(1).max(OWNER_HPP_LIMITS.maxUnitLength);
 const nonNegative = z.number().min(0).max(OWNER_HPP_LIMITS.maxNumber);
 const positive = z
     .number()
@@ -120,7 +116,9 @@ const scenarioSchema = z
             ctx.addIssue({ code: 'custom', message: 'ID tahap kembar.' });
             return;
         }
-        if (!scenario.stages.some((stage) => stage.id === scenario.finalStageId)) {
+        if (
+            !scenario.stages.some((stage) => stage.id === scenario.finalStageId)
+        ) {
             ctx.addIssue({
                 code: 'custom',
                 message: 'Tahap akhir tidak ditemukan.',

@@ -15,6 +15,19 @@ import {
 
 const VARIANT_ID_PATTERN = /^[\w-]{1,100}$/;
 
+/** The `updatedAt` the client loaded (null before the first save). */
+function parseLoadedVersion(value: unknown): string | null {
+    if (value === null) return null;
+    if (
+        typeof value !== 'string' ||
+        value.length > 40 ||
+        Number.isNaN(Date.parse(value))
+    ) {
+        throw new ValidationError('Versi dokumen tidak valid.');
+    }
+    return value;
+}
+
 // Every action calls the guard first: the edge lets /owner through unauthenticated.
 
 export const getOwnerHppWorkspace = withTenant(
@@ -27,12 +40,21 @@ export const getOwnerHppWorkspace = withTenant(
 );
 
 export const saveOwnerHppWorkspace = withTenant(
-    async function saveOwnerHppWorkspace(input: unknown) {
+    async function saveOwnerHppWorkspace(
+        input: unknown,
+        loadedUpdatedAt: string | null,
+    ) {
         return safeAction(async () => {
             const { db, userId } = await requireOwnerHppAccess();
             const parsed = parseOwnerHppWorkspace(input);
             if (!parsed.success) throw new ValidationError(parsed.error);
-            return writeOwnerHppWorkspace(db, userId, parsed.data);
+            const loadedVersion = parseLoadedVersion(loadedUpdatedAt);
+            return writeOwnerHppWorkspace(
+                db,
+                userId,
+                parsed.data,
+                loadedVersion,
+            );
         });
     },
 );

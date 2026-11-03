@@ -112,7 +112,11 @@ export function buildStagesFromErp(input: ErpChainInput): ErpChainResult {
             return {
                 id: nextMaterialId(),
                 kind: 'raw',
-                name: fit(material.name, OWNER_HPP_LIMITS.maxTextLength, 'Bahan'),
+                name: fit(
+                    material.name,
+                    OWNER_HPP_LIMITS.maxTextLength,
+                    'Bahan',
+                ),
                 unit: fit(material.unit, OWNER_HPP_LIMITS.maxUnitLength, 'KG'),
                 qty: material.quantity,
                 scrapPercent: material.scrapPercent,
@@ -139,8 +143,16 @@ export function buildStagesFromErp(input: ErpChainInput): ErpChainResult {
         stageIdByVariant.set(variantId, stageId);
         stages.push({
             id: stageId,
-            name: fit(node.variantName, OWNER_HPP_LIMITS.maxTextLength, 'Tahap'),
-            outputUnit: fit(node.outputUnit, OWNER_HPP_LIMITS.maxUnitLength, 'KG'),
+            name: fit(
+                node.variantName,
+                OWNER_HPP_LIMITS.maxTextLength,
+                'Tahap',
+            ),
+            outputUnit: fit(
+                node.outputUnit,
+                OWNER_HPP_LIMITS.maxUnitLength,
+                'KG',
+            ),
             outputQty: node.outputQuantity > 0 ? node.outputQuantity : 1,
             materials,
             costs: [],

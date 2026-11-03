@@ -46,7 +46,10 @@ export interface ScenarioResult {
 
 const NO_TARGET_MARGIN = manual(0);
 
-function emptyResult(scenario: OwnerHppScenario, error: string): ScenarioResult {
+function emptyResult(
+    scenario: OwnerHppScenario,
+    error: string,
+): ScenarioResult {
     return {
         error,
         stages: [],
@@ -269,7 +272,8 @@ export function calculateScenario(scenario: OwnerHppScenario): ScenarioResult {
     const finalStage = scenario.stages.find(
         (stage) => stage.id === scenario.finalStageId,
     );
-    if (!finalStage) return emptyResult(scenario, 'Tahap akhir tidak ditemukan.');
+    if (!finalStage)
+        return emptyResult(scenario, 'Tahap akhir tidak ditemukan.');
 
     const finalHpp = done.get(finalStage.id)?.hppPerOutput ?? null;
     const multiplier = flowMultipliers(order, finalStage.id);
