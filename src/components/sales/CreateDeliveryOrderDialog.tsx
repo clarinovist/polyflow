@@ -35,6 +35,7 @@ import { useRouter } from 'next/navigation';
 import { salesLabels } from '@/lib/labels';
 import { getEnteredQuantityDisplay } from '@/lib/utils/production-units';
 import { toBusinessDateString } from '@/lib/utils/timezone';
+import { maxDeliveryDocumentDate } from '@/lib/sales/delivery-document-date';
 import { estimateDeliveryWeightKg } from '@/lib/sales/delivery-weight';
 
 interface SalesOrderItem {
@@ -646,7 +647,7 @@ export function CreateDeliveryOrderDialog({
                             ref={deliveryDateInputRef}
                             type="date"
                             value={deliveryDate}
-                            max={toBusinessDateString(new Date())}
+                            max={maxDeliveryDocumentDate()}
                             aria-invalid={deliveryDateError ? true : undefined}
                             aria-describedby={`${deliveryDateInputId}-help`}
                             onChange={(e) => {
@@ -667,10 +668,10 @@ export function CreateDeliveryOrderDialog({
                                 id={`${deliveryDateInputId}-help`}
                                 className="text-xs text-muted-foreground"
                             >
-                                Default hari ini sebagai tanggal dokumen/rencana.
-                                Tanggal stok, invoice, dan jurnal akan dipilih saat
-                                barang benar-benar diserahkan. Tidak bisa melebihi
-                                hari ini dan periode jurnal harus masih buka.
+                                Default hari ini sebagai tanggal dokumen/rencana;
+                                boleh dimajukan maksimal satu hari kerja ke depan.
+                                Stok, invoice, dan jurnal mengikuti tanggal
+                                penyerahan aktual saat barang diserahkan.
                             </p>
                         )}
                     </div>

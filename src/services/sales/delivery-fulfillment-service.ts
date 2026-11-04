@@ -34,6 +34,7 @@ import {
     normalizeToBusinessDay,
 } from '@/lib/utils/timezone';
 import { isPeriodOpen } from '@/services/accounting/periods-service';
+import { maxDeliveryDocumentDate } from '@/lib/sales/delivery-document-date';
 
 // =============================================================================
 // Types
@@ -190,16 +191,16 @@ export async function createDeliveryOrderFromSalesOrder(
         }
 
         // 3b. Tanggal Surat Jalan (backdate untuk koreksi, default hari ini).
+        // Dokumen boleh bertanggal H+1 hari kerja karena truk sering disiapkan
+        // sehari sebelumnya; stok dan invoice tetap ikut tanggal penyerahan aktual.
         const effectiveDeliveryDate = deliveryDate
             ? normalizeToBusinessDay(deliveryDate)
             : new Date();
-        if (
-            toBusinessDateString(effectiveDeliveryDate) >
-            toBusinessDateString(new Date())
-        ) {
+        const maxDeliveryDate = maxDeliveryDocumentDate();
+        if (toBusinessDateString(effectiveDeliveryDate) > maxDeliveryDate) {
             throw new BusinessRuleError(
-                'Tanggal Surat Jalan tidak boleh melebihi hari ini.',
-                undefined,
+                `Tanggal Surat Jalan maksimal ${maxDeliveryDate} (satu hari kerja ke depan).`,
+                { maxDeliveryDate },
                 'DELIVERY_DATE_IN_FUTURE',
             );
         }

@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CreateDeliveryOrderDialog } from '../CreateDeliveryOrderDialog';
+import { maxDeliveryDocumentDate } from '@/lib/sales/delivery-document-date';
 
 const mocks = vi.hoisted(() => ({
     orders: vi.fn(), detail: vi.fn(), locations: vi.fn(), vehicles: vi.fn(),
@@ -170,6 +171,7 @@ describe('delivery order units and freight weight', () => {
         expect(alert.textContent).toContain('tidak boleh melebihi hari ini');
         const field = screen.getByLabelText<HTMLInputElement>('Tanggal Surat Jalan *');
         expect(field.getAttribute('aria-invalid')).toBe('true');
+        expect(field.getAttribute('max')).toBe(maxDeliveryDocumentDate());
         await waitFor(() => expect(document.activeElement).toBe(field));
         expect(mocks.error).not.toHaveBeenCalled();
         fireEvent.change(field, { target: { value: '2026-01-05' } });

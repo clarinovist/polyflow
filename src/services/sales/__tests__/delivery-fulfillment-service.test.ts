@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   createDeliveryOrderFromSalesOrder,
   commitDeliveryShipment as commitDeliveryShipmentService,
@@ -227,21 +227,53 @@ describe("createDeliveryOrderFromSalesOrder", () => {
     );
   });
 
-  it("rejects future deliveryDate", async () => {
+  it("accepts a document dated one business day ahead (truk disiapkan malam sebelumnya)", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date("2026-11-04T03:00:00.000Z")); // Rabu 10:00 WIB
+    const so = makeSalesOrder();
+    vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
+    vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.deliveryOrder.create).mockResolvedValue({
+      id: "do-new",
+      status: DeliveryStatus.PENDING,
+    } as never);
+
+    await createDeliveryOrderFromSalesOrder({
+      salesOrderId: "so-1",
+      sourceLocationId: "loc-1",
+      userId: "user-1",
+      deliveryDate: new Date("2026-11-05T00:00:00+07:00"),
+    });
+
+    expect(prisma.deliveryOrder.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deliveryDate: new Date("2026-11-04T17:00:00.000Z"),
+        }),
+      })
+    );
+  });
+
+  it("rejects a document dated beyond the next business day", async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date("2026-11-04T03:00:00.000Z")); // Rabu 10:00 WIB
     const so = makeSalesOrder();
     vi.mocked(prisma.salesOrder.findUnique).mockResolvedValue(so as never);
     vi.mocked(prisma.deliveryOrder.findMany).mockResolvedValue([]);
 
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await expect(
       createDeliveryOrderFromSalesOrder({
         salesOrderId: "so-1",
         sourceLocationId: "loc-1",
         userId: "user-1",
-        deliveryDate: tomorrow,
+        deliveryDate: new Date("2026-11-06T00:00:00+07:00"),
       })
-    ).rejects.toThrow(/melebihi hari ini/);
+    ).rejects.toThrow(/maksimal 2026-11-05/);
     expect(prisma.deliveryOrder.create).not.toHaveBeenCalled();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("rejects backdate when journal period is closed", async () => {
