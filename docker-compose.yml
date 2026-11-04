@@ -128,13 +128,13 @@ services:
       - .env
     environment:
       - DATABASE_URL=${DATABASE_URL}
-      - ASSISTANT_BROKER_TOKEN=${ASSISTANT_BROKER_TOKEN:?Set ASSISTANT_BROKER_TOKEN in .env}
+      - ASSISTANT_BROKER_TOKEN=${ASSISTANT_BROKER_TOKEN:-}
       - ASSISTANT_BROKER_ALLOWED_TOOLS=${ASSISTANT_BROKER_ALLOWED_TOOLS:-get_daily_production_output}
       - ASSISTANT_BROKER_HOST=0.0.0.0
       - ASSISTANT_BROKER_PORT=3020
       # JSON map tenantId -> read-only DSN. Missing tenant = fail closed;
       # a writer-identical target is rejected at broker startup.
-      - ASSISTANT_QUERY_DATABASE_URLS=${ASSISTANT_QUERY_DATABASE_URLS:?Set ASSISTANT_QUERY_DATABASE_URLS in .env}
+      - ASSISTANT_QUERY_DATABASE_URLS=${ASSISTANT_QUERY_DATABASE_URLS:-}
     expose:
       - "3020"
     depends_on:
