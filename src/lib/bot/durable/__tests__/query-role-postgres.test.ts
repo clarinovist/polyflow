@@ -126,17 +126,12 @@ describe.skipIf(!enabled)('assistant query role on disposable PostgreSQL', () =>
                 await expect(
                     reader.query('ALTER TABLE "HelpConversation" ADD COLUMN x int'),
                 ).rejects.toMatchObject({ code: '25006' });
-                await expect(
-                    reader.query(
-                        `ALTER ROLE "${role}" NOSUPERUSER`,
-                    ),
-                ).rejects.toMatchObject({ code: '42501' });
-
                 // The session default is clearable by any client; the grant
                 // layer must still refuse on its own.
-                await reader.query(
-                    'SET default_transaction_read_only = off',
-                );
+                await reader.query('SET default_transaction_read_only = off');
+                await expect(
+                    reader.query(`ALTER ROLE "${role}" NOSUPERUSER`),
+                ).rejects.toMatchObject({ code: '42501' });
                 await expect(
                     reader.query('INSERT INTO "HelpConversation" DEFAULT VALUES'),
                 ).rejects.toMatchObject({ code: '42501' });

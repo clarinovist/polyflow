@@ -46,10 +46,12 @@ describe('AssistantBrokerClient', () => {
             fetch: fetchMock as typeof fetch,
         });
         await expect(client.execute(request)).resolves.toEqual(evidence);
-        expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+        expect(
+            String((fetchMock.mock.calls[0] as unknown[] | undefined)?.[0]),
+        ).toContain(
             '/v1/tools/execute',
         );
-        const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+        const init = (fetchMock.mock.calls[0] as unknown[])[1] as RequestInit;
         expect(init.headers).toMatchObject({
             Authorization: `Bearer ${'b'.repeat(32)}`,
         });

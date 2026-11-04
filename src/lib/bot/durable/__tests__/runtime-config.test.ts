@@ -11,6 +11,8 @@ const base = {
     LLM_API_KEY: 'llm-key',
     LLM_MODEL: 'model-one',
 };
+const env = (value: Record<string, unknown>) =>
+    value as unknown as NodeJS.ProcessEnv;
 
 describe('assistant worker optional Telegram config', () => {
     it.each([
@@ -32,44 +34,53 @@ describe('assistant worker optional Telegram config', () => {
     });
 
     it('keeps broker routing default-off and validates its paired fields', () => {
-        expect(loadAssistantWorkerRuntimeConfig(base).ASSISTANT_BROKER_URL).toBeUndefined();
         expect(
-            loadAssistantWorkerRuntimeConfig({
-                ...base,
-                ASSISTANT_BROKER_URL: 'http://assistant-broker:3020',
-                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
-                ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
-            }),
+            loadAssistantWorkerRuntimeConfig(env(base)).ASSISTANT_BROKER_URL,
+        ).toBeUndefined();
+        expect(
+            loadAssistantWorkerRuntimeConfig(
+                env({
+                    ...base,
+                    ASSISTANT_BROKER_URL: 'http://assistant-broker:3020',
+                    ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+                    ASSISTANT_BROKER_ALLOWED_TOOLS:
+                        'get_daily_production_output',
+                }),
+            ),
         ).toMatchObject({
             ASSISTANT_BROKER_URL: 'http://assistant-broker:3020',
             ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
         });
         for (const invalid of ['bad tool', 'diagnose_production_blocker']) {
             expect(() =>
-                loadAssistantWorkerRuntimeConfig({
-                    ...base,
-                    ASSISTANT_BROKER_ALLOWED_TOOLS: invalid,
-                }),
+                loadAssistantWorkerRuntimeConfig(
+                    env({
+                        ...base,
+                        ASSISTANT_BROKER_ALLOWED_TOOLS: invalid,
+                    }),
+                ),
             ).toThrow();
         }
     });
 
     it('requires explicit broker service configuration', () => {
         expect(
-            loadAssistantBrokerRuntimeConfig({
-                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
-                ASSISTANT_QUERY_DATABASE_URLS:
-                    '{"tenant-one":"postgresql://query:secret@db:5432/tenant_one"}',
-            }),
+            loadAssistantBrokerRuntimeConfig(
+                env({
+                    ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+                    ASSISTANT_QUERY_DATABASE_URLS:
+                        '{"tenant-one":"postgresql://query:secret@db:5432/tenant_one"}',
+                }),
+            ),
         ).toMatchObject({
             ASSISTANT_BROKER_PORT: 3020,
             ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
         });
-        expect(() => loadAssistantBrokerRuntimeConfig({})).toThrow();
+        expect(() => loadAssistantBrokerRuntimeConfig(env({}))).toThrow();
         expect(() =>
-            loadAssistantBrokerRuntimeConfig({
-                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
-            }),
+            loadAssistantBrokerRuntimeConfig(
+                env({ ASSISTANT_BROKER_TOKEN: 'b'.repeat(32) }),
+            ),
         ).toThrow();
     });
 

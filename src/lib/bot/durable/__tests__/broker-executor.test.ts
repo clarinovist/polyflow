@@ -129,7 +129,9 @@ describe('AssistantBrokerExecutor', () => {
             getTool: () => invalid.tool,
             withAuthority: async (_authority, operation) =>
                 operation({ assistantContext: context }),
-            audit: async (entry) => invalid.audits.push(entry),
+            audit: async (entry) => {
+                invalid.audits.push(entry);
+            },
             queryDatasourceForTenant: async () => {
                 throw new Error('ASSISTANT_QUERY_DATASOURCE_INVALID');
             },
@@ -178,9 +180,12 @@ describe('AssistantBrokerExecutor', () => {
                     403,
                 );
             },
-            audit: async (entry) => fixture.audits.push(entry),
-            auditAuthorityDenied: async (entry) =>
-                fixture.authorityDenials.push(entry),
+            audit: async (entry) => {
+                fixture.audits.push(entry);
+            },
+            auditAuthorityDenied: async (entry) => {
+                fixture.authorityDenials.push(entry);
+            },
             queryDatasourceForTenant: async () =>
                 'postgresql://query_role@db.invalid/tenant_one',
             runWithQueryDatasource: async (_url, operation) => operation(),
