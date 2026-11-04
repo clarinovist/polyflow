@@ -34,8 +34,27 @@ const enabled = Boolean(adminUrl && tenantUrl);
 const role = `assistant_query_test_${randomBytes(4).toString('hex')}`;
 const password = randomBytes(24).toString('hex');
 
+function adminFor(database: string): Client {
+    const url = new URL(adminUrl as string);
+    url.pathname = `/${database}`;
+    return new Client({ connectionString: url.toString() });
+}
+
 afterAll(async () => {
     if (!enabled) return;
+    // Privileges granted inside a database block DROP ROLE until revoked.
+    const tenantDatabase = guarded(tenantUrl).pathname.slice(1);
+    const tenantAdmin = adminFor(tenantDatabase);
+    await tenantAdmin.connect();
+    try {
+        await tenantAdmin.query(
+            `ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE SELECT ON TABLES FROM "${role}"`,
+        );
+        await tenantAdmin.query(`REVOKE ALL ON DATABASE "${tenantDatabase}" FROM "${role}"`);
+        await tenantAdmin.query(`DROP OWNED BY "${role}"`);
+    } finally {
+        await tenantAdmin.end();
+    }
     const admin = new Client({ connectionString: adminUrl });
     await admin.connect();
     try {
@@ -53,14 +72,21 @@ describe.skipIf(!enabled)('assistant query role on disposable PostgreSQL', () =>
             await admin.query(
                 `CREATE ROLE "${role}" LOGIN PASSWORD '${password}'`,
             );
+        } finally {
+            await admin.end();
+        }
+        // Grants are per-database: apply while connected to the tenant DB.
+        const tenantAdmin = adminFor(guarded(tenantUrl).pathname.slice(1));
+        await tenantAdmin.connect();
+        try {
             const plan = buildAssistantQueryRolePlan({
                 role,
                 database: guarded(tenantUrl).pathname.slice(1),
             });
             for (const statement of plan.statements) {
-                await admin.query(statement);
+                await tenantAdmin.query(statement);
             }
-            const attributes = await admin.query<{
+            const attributes = await tenantAdmin.query<{
                 rolsuper: boolean;
                 rolcreatedb: boolean;
                 rolcreaterole: boolean;
@@ -121,7 +147,7 @@ describe.skipIf(!enabled)('assistant query role on disposable PostgreSQL', () =>
                 await reader.end();
             }
         } finally {
-            await admin.end();
+            await tenantAdmin.end();
         }
     }, 60_000);
 });
