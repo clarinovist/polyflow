@@ -3,6 +3,11 @@ import { checkToolAuthorization } from '../tool-authorization';
 import { getToolByName } from '../tool-registry';
 import { withBoundAuthority } from './authority';
 import {
+    createTenantQueryDatasourceResolver,
+    runWithQueryDatasource,
+    type TenantQueryDatasourceResolver,
+} from './query-datasource';
+import {
     assistantBrokerRequestDigest,
     type AssistantBrokerToolRequest,
 } from './broker-protocol';
@@ -44,6 +49,11 @@ export type AssistantBrokerExecutorDependencies = {
     auditAuthorityDenied?(
         input: AssistantBrokerToolAudit,
     ): Promise<void | 'CLAIMED' | 'RECORDED' | 'REPLAY' | 'SKIPPED'>;
+    queryDatasourceForTenant: TenantQueryDatasourceResolver;
+    runWithQueryDatasource<T>(
+        datasourceUrl: string,
+        operation: () => Promise<T>,
+    ): Promise<T>;
     now(): number;
 };
 
@@ -55,6 +65,8 @@ const defaultDependencies: AssistantBrokerExecutorDependencies = {
         ),
     audit: upsertDurableToolAudit,
     auditAuthorityDenied: upsertDurableToolAuthorityDenial,
+    queryDatasourceForTenant: createTenantQueryDatasourceResolver(),
+    runWithQueryDatasource,
     now: () => Date.now(),
 };
 
@@ -125,6 +137,28 @@ export class AssistantBrokerExecutor {
                             400,
                         );
                     }
+                    let queryDatasource: string | undefined;
+                    try {
+                        queryDatasource =
+                            await this.dependencies.queryDatasourceForTenant(
+                                request.authority.tenantId,
+                            );
+                    } catch {
+                        await audit('DENIED', false);
+                        throw new AssistantWorkerProtocolError(
+                            'UNAVAILABLE',
+                            'Assistant query datasource is not configured.',
+                            503,
+                        );
+                    }
+                    if (!queryDatasource) {
+                        await audit('DENIED', false);
+                        throw new AssistantWorkerProtocolError(
+                            'UNAVAILABLE',
+                            'Assistant query datasource is not configured.',
+                            503,
+                        );
+                    }
                     const claim = await audit('STARTED', true);
                     if (claim === 'REPLAY') {
                         throw new AssistantWorkerProtocolError(
@@ -135,10 +169,12 @@ export class AssistantBrokerExecutor {
                         );
                     }
                     try {
-                        const evidence = await tool.execute(
-                            parsed.data,
-                            assistantContext,
-                        );
+                        const evidence =
+                            await this.dependencies.runWithQueryDatasource(
+                                queryDatasource,
+                                () =>
+                                    tool.execute(parsed.data, assistantContext),
+                            );
                         await audit('SUCCESS', true, evidence);
                         return evidence;
                     } catch {

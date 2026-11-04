@@ -19,6 +19,7 @@
         "start": "next start",
         "start:assistant-worker": "node dist/assistant-worker/index.mjs",
         "start:assistant-broker": "node dist/assistant-broker/index.mjs",
+        "ops:assistant-query-role": "npx tsx scripts/provision-assistant-query-role.ts",
         "backup:assistant-worker": "node scripts/backup-assistant-sqlite.mjs",
         "lint": "eslint",
         "test": "vitest run",

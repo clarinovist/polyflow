@@ -93,6 +93,7 @@ const brokerRuntimeSchema = z.object({
     ASSISTANT_BROKER_ALLOWED_TOOLS: brokerCanaryAllowlistSchema.default(
         ASSISTANT_BROKER_CANARY_TOOL,
     ),
+    ASSISTANT_QUERY_DATABASE_URLS: z.string().min(1),
 });
 
 export type AssistantBrokerRuntimeConfig = z.infer<typeof brokerRuntimeSchema>;

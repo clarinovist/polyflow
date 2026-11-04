@@ -12,7 +12,9 @@
     },
     "include": [
         "workers/assistant/**/*.ts",
+        "workers/assistant-broker/**/*.ts",
         "src/lib/bot/**/*.ts",
+        "src/lib/ops/assistant-query-role.ts",
         "src/lib/core/**/*.ts",
         "src/lib/auth/**/*.ts",
         "src/services/auth/**/*.ts",

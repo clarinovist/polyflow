@@ -49,9 +49,11 @@ const evidence: ToolEvidence = {
 function fixtures(overrides?: {
     resources?: string[];
     execute?: () => Promise<ToolEvidence>;
+    datasource?: string | undefined;
 }) {
     const audits: AssistantBrokerToolAudit[] = [];
     const authorityDenials: AssistantBrokerToolAudit[] = [];
+    const routed: string[] = [];
     let now = 100;
     const tool = {
         name: request.toolName,
@@ -81,14 +83,22 @@ function fixtures(overrides?: {
         auditAuthorityDenied: async (entry) => {
             authorityDenials.push(entry);
         },
+        queryDatasourceForTenant: async () =>
+            'datasource' in (overrides ?? {})
+                ? overrides?.datasource
+                : 'postgresql://query_role@db.invalid/tenant_one',
+        runWithQueryDatasource: async (url, operation) => {
+            routed.push(url);
+            return operation();
+        },
         now: () => now++,
     });
-    return { executor, tool, audits, authorityDenials };
+    return { executor, tool, audits, authorityDenials, routed };
 }
 
 describe('AssistantBrokerExecutor', () => {
     it('revalidates, reparses, and records STARTED then SUCCESS', async () => {
-        const { executor, tool, audits } = fixtures();
+        const { executor, tool, audits, routed } = fixtures();
         await expect(executor.execute(request)).resolves.toEqual(evidence);
         expect(tool.execute).toHaveBeenCalledWith(request.arguments, context);
         expect(audits.map((entry) => entry.outcome)).toEqual([
@@ -99,6 +109,39 @@ describe('AssistantBrokerExecutor', () => {
             new Set([request.executionKey]),
         );
         expect(audits[0]?.requestDigest).toMatch(/^[a-f0-9]{64}$/);
+        expect(routed).toEqual([
+            'postgresql://query_role@db.invalid/tenant_one',
+        ]);
+    });
+
+    it('fails closed when the tenant has no read-only query datasource', async () => {
+        const missing = fixtures({ datasource: undefined });
+        await expect(missing.executor.execute(request)).rejects.toMatchObject({
+            code: 'UNAVAILABLE',
+        });
+        expect(missing.tool.execute).not.toHaveBeenCalled();
+        expect(missing.audits.map((entry) => entry.outcome)).toEqual([
+            'DENIED',
+        ]);
+
+        const invalid = fixtures({ datasource: undefined });
+        const failing = new AssistantBrokerExecutor([request.toolName], {
+            getTool: () => invalid.tool,
+            withAuthority: async (_authority, operation) =>
+                operation({ assistantContext: context }),
+            audit: async (entry) => invalid.audits.push(entry),
+            queryDatasourceForTenant: async () => {
+                throw new Error('ASSISTANT_QUERY_DATASOURCE_INVALID');
+            },
+            runWithQueryDatasource: async () => {
+                throw new Error('must not run');
+            },
+            now: () => 100,
+        });
+        await expect(failing.execute(request)).rejects.toMatchObject({
+            code: 'UNAVAILABLE',
+        });
+        expect(invalid.tool.execute).not.toHaveBeenCalled();
     });
 
     it('denies revoked permission and invalid or extra arguments before execution', async () => {
@@ -138,6 +181,9 @@ describe('AssistantBrokerExecutor', () => {
             audit: async (entry) => fixture.audits.push(entry),
             auditAuthorityDenied: async (entry) =>
                 fixture.authorityDenials.push(entry),
+            queryDatasourceForTenant: async () =>
+                'postgresql://query_role@db.invalid/tenant_one',
+            runWithQueryDatasource: async (_url, operation) => operation(),
             now: () => 100,
         });
         await expect(denied.execute(request)).rejects.toMatchObject({

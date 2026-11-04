@@ -4,10 +4,15 @@ import {
     listenAssistantBroker,
 } from '../../src/lib/bot/durable/broker-server';
 import { loadAssistantBrokerRuntimeConfig } from '../../src/lib/bot/durable/runtime-config';
+import { parseTenantQueryDatasources } from '../../src/lib/bot/durable/query-datasource';
 import { disconnectAllTenants } from '../../src/lib/core/prisma';
 
 async function main() {
     const config = loadAssistantBrokerRuntimeConfig();
+    // Fail at startup, not mid-conversation, when the read-only map is invalid.
+    const queryDatasources = parseTenantQueryDatasources(
+        config.ASSISTANT_QUERY_DATABASE_URLS,
+    );
     const allowlist = config.ASSISTANT_BROKER_ALLOWED_TOOLS.split(',')
         .map((name) => name.trim())
         .filter(Boolean);
@@ -22,6 +27,9 @@ async function main() {
         config.ASSISTANT_BROKER_PORT,
     );
     console.log(`[ASSISTANT_BROKER_READY] port=${address.port}`);
+    console.log(
+        `[ASSISTANT_BROKER_SCOPE] tools=${allowlist.join(',')} queryTenants=${queryDatasources.size}`,
+    );
 
     let shuttingDown = false;
     async function shutdown(signal: string) {

@@ -132,6 +132,9 @@ services:
       - ASSISTANT_BROKER_ALLOWED_TOOLS=${ASSISTANT_BROKER_ALLOWED_TOOLS:-get_daily_production_output}
       - ASSISTANT_BROKER_HOST=0.0.0.0
       - ASSISTANT_BROKER_PORT=3020
+      # JSON map tenantId -> read-only DSN. Missing tenant = fail closed;
+      # a writer-identical target is rejected at broker startup.
+      - ASSISTANT_QUERY_DATABASE_URLS=${ASSISTANT_QUERY_DATABASE_URLS:?Set ASSISTANT_QUERY_DATABASE_URLS in .env}
     expose:
       - "3020"
     depends_on:

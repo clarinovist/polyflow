@@ -58,12 +58,19 @@ describe('assistant worker optional Telegram config', () => {
         expect(
             loadAssistantBrokerRuntimeConfig({
                 ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+                ASSISTANT_QUERY_DATABASE_URLS:
+                    '{"tenant-one":"postgresql://query:secret@db:5432/tenant_one"}',
             }),
         ).toMatchObject({
             ASSISTANT_BROKER_PORT: 3020,
             ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
         });
         expect(() => loadAssistantBrokerRuntimeConfig({})).toThrow();
+        expect(() =>
+            loadAssistantBrokerRuntimeConfig({
+                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+            }),
+        ).toThrow();
     });
 
     it.each([
