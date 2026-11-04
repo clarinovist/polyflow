@@ -15,6 +15,7 @@ import type {
     JsonObject,
 } from '@earendil-works/pi-durable';
 import type { AssistantToolDefinition, ToolEvidence } from '../assistant-types';
+import type { AssistantBrokerClient } from './broker-client';
 import { evidenceToText } from '../evidence';
 import { checkToolAuthorization } from '../tool-authorization';
 import { getToolByName, toolRegistry } from '../tool-registry';
@@ -30,6 +31,61 @@ export function zodToTypeBox(tool: AssistantToolDefinition): TSchema {
 
 function executionKey(conversationId: number, taskId: number, callId: string) {
     return `${conversationId}:${taskId}:${callId}`;
+}
+
+export type DurableAssistantToolOptions = {
+    broker?: {
+        client: Pick<AssistantBrokerClient, 'execute'>;
+        toolNames: ReadonlySet<string>;
+    };
+    callbacks?: {
+        onResult?: (input: {
+            authority: Awaited<ReturnType<typeof currentAuthority>>;
+            executionKey: string;
+            taskId: string;
+            callId: string;
+            tool: AssistantToolDefinition;
+            evidence?: ToolEvidence;
+            allowed: boolean;
+            outcome: 'SUCCESS' | 'ERROR' | 'DENIED';
+            durationMs: number;
+        }) => Promise<void>;
+    };
+};
+
+export async function executeAssistantToolCall(input: {
+    freshTool: AssistantToolDefinition;
+    args: unknown;
+    authority: Awaited<ReturnType<typeof currentAuthority>>;
+    assistantContext?: Parameters<typeof checkToolAuthorization>[1];
+    executionKey: string;
+    taskId: string;
+    callId: string;
+    broker?: DurableAssistantToolOptions['broker'];
+}): Promise<ToolEvidence> {
+    const parsed = input.freshTool.inputSchema.safeParse(input.args);
+    if (!parsed.success) throw new Error('ASSISTANT_TOOL_INPUT_INVALID');
+    if (input.broker?.toolNames.has(input.freshTool.name)) {
+        return input.broker.client.execute({
+            protocolVersion: 1,
+            authority: input.authority,
+            executionKey: input.executionKey,
+            taskId: input.taskId,
+            callId: input.callId,
+            toolName: input.freshTool.name,
+            arguments: parsed.data as Record<string, unknown>,
+        });
+    }
+    if (!input.assistantContext) throw new Error('ASSISTANT_CONTEXT_MISSING');
+    return Promise.race([
+        input.freshTool.execute(parsed.data, input.assistantContext),
+        new Promise<never>((_, reject) =>
+            setTimeout(
+                () => reject(new Error('ASSISTANT_TOOL_TIMEOUT')),
+                15_000,
+            ),
+        ),
+    ]);
 }
 
 async function currentAuthority(
@@ -55,19 +111,7 @@ async function currentAuthority(
 
 export function createDurableAssistantTool(
     tool: AssistantToolDefinition,
-    callbacks?: {
-        onResult?: (input: {
-            authority: Awaited<ReturnType<typeof currentAuthority>>;
-            executionKey: string;
-            taskId: string;
-            callId: string;
-            tool: AssistantToolDefinition;
-            evidence?: ToolEvidence;
-            allowed: boolean;
-            outcome: 'SUCCESS' | 'ERROR' | 'DENIED';
-            durationMs: number;
-        }) => Promise<void>;
-    },
+    options: DurableAssistantToolOptions = {},
 ) {
     // Replay classification (plan §2.4): every curated registry tool is a
     // bound-parameterised SELECT (or SELECT + published-KB read) with no
@@ -98,6 +142,44 @@ export function createDurableAssistantTool(
                 Number(api.taskId),
                 api.callId,
             );
+            if (options.broker?.toolNames.has(tool.name)) {
+                const freshTool = getToolByName(tool.name);
+                if (!freshTool)
+                    throw new Error('ASSISTANT_TOOL_NOT_REGISTERED');
+                const parsed = freshTool.inputSchema.safeParse(args);
+                if (!parsed.success) {
+                    return {
+                        isError: true,
+                        content: [
+                            { type: 'text', text: 'Input tool tidak valid.' },
+                        ],
+                        details: {
+                            authorization: 'denied',
+                            executionKey: key,
+                            evidence: null,
+                        },
+                    };
+                }
+                const evidence = await executeAssistantToolCall({
+                    freshTool,
+                    args: parsed.data,
+                    authority,
+                    executionKey: key,
+                    taskId: String(api.taskId),
+                    callId: api.callId,
+                    broker: options.broker,
+                });
+                return {
+                    content: [{ type: 'text', text: evidenceToText(evidence) }],
+                    details: {
+                        authorization: 'allowed',
+                        executionKey: key,
+                        evidence: JSON.parse(
+                            JSON.stringify(evidence),
+                        ) as ToolEvidence & JsonObject,
+                    },
+                };
+            }
             return withBoundAuthority(
                 authority,
                 async ({ assistantContext }) => {
@@ -107,7 +189,7 @@ export function createDurableAssistantTool(
                         outcome: 'SUCCESS' | 'ERROR' | 'DENIED',
                         evidence?: ToolEvidence,
                     ) =>
-                        callbacks?.onResult?.({
+                        options.callbacks?.onResult?.({
                             authority,
                             executionKey: key,
                             taskId: String(api.taskId),
@@ -161,18 +243,16 @@ export function createDurableAssistantTool(
                     }
                     let evidence: ToolEvidence;
                     try {
-                        evidence = await Promise.race([
-                            freshTool.execute(parsed.data, assistantContext),
-                            new Promise<never>((_, reject) =>
-                                setTimeout(
-                                    () =>
-                                        reject(
-                                            new Error('ASSISTANT_TOOL_TIMEOUT'),
-                                        ),
-                                    15_000,
-                                ),
-                            ),
-                        ]);
+                        evidence = await executeAssistantToolCall({
+                            freshTool,
+                            args: parsed.data,
+                            authority,
+                            assistantContext,
+                            executionKey: key,
+                            taskId: String(api.taskId),
+                            callId: api.callId,
+                            broker: options.broker,
+                        });
                     } catch (error) {
                         await report(true, 'ERROR');
                         throw error;
@@ -197,10 +277,10 @@ export function createDurableAssistantTool(
 }
 
 export function createPolyflowReadOnlyTools(
-    callbacks?: Parameters<typeof createDurableAssistantTool>[1],
+    options: DurableAssistantToolOptions = {},
 ): Extension {
     const tools = toolRegistry.map((tool) =>
-        createDurableAssistantTool(tool, callbacks),
+        createDurableAssistantTool(tool, options),
     );
     const durableToolNames = new Set(tools.map((tool) => tool.name));
     return defineExtension({
@@ -215,9 +295,14 @@ export function createPolyflowReadOnlyTools(
                         };
                     }
                     const authority = await currentAuthority(api, context);
-                    const verified = await assertBoundAuthority(authority);
                     const tool = getToolByName(call.name);
                     if (!tool) return { block: 'Tool is not registered.' };
+                    if (options.broker?.toolNames.has(call.name)) {
+                        // Broker performs authoritative live rebinding so stale
+                        // authority denials can be audited at the only DB writer.
+                        return undefined;
+                    }
+                    const verified = await assertBoundAuthority(authority);
                     const authorization = checkToolAuthorization(
                         tool,
                         verified.assistantContext,

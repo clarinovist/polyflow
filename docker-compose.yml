@@ -59,6 +59,9 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - ASSISTANT_WORKER_TOKEN=${ASSISTANT_WORKER_TOKEN:?Set ASSISTANT_WORKER_TOKEN in .env}
+      - ASSISTANT_BROKER_URL=${ASSISTANT_BROKER_URL:-}
+      - ASSISTANT_BROKER_TOKEN=${ASSISTANT_BROKER_TOKEN:-}
+      - ASSISTANT_BROKER_ALLOWED_TOOLS=${ASSISTANT_BROKER_ALLOWED_TOOLS:-}
       - ASSISTANT_STORAGE_ROOT=/data/tenants
       - ASSISTANT_WORKER_HOST=0.0.0.0
       - ASSISTANT_WORKER_PORT=3010
@@ -106,6 +109,47 @@ services:
         limits:
           memory: 1G
           cpus: "1.00"
+    networks:
+      - default
+
+  # Default-off canary broker. Enable only with an explicit profile and a
+  # separate token; it has no published host port. DATABASE_URL remains here
+  # during the first migration tranche, so this is not credential isolation.
+  assistant-broker:
+    profiles: ["assistant-broker"]
+    image: ${ASSISTANT_WORKER_IMAGE:-ghcr.io/clarinovist/polyflow-assistant-worker:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.assistant-worker
+    container_name: polyflow-assistant-broker
+    restart: always
+    command: ["node", "dist/assistant-broker/index.mjs"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - ASSISTANT_BROKER_TOKEN=${ASSISTANT_BROKER_TOKEN:?Set ASSISTANT_BROKER_TOKEN in .env}
+      - ASSISTANT_BROKER_ALLOWED_TOOLS=${ASSISTANT_BROKER_ALLOWED_TOOLS:-get_daily_production_output}
+      - ASSISTANT_BROKER_HOST=0.0.0.0
+      - ASSISTANT_BROKER_PORT=3020
+    expose:
+      - "3020"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3020/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,uid=1001,gid=1001,mode=1770
+    cpus: 0.5
+    mem_limit: 512m
     networks:
       - default
 

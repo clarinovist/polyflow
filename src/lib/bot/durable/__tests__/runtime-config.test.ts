@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { loadAssistantWorkerRuntimeConfig } from '../runtime-config';
+import {
+    loadAssistantBrokerRuntimeConfig,
+    loadAssistantWorkerRuntimeConfig,
+} from '../runtime-config';
 import { loadTelegramAssistantConfig } from '@/lib/telegram/assistant-config';
 
 const base = {
@@ -26,6 +29,41 @@ describe('assistant worker optional Telegram config', () => {
         expect(runtime.ASSISTANT_WORKER_PORT).toBe(3010);
         expect(runtime.TELEGRAM_ASSISTANT_BOT_TOKEN).toBeUndefined();
         expect(() => loadTelegramAssistantConfig(env)).toThrow();
+    });
+
+    it('keeps broker routing default-off and validates its paired fields', () => {
+        expect(loadAssistantWorkerRuntimeConfig(base).ASSISTANT_BROKER_URL).toBeUndefined();
+        expect(
+            loadAssistantWorkerRuntimeConfig({
+                ...base,
+                ASSISTANT_BROKER_URL: 'http://assistant-broker:3020',
+                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+                ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
+            }),
+        ).toMatchObject({
+            ASSISTANT_BROKER_URL: 'http://assistant-broker:3020',
+            ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
+        });
+        for (const invalid of ['bad tool', 'diagnose_production_blocker']) {
+            expect(() =>
+                loadAssistantWorkerRuntimeConfig({
+                    ...base,
+                    ASSISTANT_BROKER_ALLOWED_TOOLS: invalid,
+                }),
+            ).toThrow();
+        }
+    });
+
+    it('requires explicit broker service configuration', () => {
+        expect(
+            loadAssistantBrokerRuntimeConfig({
+                ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+            }),
+        ).toMatchObject({
+            ASSISTANT_BROKER_PORT: 3020,
+            ASSISTANT_BROKER_ALLOWED_TOOLS: 'get_daily_production_output',
+        });
+        expect(() => loadAssistantBrokerRuntimeConfig({})).toThrow();
     });
 
     it.each([

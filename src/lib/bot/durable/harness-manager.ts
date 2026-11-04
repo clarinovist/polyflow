@@ -17,6 +17,7 @@ import { PolyflowPolicy } from './prompt';
 import { PolyflowFastPath } from './fast-path';
 import { GenerationTask, hook } from '@earendil-works/pi-durable';
 import { createPolyflowReadOnlyTools } from './tool-adapter';
+import type { AssistantBrokerClient } from './broker-client';
 import { upsertDurableToolAudit } from './projection';
 
 const MAX_AGENT_TURNS = 4;
@@ -94,6 +95,10 @@ export class TenantHarnessManager {
             model: { provider: string; modelId: string };
             maxOpen: number;
             idleMs: number;
+            broker?: {
+                client: Pick<AssistantBrokerClient, 'execute'>;
+                toolNames: ReadonlySet<string>;
+            };
             onReport?: (error: unknown) => void;
         },
     ) {}
@@ -275,19 +280,26 @@ export class TenantHarnessManager {
         registry.install(PolyflowPolicy);
         registry.install(PolyflowFastPath);
         const tools = createPolyflowReadOnlyTools({
-            onResult: async (result) => {
-                await upsertDurableToolAudit({
-                    authority: result.authority,
-                    executionKey: result.executionKey,
-                    taskId: result.taskId,
-                    callId: result.callId,
-                    toolName: result.tool.name,
-                    permissionResource: result.tool.requiredResources.join(','),
-                    evidence: result.evidence,
-                    allowed: result.allowed,
-                    outcome: result.outcome,
-                    durationMs: result.durationMs,
-                });
+            broker: this.options.broker,
+            callbacks: {
+                onResult: async (result) => {
+                    if (this.options.broker?.toolNames.has(result.tool.name)) {
+                        return;
+                    }
+                    await upsertDurableToolAudit({
+                        authority: result.authority,
+                        executionKey: result.executionKey,
+                        taskId: result.taskId,
+                        callId: result.callId,
+                        toolName: result.tool.name,
+                        permissionResource:
+                            result.tool.requiredResources.join(','),
+                        evidence: result.evidence,
+                        allowed: result.allowed,
+                        outcome: result.outcome,
+                        durationMs: result.durationMs,
+                    });
+                },
             },
         });
         registry.install(tools);

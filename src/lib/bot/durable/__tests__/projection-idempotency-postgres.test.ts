@@ -43,7 +43,10 @@ describe.skipIf(!enabled)('durable projection idempotency on isolated PostgreSQL
         const { createModels, fauxAssistantMessage, fauxProvider, fauxText } = await import('@earendil-works/pi-ai');
         const { conversationAccessScope } = await import('../../conversation-scope');
         const { resolveAssistantWorkContext, workContextKey } = await import('../../assistant-work-context');
-        const { projectDurableSubmission } = await import('../projection');
+        const {
+            projectDurableSubmission,
+            upsertDurableToolAudit,
+        } = await import('../projection');
 
         const suffix = randomUUID();
         const tenantId = 'durable-proj-' + suffix;
@@ -157,6 +160,63 @@ describe.skipIf(!enabled)('durable projection idempotency on isolated PostgreSQL
                 expect(
                     await tenantDb!.helpToolExecution.count({ where: { conversationId: publicConversationId } }),
                 ).toBe(0);
+
+                const audit = {
+                    authority,
+                    executionKey: '1:2:broker-call',
+                    taskId: '2',
+                    callId: 'broker-call',
+                    toolName: 'get_daily_production_output',
+                    permissionResource: '/production/output-report',
+                    requestDigest: 'a'.repeat(64),
+                    allowed: true,
+                    outcome: 'STARTED' as const,
+                    durationMs: 0,
+                };
+                const claims = await Promise.all([
+                    upsertDurableToolAudit(audit),
+                    upsertDurableToolAudit(audit),
+                ]);
+                expect(claims.sort()).toEqual(['CLAIMED', 'REPLAY']);
+                expect(
+                    await tenantDb!.helpToolExecution.count({
+                        where: {
+                            conversationId: publicConversationId,
+                            executionKey: audit.executionKey,
+                        },
+                    }),
+                ).toBe(1);
+                await expect(
+                    upsertDurableToolAudit({
+                        ...audit,
+                        requestDigest: 'b'.repeat(64),
+                    }),
+                ).rejects.toThrow('ASSISTANT_EXECUTION_KEY_MISMATCH');
+                await expect(
+                    upsertDurableToolAudit({
+                        ...audit,
+                        outcome: 'SUCCESS',
+                        durationMs: 12,
+                    }),
+                ).resolves.toBe('RECORDED');
+                await expect(
+                    upsertDurableToolAudit({
+                        ...audit,
+                        outcome: 'ERROR',
+                        durationMs: 20,
+                    }),
+                ).resolves.toBe('RECORDED');
+                expect(
+                    await tenantDb!.helpToolExecution.findUnique({
+                        where: {
+                            conversationId_executionKey: {
+                                conversationId: publicConversationId,
+                                executionKey: audit.executionKey,
+                            },
+                        },
+                        select: { outcome: true },
+                    }),
+                ).toEqual({ outcome: 'SUCCESS' });
                 expect(
                     await tenantDb!.auditLog.count({ where: { dedupeKey: 'assistant:' + requestId } }),
                 ).toBe(1);

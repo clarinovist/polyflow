@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
     AssistantEntry,
     ToolResultEntry,
@@ -13,32 +13,86 @@ import type { AssistantAuthority } from './protocol';
 import type { AssistantResponse, ToolEvidence } from '../assistant-types';
 import { calculateConfidence } from '../clarifier';
 import { withBoundAuthority } from './authority';
+import { runInActiveTenant } from './tenant-runtime';
 
 function json(value: unknown): Prisma.InputJsonValue {
     return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 }
 
-export async function upsertDurableToolAudit(input: {
+export type DurableToolAuditWriteResult = 'CLAIMED' | 'RECORDED' | 'REPLAY';
+
+type DurableToolAuditInput = {
     authority: AssistantAuthority;
     executionKey: string;
     taskId: string;
     callId: string;
     toolName: string;
     permissionResource: string;
+    requestDigest?: string;
     evidence?: ToolEvidence;
     allowed: boolean;
     outcome: 'SUCCESS' | 'ERROR' | 'DENIED' | 'INTERRUPTED' | 'STARTED';
     durationMs: number;
-}): Promise<void> {
-    await withBoundAuthority(input.authority, async () => {
-        await prisma.helpToolExecution.upsert({
+};
+
+async function writeDurableToolAudit(
+    input: DurableToolAuditInput,
+): Promise<DurableToolAuditWriteResult> {
+    const evidenceMeta = {
+        ...(input.evidence?.searchMeta ?? {}),
+        ...(input.requestDigest
+            ? { brokerRequestDigest: input.requestDigest }
+            : {}),
+    };
+    const findExisting = () =>
+        prisma.helpToolExecution.findUnique({
             where: {
                 conversationId_executionKey: {
                     conversationId: input.authority.publicConversationId,
                     executionKey: input.executionKey,
                 },
             },
-            create: {
+            select: {
+                id: true,
+                toolName: true,
+                durableTaskId: true,
+                durableCallId: true,
+                outcome: true,
+                evidenceMetaJson: true,
+            },
+        });
+    let existing = await findExisting();
+    if (existing) {
+        const existingMeta = existing.evidenceMetaJson as Record<
+            string,
+            unknown
+        > | null;
+        if (
+            existing.toolName !== input.toolName ||
+            existing.durableTaskId !== input.taskId ||
+            existing.durableCallId !== input.callId ||
+            (input.requestDigest &&
+                existingMeta?.brokerRequestDigest !== input.requestDigest)
+        ) {
+            throw new Error('ASSISTANT_EXECUTION_KEY_MISMATCH');
+        }
+        const terminal = new Set(['SUCCESS', 'ERROR', 'DENIED', 'INTERRUPTED']);
+        if (input.outcome === 'STARTED') return 'REPLAY';
+        if (terminal.has(existing.outcome)) return 'RECORDED';
+        const updated = await prisma.helpToolExecution.updateMany({
+            where: { id: existing.id, outcome: 'STARTED' },
+            data: {
+                allowed: input.allowed,
+                outcome: input.outcome,
+                durationMs: input.durationMs,
+                evidenceMetaJson: json(evidenceMeta),
+            },
+        });
+        return updated.count === 1 ? 'RECORDED' : 'REPLAY';
+    }
+    try {
+        await prisma.helpToolExecution.create({
+            data: {
                 conversationId: input.authority.publicConversationId,
                 executionKey: input.executionKey,
                 durableTaskId: input.taskId,
@@ -48,16 +102,99 @@ export async function upsertDurableToolAudit(input: {
                 allowed: input.allowed,
                 outcome: input.outcome,
                 durationMs: input.durationMs,
-                evidenceMetaJson: json(input.evidence?.searchMeta ?? {}),
-            },
-            update: {
-                allowed: input.allowed,
-                outcome: input.outcome,
-                durationMs: input.durationMs,
-                evidenceMetaJson: json(input.evidence?.searchMeta ?? {}),
+                evidenceMetaJson: json(evidenceMeta),
             },
         });
-    });
+        return input.outcome === 'STARTED' ? 'CLAIMED' : 'RECORDED';
+    } catch (error) {
+        if (
+            !(
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2002'
+            )
+        ) {
+            throw error;
+        }
+        existing = await findExisting();
+        if (!existing) throw error;
+        const existingMeta = existing.evidenceMetaJson as Record<
+            string,
+            unknown
+        > | null;
+        if (
+            existing.toolName !== input.toolName ||
+            existing.durableTaskId !== input.taskId ||
+            existing.durableCallId !== input.callId ||
+            (input.requestDigest &&
+                existingMeta?.brokerRequestDigest !== input.requestDigest)
+        ) {
+            throw new Error('ASSISTANT_EXECUTION_KEY_MISMATCH');
+        }
+        return 'REPLAY';
+    }
+}
+
+export async function upsertDurableToolAudit(
+    input: DurableToolAuditInput,
+): Promise<DurableToolAuditWriteResult> {
+    return withBoundAuthority(input.authority, async () =>
+        writeDurableToolAudit(input),
+    );
+}
+
+/** Record a stale-authority denial only after re-binding tenant and ownership. */
+export async function upsertDurableToolAuthorityDenial(
+    input: DurableToolAuditInput,
+): Promise<DurableToolAuditWriteResult | 'SKIPPED'> {
+    return runInActiveTenant(
+        input.authority.tenantId,
+        input.authority.userId,
+        async () => {
+            const owned = await prisma.helpConversation.findFirst({
+                where: {
+                    id: input.authority.publicConversationId,
+                    tenantId: input.authority.tenantId,
+                    userId: input.authority.userId,
+                    channel: input.authority.channel,
+                    assistantRuntime: 'pi-durable',
+                },
+                select: { id: true },
+            });
+            if (!owned) return 'SKIPPED';
+            const existing = await prisma.helpToolExecution.findUnique({
+                where: {
+                    conversationId_executionKey: {
+                        conversationId: input.authority.publicConversationId,
+                        executionKey: input.executionKey,
+                    },
+                },
+                select: {
+                    toolName: true,
+                    durableTaskId: true,
+                    durableCallId: true,
+                    evidenceMetaJson: true,
+                },
+            });
+            if (existing) {
+                const meta = existing.evidenceMetaJson as Record<
+                    string,
+                    unknown
+                > | null;
+                if (
+                    existing.toolName !== input.toolName ||
+                    existing.durableTaskId !== input.taskId ||
+                    existing.durableCallId !== input.callId ||
+                    (input.requestDigest &&
+                        meta?.brokerRequestDigest !== input.requestDigest)
+                ) {
+                    throw new Error('ASSISTANT_EXECUTION_KEY_MISMATCH');
+                }
+                // Never let a retry denial steal the claimant's terminal state.
+                return 'REPLAY';
+            }
+            return writeDurableToolAudit(input);
+        },
+    );
 }
 
 export async function projectDurableSubmission(input: {
@@ -128,13 +265,12 @@ export async function projectDurableSubmission(input: {
               ...durablePresentation,
               requestId: input.requestId,
               conversationId: input.authority.publicConversationId,
-              confidence:
-                  evidences.some(
-                      (evidence) => evidence.confidenceCap !== undefined,
-                  )
-                      ? calculateConfidence(evidences, false)
-                      : (durablePresentation.confidence ??
-                        calculateConfidence(evidences, false)),
+              confidence: evidences.some(
+                  (evidence) => evidence.confidenceCap !== undefined,
+              )
+                  ? calculateConfidence(evidences, false)
+                  : (durablePresentation.confidence ??
+                    calculateConfidence(evidences, false)),
               historySaved: true,
           }
         : {

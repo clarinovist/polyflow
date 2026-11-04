@@ -21,6 +21,7 @@ RUN addgroup --system --gid 1001 nodejs \
 COPY --from=deps --chown=assistant:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=assistant:nodejs /app/vendor/node-domexception ./vendor/node-domexception
 COPY --from=builder --chown=assistant:nodejs /app/dist/assistant-worker ./dist/assistant-worker
+COPY --from=builder --chown=assistant:nodejs /app/dist/assistant-broker ./dist/assistant-broker
 COPY --from=builder --chown=assistant:nodejs /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=assistant:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=assistant:nodejs /app/scripts/backup-assistant-sqlite.mjs ./scripts/backup-assistant-sqlite.mjs

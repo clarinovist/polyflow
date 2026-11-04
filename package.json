@@ -18,6 +18,7 @@
         "typecheck:assistant-worker": "tsc -p tsconfig.worker.json --noEmit",
         "start": "next start",
         "start:assistant-worker": "node dist/assistant-worker/index.mjs",
+        "start:assistant-broker": "node dist/assistant-broker/index.mjs",
         "backup:assistant-worker": "node scripts/backup-assistant-sqlite.mjs",
         "lint": "eslint",
         "test": "vitest run",

@@ -1,4 +1,5 @@
 import { disconnectAllTenants } from '../../src/lib/core/prisma';
+import { AssistantBrokerClient } from '../../src/lib/bot/durable/broker-client';
 import { TenantHarnessManager } from '../../src/lib/bot/durable/harness-manager';
 import {
     createDurableModels,
@@ -22,12 +23,36 @@ async function main() {
         contextWindow: config.LLM_CONTEXT_WINDOW,
         maxTokens: config.LLM_MAX_TOKENS,
     });
+    const brokerToolNames = new Set(
+        config.ASSISTANT_BROKER_ALLOWED_TOOLS.split(',')
+            .map((name) => name.trim())
+            .filter(Boolean),
+    );
+    if (
+        brokerToolNames.size > 0 &&
+        (!config.ASSISTANT_BROKER_URL || !config.ASSISTANT_BROKER_TOKEN)
+    ) {
+        throw new Error(
+            'ASSISTANT_BROKER_URL and ASSISTANT_BROKER_TOKEN are required when broker tools are enabled',
+        );
+    }
+    const broker =
+        config.ASSISTANT_BROKER_URL && config.ASSISTANT_BROKER_TOKEN
+            ? {
+                  client: new AssistantBrokerClient({
+                      url: config.ASSISTANT_BROKER_URL,
+                      token: config.ASSISTANT_BROKER_TOKEN,
+                  }),
+                  toolNames: brokerToolNames,
+              }
+            : undefined;
     const manager = new TenantHarnessManager({
         root: config.ASSISTANT_STORAGE_ROOT,
         models,
         model: { provider: POLYFLOW_MODEL_PROVIDER, modelId: config.LLM_MODEL },
         maxOpen: config.ASSISTANT_MAX_OPEN_HARNESSES,
         idleMs: config.ASSISTANT_HARNESS_IDLE_MS,
+        broker,
         onReport: (error) => {
             console.error(
                 '[ASSISTANT_WORKER_REPORT]',

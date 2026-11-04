@@ -2,9 +2,9 @@ import { build } from 'esbuild';
 import { rm } from 'node:fs/promises';
 
 await rm('dist/assistant-worker', { recursive: true, force: true });
-await build({
-    entryPoints: ['workers/assistant/index.ts'],
-    outfile: 'dist/assistant-worker/index.mjs',
+await rm('dist/assistant-broker', { recursive: true, force: true });
+
+const shared = {
     bundle: true,
     platform: 'node',
     target: 'node26',
@@ -26,4 +26,16 @@ await build({
     ],
     tsconfig: 'tsconfig.worker.json',
     logLevel: 'info',
+};
+
+await build({
+    ...shared,
+    entryPoints: ['workers/assistant/index.ts'],
+    outfile: 'dist/assistant-worker/index.mjs',
+});
+
+await build({
+    ...shared,
+    entryPoints: ['workers/assistant-broker/index.ts'],
+    outfile: 'dist/assistant-broker/index.mjs',
 });
