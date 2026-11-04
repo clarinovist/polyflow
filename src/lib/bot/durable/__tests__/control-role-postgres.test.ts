@@ -97,6 +97,13 @@ describe.skipIf(!enabled)('assistant control role on disposable PostgreSQL', () 
                 rolcreaterole: false,
             });
 
+            const userId = `ctl-user-${randomBytes(6).toString('hex')}`;
+            await admin.query(
+                `INSERT INTO "User" (id, email, name, password, role)
+                 VALUES ($1, $2, 'Synthetic Control', 'test-only', 'ADMIN')`,
+                [userId, `${userId}@example.invalid`],
+            );
+
             const url = guarded(tenantUrl);
             url.username = role;
             url.password = password;
@@ -135,8 +142,8 @@ describe.skipIf(!enabled)('assistant control role on disposable PostgreSQL', () 
                 );
                 await worker.query(
                     `INSERT INTO "AuditLog" (id, "userId", action, "entityType", "entityId")
-                     VALUES ($1, 'synthetic', 'SYNTHETIC', 'Synthetic', $2)`,
-                    [`${id}-a`, id],
+                     VALUES ($1, $2, 'SYNTHETIC', 'Synthetic', $3)`,
+                    [`${id}-a`, userId, id],
                 );
                 await worker.query(
                     `UPDATE "HelpToolExecution" SET outcome = 'SUCCESS' WHERE "conversationId" = $1`,
@@ -150,6 +157,9 @@ describe.skipIf(!enabled)('assistant control role on disposable PostgreSQL', () 
                     `DELETE FROM "HelpConversation" WHERE id = $1`,
                     [id],
                 );
+                await admin.query('DELETE FROM "User" WHERE id = $1', [
+                    userId,
+                ]);
 
                 // Every granted write table is exactly the assistant allowlist.
                 const granted = await admin.query<{ table_name: string }>(
