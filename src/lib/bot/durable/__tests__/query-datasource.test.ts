@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
     assertQueryDatasourceIsReadOnly,
+    createTenantControlDatasourceResolver,
+    createTenantQueryDatasourceResolver,
+    isTenantControlDatasourceConfigured,
     parseTenantQueryDatasources,
     resolveTenantQueryDatasource,
-    createTenantQueryDatasourceResolver,
 } from '../query-datasource';
 
 const url = 'postgresql://assistant_query:secret@db:5432/tenant_one';
@@ -138,6 +140,30 @@ describe('assistant query datasource map', () => {
         );
         expect(() => parseTenantQueryDatasources(raw)).toThrow(
             'ASSISTANT_QUERY_DATASOURCE_TOO_MANY_TENANTS',
+        );
+    });
+});
+
+describe('assistant control datasource map', () => {
+    it('is unconfigured by default and fails closed when configured', async () => {
+        expect(isTenantControlDatasourceConfigured('')).toBe(false);
+        expect(isTenantControlDatasourceConfigured('  ')).toBe(false);
+        expect(isTenantControlDatasourceConfigured('{}')).toBe(true);
+        await expect(
+            createTenantControlDatasourceResolver('', async () => undefined)(
+                'tenant-one',
+            ),
+        ).resolves.toBeUndefined();
+        await expect(
+            createTenantControlDatasourceResolver(
+                JSON.stringify({
+                    'tenant-one':
+                        'postgresql://assistant_control:secret@db:5432/tenant_one',
+                }),
+                async () => undefined,
+            )('tenant-one'),
+        ).resolves.toBe(
+            'postgresql://assistant_control:secret@db:5432/tenant_one',
         );
     });
 });

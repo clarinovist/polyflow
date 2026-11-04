@@ -7,6 +7,10 @@ import {
     tenantContext,
     tenantIdContext,
 } from '@/lib/core/prisma';
+import {
+    createTenantControlDatasourceResolver,
+    isTenantControlDatasourceConfigured,
+} from './query-datasource';
 
 export type ActiveTenantRuntime = {
     tenantId: string;
@@ -25,6 +29,13 @@ export async function resolveActiveTenantRuntime(
     });
     if (!tenant?.dbUrl) return null;
 
+    const controlDatasource = isTenantControlDatasourceConfigured()
+        ? await createTenantControlDatasourceResolver()(tenant.id)
+        : tenant.dbUrl;
+    // With a control map configured, a missing entry is a hard failure: the
+    // worker must never silently fall back to the tenant writer connection.
+    if (!controlDatasource) throw new Error('ASSISTANT_TENANT_CONTROL_MISSING');
+
     const now = new Date();
     const modules = await mainDb.tenantModule.findMany({
         where: {
@@ -36,7 +47,7 @@ export async function resolveActiveTenantRuntime(
     });
     return {
         tenantId: tenant.id,
-        tenantDb: getTenantDb(tenant.dbUrl),
+        tenantDb: getTenantDb(controlDatasource),
         activeModules: modules.map((item) => item.moduleKey),
     };
 }

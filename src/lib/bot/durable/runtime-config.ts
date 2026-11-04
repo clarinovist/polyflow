@@ -41,6 +41,7 @@ const runtimeSchema = z.object({
     ASSISTANT_BROKER_URL: optionalUrl,
     ASSISTANT_BROKER_TOKEN: optionalToken,
     ASSISTANT_BROKER_ALLOWED_TOOLS: brokerCanaryAllowlistSchema.default(''),
+    ASSISTANT_CONTROL_TENANT_DATABASE_URLS: z.string().default(''),
     LLM_BASE_URL: z.string().url(),
     LLM_API_KEY: z.string().min(1),
     LLM_MODEL: z.string().min(1),

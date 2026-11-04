@@ -62,6 +62,9 @@ services:
       - ASSISTANT_BROKER_URL=${ASSISTANT_BROKER_URL:-}
       - ASSISTANT_BROKER_TOKEN=${ASSISTANT_BROKER_TOKEN:-}
       - ASSISTANT_BROKER_ALLOWED_TOOLS=${ASSISTANT_BROKER_ALLOWED_TOOLS:-}
+      # Control-plane tenant DSNs. When set, the worker writes only assistant
+      # tables and fails closed for a tenant without an entry.
+      - ASSISTANT_CONTROL_TENANT_DATABASE_URLS=${ASSISTANT_CONTROL_TENANT_DATABASE_URLS:-}
       - ASSISTANT_STORAGE_ROOT=/data/tenants
       - ASSISTANT_WORKER_HOST=0.0.0.0
       - ASSISTANT_WORKER_PORT=3010

@@ -1,6 +1,8 @@
 import { getMainPrisma, getTenantDb, tenantContext } from '@/lib/core/prisma';
 
 export const ASSISTANT_QUERY_DATASOURCE_ENV = 'ASSISTANT_QUERY_DATABASE_URLS';
+export const ASSISTANT_CONTROL_DATASOURCE_ENV =
+    'ASSISTANT_CONTROL_TENANT_DATABASE_URLS';
 
 const MAX_TENANTS = 100;
 
@@ -118,6 +120,27 @@ async function tenantWriterDatasource(
         select: { dbUrl: true },
     });
     return tenant?.dbUrl ?? undefined;
+}
+
+/**
+ * Control-plane tenant datasources for the worker. Same fail-closed shape as
+ * the query map, but the DSN uses the control role (reads + assistant table
+ * writes only) so the worker cannot mutate business data.
+ */
+export function createTenantControlDatasourceResolver(
+    raw: string | undefined = process.env[ASSISTANT_CONTROL_DATASOURCE_ENV],
+    resolveWriterDatasource: (
+        tenantId: string,
+    ) => Promise<string | undefined> = tenantWriterDatasource,
+): TenantQueryDatasourceResolver {
+    return createTenantQueryDatasourceResolver(raw, resolveWriterDatasource);
+}
+
+/** True when the control map is configured; callers must then fail closed. */
+export function isTenantControlDatasourceConfigured(
+    raw: string | undefined = process.env[ASSISTANT_CONTROL_DATASOURCE_ENV],
+): boolean {
+    return Boolean(raw?.trim());
 }
 
 /** Lazily parsed so a bad value fails at broker startup, not import time. */
