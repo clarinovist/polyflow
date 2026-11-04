@@ -157,6 +157,25 @@ describe('delivery order units and freight weight', () => {
         expect(screen.queryByText('Item dalam SO')).toBeNull();
     });
 
+    it('surfaces a future Surat Jalan date inline and moves focus to the field', async () => {
+        await open();
+        fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'warehouse' } });
+        mocks.create.mockResolvedValueOnce({
+            success: false,
+            error: 'Tanggal Surat Jalan tidak boleh melebihi hari ini.',
+            code: 'DELIVERY_DATE_IN_FUTURE',
+        });
+        submit();
+        const alert = await screen.findByRole('alert');
+        expect(alert.textContent).toContain('tidak boleh melebihi hari ini');
+        const field = screen.getByLabelText<HTMLInputElement>('Tanggal Surat Jalan *');
+        expect(field.getAttribute('aria-invalid')).toBe('true');
+        await waitFor(() => expect(document.activeElement).toBe(field));
+        expect(mocks.error).not.toHaveBeenCalled();
+        fireEvent.change(field, { target: { value: '2026-01-05' } });
+        expect(screen.queryByRole('alert')).toBeNull();
+    });
+
     it('leaves flat-rate charges unchanged when weight is unknown', async () => {
         const item = line();
         item.productVariant.primaryUnit = 'PCS';

@@ -128,6 +128,10 @@ export function CreateDeliveryOrderDialog({
     const [deliveryDate, setDeliveryDate] = useState(() =>
         toBusinessDateString(new Date()),
     );
+    /** Ditampilkan inline di bawah field tanggal, bukan hanya toast. */
+    const [deliveryDateError, setDeliveryDateError] = useState<string | null>(
+        null,
+    );
     // Route fields
     const [selectedRouteName, setSelectedRouteName] = useState('');
     const [routeOptions, setRouteOptions] = useState<string[]>([]);
@@ -144,6 +148,7 @@ export function CreateDeliveryOrderDialog({
     const router = useRouter();
     const weightInputId = useId();
     const deliveryDateInputId = useId();
+    const deliveryDateInputRef = useRef<HTMLInputElement>(null);
     const detailRequest = useRef(0);
 
     // PER_KG calculation: weight × rate = total
@@ -342,12 +347,25 @@ export function CreateDeliveryOrderDialog({
         setEstimatedWeightKg('');
         setDestinationAddress('');
         setDeliveryDate(toBusinessDateString(new Date()));
+        setDeliveryDateError(null);
         setSelectedRouteName('');
         setRouteOptions([]);
         setSelectedCustomerId(undefined);
     };
 
+    /** Field tanggal bisa berada di luar viewport saat submit; bawa user ke sana. */
+    const showDeliveryDateError = (message: string) => {
+        setDeliveryDateError(message);
+        window.requestAnimationFrame(() => {
+            const input = deliveryDateInputRef.current;
+            if (!input) return;
+            input.scrollIntoView?.({ block: 'center' });
+            input.focus();
+        });
+    };
+
     const handleSubmit = async () => {
+        setDeliveryDateError(null);
         if (blockedOpenDo) {
             toast.error(salesLabels.openDoExists, {
                 description: salesLabels.openDoExistsHint,
@@ -380,13 +398,13 @@ export function CreateDeliveryOrderDialog({
             return;
         }
 
-        setIsLoading(true);
-        try {
         if (!deliveryDate) {
-            toast.error('Pilih Tanggal Surat Jalan terlebih dahulu');
+            showDeliveryDateError('Pilih Tanggal Surat Jalan terlebih dahulu');
             return;
         }
 
+        setIsLoading(true);
+        try {
             const result = await createManualDeliveryOrder({
                 salesOrderId: selectedSalesOrderId,
                 sourceLocationId: selectedLocationId,
@@ -446,6 +464,13 @@ export function CreateDeliveryOrderDialog({
                         },
                         duration: 10000,
                     });
+                } else if (
+                    result.code === 'DELIVERY_DATE_IN_FUTURE' ||
+                    result.code === 'FISCAL_PERIOD_CLOSED'
+                ) {
+                    showDeliveryDateError(
+                        result.error || 'Tanggal Surat Jalan tidak valid.',
+                    );
                 } else {
                     toast.error(result.error || 'Gagal membuat Surat Jalan');
                 }
@@ -618,17 +643,36 @@ export function CreateDeliveryOrderDialog({
                         </Label>
                         <Input
                             id={deliveryDateInputId}
+                            ref={deliveryDateInputRef}
                             type="date"
                             value={deliveryDate}
                             max={toBusinessDateString(new Date())}
-                            onChange={(e) => setDeliveryDate(e.target.value)}
+                            aria-invalid={deliveryDateError ? true : undefined}
+                            aria-describedby={`${deliveryDateInputId}-help`}
+                            onChange={(e) => {
+                                setDeliveryDate(e.target.value);
+                                setDeliveryDateError(null);
+                            }}
                         />
-                        <p className="text-xs text-muted-foreground">
-                            Default hari ini sebagai tanggal dokumen/rencana.
-                            Tanggal stok, invoice, dan jurnal akan dipilih saat
-                            barang benar-benar diserahkan. Tidak bisa melebihi
-                            hari ini dan periode jurnal harus masih buka.
-                        </p>
+                        {deliveryDateError ? (
+                            <p
+                                id={`${deliveryDateInputId}-help`}
+                                role="alert"
+                                className="text-xs font-medium text-red-600 dark:text-red-400"
+                            >
+                                {deliveryDateError}
+                            </p>
+                        ) : (
+                            <p
+                                id={`${deliveryDateInputId}-help`}
+                                className="text-xs text-muted-foreground"
+                            >
+                                Default hari ini sebagai tanggal dokumen/rencana.
+                                Tanggal stok, invoice, dan jurnal akan dipilih saat
+                                barang benar-benar diserahkan. Tidak bisa melebihi
+                                hari ini dan periode jurnal harus masih buka.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">

@@ -199,6 +199,8 @@ export async function createDeliveryOrderFromSalesOrder(
         ) {
             throw new BusinessRuleError(
                 'Tanggal Surat Jalan tidak boleh melebihi hari ini.',
+                undefined,
+                'DELIVERY_DATE_IN_FUTURE',
             );
         }
         if (!(await isPeriodOpen(effectiveDeliveryDate, tx))) {

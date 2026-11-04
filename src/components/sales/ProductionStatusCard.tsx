@@ -163,10 +163,13 @@ export function ProductionStatusCard({
                                                 </div>
                                                 <div className="text-xs text-muted-foreground flex gap-2">
                                                     <span>
-                                                        Avail: {s.available}
+                                                        Tersedia: {s.available}
+                                                    </span>
+                                                    <span>
+                                                        Butuh: {s.required}
                                                     </span>
                                                     <span className="text-red-500 dark:text-red-500 font-medium">
-                                                        Need: {s.shortage}
+                                                        Kurang: {s.shortage}
                                                     </span>
                                                 </div>
                                             </div>
