@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PROPOSE_COLLECTION_FOLLOWUP_TOOL } from './proposal-tool-names';
 
 const emptyStringAsUndefined = (value: unknown) =>
     typeof value === 'string' && value.trim() === '' ? undefined : value;
@@ -9,13 +10,26 @@ const optionalUrl = optionalTelegramString(z.string().url());
 const optionalToken = optionalTelegramString(z.string().min(32));
 export const ASSISTANT_BROKER_CANARY_TOOL =
     'get_daily_production_output' as const;
-const brokerCanaryAllowlistSchema = z
-    .string()
-    .refine(
-        (value) =>
-            value === '' || value.trim() === ASSISTANT_BROKER_CANARY_TOOL,
-        `Only ${ASSISTANT_BROKER_CANARY_TOOL} may be brokered in this tranche`,
-    );
+/** Tools that may be brokered. Anything else is rejected at startup. */
+export const ASSISTANT_BROKERABLE_TOOLS = [
+    ASSISTANT_BROKER_CANARY_TOOL,
+    PROPOSE_COLLECTION_FOLLOWUP_TOOL,
+] as const;
+const brokerCanaryAllowlistSchema = z.string().refine(
+    (value) => {
+        if (value.trim() === '') return value === '';
+        const names = value.split(',').map((name) => name.trim());
+        return (
+            new Set(names).size === names.length &&
+            names.every((name) =>
+                (ASSISTANT_BROKERABLE_TOOLS as readonly string[]).includes(
+                    name,
+                ),
+            )
+        );
+    },
+    `Only ${ASSISTANT_BROKERABLE_TOOLS.join(', ')} may be brokered`,
+);
 
 const runtimeSchema = z.object({
     ASSISTANT_WORKER_TOKEN: z.string().min(32),

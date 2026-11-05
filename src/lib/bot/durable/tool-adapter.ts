@@ -21,6 +21,38 @@ import { checkToolAuthorization } from '../tool-authorization';
 import { getToolByName, toolRegistry } from '../tool-registry';
 import { assertBoundAuthority, withBoundAuthority } from './authority';
 import { AuthorityDoc, type ToolEvidenceDetail } from './documents';
+import {
+    getProposalToolByName,
+    proposalToolRegistry,
+    type AssistantProposalToolDefinition,
+} from './proposal-tools';
+
+/**
+ * Worker-side view of a proposal tool: schema and metadata only. It can never
+ * run locally; execution exists only inside the broker, so a missing broker
+ * fails closed instead of writing from the worker.
+ */
+function proposalToolForWorker(
+    tool: AssistantProposalToolDefinition,
+): AssistantToolDefinition {
+    return {
+        name: tool.name,
+        description: tool.description,
+        requiredResources: tool.requiredResources,
+        sensitivity: tool.sensitivity,
+        inputSchema: tool.inputSchema,
+        execute: async () => {
+            throw new Error('ASSISTANT_PROPOSAL_REQUIRES_BROKER');
+        },
+    };
+}
+
+function getRegisteredTool(name: string): AssistantToolDefinition | undefined {
+    const readOnly = getToolByName(name);
+    if (readOnly) return readOnly;
+    const proposal = getProposalToolByName(name);
+    return proposal ? proposalToolForWorker(proposal) : undefined;
+}
 
 export function zodToTypeBox(tool: AssistantToolDefinition): TSchema {
     // Zod 4 emits standards-compliant JSON Schema. Type.Unsafe preserves the
@@ -143,7 +175,7 @@ export function createDurableAssistantTool(
                 api.callId,
             );
             if (options.broker?.toolNames.has(tool.name)) {
-                const freshTool = getToolByName(tool.name);
+                const freshTool = getRegisteredTool(tool.name);
                 if (!freshTool)
                     throw new Error('ASSISTANT_TOOL_NOT_REGISTERED');
                 const parsed = freshTool.inputSchema.safeParse(args);
@@ -200,7 +232,7 @@ export function createDurableAssistantTool(
                             outcome,
                             durationMs: Date.now() - startedAt,
                         });
-                    const freshTool = getToolByName(tool.name);
+                    const freshTool = getRegisteredTool(tool.name);
                     if (!freshTool)
                         throw new Error('ASSISTANT_TOOL_NOT_REGISTERED');
                     const authorization = checkToolAuthorization(
@@ -279,7 +311,13 @@ export function createDurableAssistantTool(
 export function createPolyflowReadOnlyTools(
     options: DurableAssistantToolOptions = {},
 ): Extension {
-    const tools = toolRegistry.map((tool) =>
+    // Proposal tools are exposed only when the broker is configured to run
+    // them. Their creation is replay-safe: the broker claims the execution key
+    // and the proposal upsert is keyed by conversation + payload digest.
+    const proposalTools = proposalToolRegistry
+        .filter((tool) => options.broker?.toolNames.has(tool.name))
+        .map(proposalToolForWorker);
+    const tools = [...toolRegistry, ...proposalTools].map((tool) =>
         createDurableAssistantTool(tool, options),
     );
     const durableToolNames = new Set(tools.map((tool) => tool.name));
@@ -295,7 +333,7 @@ export function createPolyflowReadOnlyTools(
                         };
                     }
                     const authority = await currentAuthority(api, context);
-                    const tool = getToolByName(call.name);
+                    const tool = getRegisteredTool(call.name);
                     if (!tool) return { block: 'Tool is not registered.' };
                     if (options.broker?.toolNames.has(call.name)) {
                         // Broker performs authoritative live rebinding so stale

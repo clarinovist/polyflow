@@ -13,6 +13,10 @@ import {
 } from './broker-protocol';
 import { AssistantWorkerProtocolError } from './protocol';
 import {
+    getProposalToolByName,
+    type AssistantProposalToolDefinition,
+} from './proposal-tools';
+import {
     upsertDurableToolAudit,
     upsertDurableToolAuthorityDenial,
 } from './projection';
@@ -37,6 +41,8 @@ export type AssistantBrokerToolAudit = {
 
 export type AssistantBrokerExecutorDependencies = {
     getTool(name: string): AssistantToolDefinition | undefined;
+    /** Proposal tools record a PENDING proposal on the writer path; they never write business data. */
+    getProposalTool?(name: string): AssistantProposalToolDefinition | undefined;
     withAuthority<T>(
         authority: AssistantBrokerToolRequest['authority'],
         operation: (input: {
@@ -59,6 +65,7 @@ export type AssistantBrokerExecutorDependencies = {
 
 const defaultDependencies: AssistantBrokerExecutorDependencies = {
     getTool: getToolByName,
+    getProposalTool: getProposalToolByName,
     withAuthority: (authority, operation) =>
         withBoundAuthority(authority, ({ assistantContext }) =>
             operation({ assistantContext }),
@@ -80,10 +87,58 @@ export class AssistantBrokerExecutor {
         this.allowlist = new Set(allowlistedTools);
     }
 
+    /**
+     * Proposal path: claim the execution key, then record the proposal with the
+     * broker's own (writer) connection. Deliberately NOT routed through the
+     * read-only query datasource, and never falls back to anything else.
+     */
+    private async runProposal(input: {
+        proposalTool: AssistantProposalToolDefinition;
+        args: unknown;
+        assistantContext: Parameters<typeof checkToolAuthorization>[1];
+        request: AssistantBrokerToolRequest;
+        audit: (
+            outcome: AssistantBrokerToolAudit['outcome'],
+            allowed: boolean,
+            evidence?: ToolEvidence,
+        ) => Promise<void | 'CLAIMED' | 'RECORDED' | 'REPLAY'>;
+    }): Promise<ToolEvidence> {
+        const claim = await input.audit('STARTED', true);
+        if (claim === 'REPLAY') {
+            throw new AssistantWorkerProtocolError(
+                'BUSY',
+                'Assistant broker execution key is already claimed.',
+                409,
+                true,
+            );
+        }
+        try {
+            const evidence = await input.proposalTool.execute(input.args, {
+                context: input.assistantContext,
+                authority: input.request.authority,
+            });
+            await input.audit('SUCCESS', true, evidence);
+            return evidence;
+        } catch {
+            await input.audit('ERROR', true);
+            throw new AssistantWorkerProtocolError(
+                'INTERNAL',
+                'Assistant broker proposal failed.',
+                500,
+            );
+        }
+    }
+
     async execute(request: AssistantBrokerToolRequest): Promise<ToolEvidence> {
         const startedAt = this.dependencies.now();
         const requestDigest = assistantBrokerRequestDigest(request);
-        const tool = this.dependencies.getTool(request.toolName);
+        const proposalTool = this.dependencies.getProposalTool?.(
+            request.toolName,
+        );
+        const readOnlyTool = proposalTool
+            ? undefined
+            : this.dependencies.getTool(request.toolName);
+        const tool = proposalTool ?? readOnlyTool;
         if (!tool || !this.allowlist.has(request.toolName)) {
             throw new AssistantWorkerProtocolError(
                 'NOT_FOUND',
@@ -137,6 +192,22 @@ export class AssistantBrokerExecutor {
                             400,
                         );
                     }
+                    if (proposalTool) {
+                        return this.runProposal({
+                            proposalTool,
+                            args: parsed.data,
+                            assistantContext,
+                            request,
+                            audit,
+                        });
+                    }
+                    if (!readOnlyTool) {
+                        throw new AssistantWorkerProtocolError(
+                            'NOT_FOUND',
+                            'Assistant broker tool is not registered.',
+                            404,
+                        );
+                    }
                     let queryDatasource: string | undefined;
                     try {
                         queryDatasource =
@@ -173,7 +244,10 @@ export class AssistantBrokerExecutor {
                             await this.dependencies.runWithQueryDatasource(
                                 queryDatasource,
                                 () =>
-                                    tool.execute(parsed.data, assistantContext),
+                                    readOnlyTool.execute(
+                                        parsed.data,
+                                        assistantContext,
+                                    ),
                             );
                         await audit('SUCCESS', true, evidence);
                         return evidence;

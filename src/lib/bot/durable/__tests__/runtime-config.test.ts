@@ -100,3 +100,35 @@ describe('assistant worker optional Telegram config', () => {
         ).toThrow();
     });
 });
+
+describe('broker allowlist schema', () => {
+    const base = {
+        ASSISTANT_BROKER_TOKEN: 'b'.repeat(32),
+        ASSISTANT_QUERY_DATABASE_URLS: '{}',
+    } as unknown as NodeJS.ProcessEnv;
+
+    it('accepts the canary and the proposal tool together', () => {
+        const config = loadAssistantBrokerRuntimeConfig({
+            ...base,
+            ASSISTANT_BROKER_ALLOWED_TOOLS:
+                'get_daily_production_output, propose_collection_followup',
+        });
+        expect(config.ASSISTANT_BROKER_ALLOWED_TOOLS).toContain(
+            'propose_collection_followup',
+        );
+    });
+
+    it.each([
+        'get_product_stock',
+        'propose_collection_followup,get_product_stock',
+        'propose_collection_followup,propose_collection_followup',
+        ',propose_collection_followup',
+    ])('rejects %s', (value) => {
+        expect(() =>
+            loadAssistantBrokerRuntimeConfig({
+                ...base,
+                ASSISTANT_BROKER_ALLOWED_TOOLS: value,
+            }),
+        ).toThrow();
+    });
+});
