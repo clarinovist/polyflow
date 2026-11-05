@@ -99,8 +99,8 @@ describe.skipIf(!enabled)('assistant control role on disposable PostgreSQL', () 
 
             const userId = `ctl-user-${randomBytes(6).toString('hex')}`;
             await admin.query(
-                `INSERT INTO "User" (id, email, name, password, role)
-                 VALUES ($1, $2, 'Synthetic Control', 'test-only', 'ADMIN')`,
+                `INSERT INTO "User" (id, email, name, password, role, "updatedAt")
+                 VALUES ($1, $2, 'Synthetic Control', 'test-only', 'ADMIN', now())`,
                 [userId, `${userId}@example.invalid`],
             );
 
