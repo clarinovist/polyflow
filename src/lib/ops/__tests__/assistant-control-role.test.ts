@@ -24,6 +24,8 @@ describe('assistant control role plan', () => {
         expect(sql).not.toContain('GRANT INSERT, UPDATE, DELETE ON TABLE "Product"');
         expect(sql).not.toContain('ALTER DEFAULT PRIVILEGES');
         expect(sql).toContain('REVOKE SELECT ON TABLE "ApiKey"');
+        // Case-sensitive identifier must be quoted inside to_regclass too.
+        expect(sql).toContain('public."ApiKey"');
         expect(sql).not.toMatch(/password/i);
     });
 

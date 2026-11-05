@@ -120,7 +120,7 @@ $$;`,
             ...ASSISTANT_CONTROL_DENIED_READ_TABLES.map(
                 (table) => `DO $$
 BEGIN
-  IF to_regclass(${quoteLiteral(`${schema}.${table}`)}) IS NOT NULL THEN
+  IF to_regclass(${quoteLiteral(`${schema}.${quoteIdent(table)}`)}) IS NOT NULL THEN
     REVOKE SELECT ON TABLE ${quoteIdent(table)} FROM ${roleId};
   END IF;
 END
