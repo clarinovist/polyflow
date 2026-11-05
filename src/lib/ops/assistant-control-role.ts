@@ -9,6 +9,16 @@
 
 const IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/;
 
+/**
+ * Secrets the worker never needs. Reads are revoked to keep the control role
+ * from turning into a credential oracle; the assistant only reads identity,
+ * permission, tenant and domain tables.
+ */
+export const ASSISTANT_CONTROL_DENIED_READ_TABLES = [
+    'ApiKey',
+    'Account',
+] as const;
+
 /** Tables the worker is allowed to write. Everything else is SELECT-only. */
 export const ASSISTANT_CONTROL_WRITE_TABLES = [
     'AuditLog',
@@ -107,6 +117,15 @@ $$;`,
             // Reads stay broad: non-brokered tools still read business data.
             `GRANT SELECT ON ALL TABLES IN SCHEMA ${schemaId} TO ${roleId};`,
             `GRANT SELECT ON ALL SEQUENCES IN SCHEMA ${schemaId} TO ${roleId};`,
+            ...ASSISTANT_CONTROL_DENIED_READ_TABLES.map(
+                (table) => `DO $$
+BEGIN
+  IF to_regclass(${quoteLiteral(`${schema}.${table}`)}) IS NOT NULL THEN
+    REVOKE SELECT ON TABLE ${quoteIdent(table)} FROM ${roleId};
+  END IF;
+END
+$$;`,
+            ),
             // Remove every write privilege first, then restore it only for
             // assistant-owned tables. No default privileges are added, so a
             // future business table never becomes writable implicitly.

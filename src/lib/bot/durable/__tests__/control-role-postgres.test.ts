@@ -123,6 +123,17 @@ describe.skipIf(!enabled)('assistant control role on disposable PostgreSQL', () 
                 await expect(
                     worker.query('ALTER TABLE "Product" ADD COLUMN c int'),
                 ).rejects.toMatchObject({ code: '42501' });
+                if (
+                    (
+                        await worker.query<{ exists: boolean }>(
+                            "SELECT to_regclass('public.\"ApiKey\"') IS NOT NULL AS exists",
+                        )
+                    ).rows[0].exists
+                ) {
+                    await expect(
+                        worker.query('SELECT * FROM "ApiKey" LIMIT 1'),
+                    ).rejects.toMatchObject({ code: '42501' });
+                }
 
                 const id = `ctl-${randomBytes(6).toString('hex')}`;
                 await worker.query(
