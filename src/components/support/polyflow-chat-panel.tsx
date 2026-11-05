@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useAssistantHistory } from './use-assistant-history';
 import { CitedArticleCards, type CitedArticle } from './cited-article-cards';
+import { AssistantProposalCards } from './assistant-proposal-cards';
 import {
     Bot,
     Send,
@@ -1349,6 +1350,9 @@ function AuthenticatedChatPanel({
 
             {/* Input Dock */}
             <div className="border-t border-border/60 bg-gradient-to-b from-card/90 to-card p-4 backdrop-blur-xl">
+                <AssistantProposalCards
+                    refreshKey={isLoading ? 'busy' : messages.length}
+                />
                 <form onSubmit={onSubmit} className="max-w-4xl mx-auto">
                     <div className="relative flex items-end gap-2 rounded-2xl border border-border/80 bg-background/80 p-2 shadow-inner focus-within:border-emerald-500/50 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all duration-200">
                         <Textarea

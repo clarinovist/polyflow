@@ -238,3 +238,93 @@ export async function cancelProposal(input: {
     });
     return res.count === 1;
 }
+
+const ACTIVITY_LABEL: Record<CollectionFollowupPayload['type'], string> = {
+    CALL: 'telepon penagihan',
+    VISIT: 'kunjungan penagihan',
+    PROMISE_TO_PAY: 'janji bayar',
+    PARTIAL_COLLECTED: 'penagihan sebagian',
+    DISPUTE: 'sengketa tagihan',
+    UNREACHABLE: 'pelanggan tidak terjangkau',
+};
+const MAX_PENDING_LISTED = 10;
+
+export type PendingProposalView = {
+    id: string;
+    kind: string;
+    summary: string;
+    details: { label: string; value: string }[];
+    expiresAt: string;
+};
+
+function formatDay(iso: string): string {
+    return new Date(iso).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'Asia/Jakarta',
+    });
+}
+
+/** Display-safe view of the caller's own live proposals (no raw payload). */
+export async function listPendingProposals(input: {
+    tenantId: string;
+    userId: string;
+    now?: Date;
+}): Promise<PendingProposalView[]> {
+    const now = input.now ?? new Date();
+    const rows = await prisma.assistantActionProposal.findMany({
+        where: {
+            tenantId: input.tenantId,
+            userId: input.userId,
+            status: 'PENDING',
+            expiresAt: { gt: now },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: MAX_PENDING_LISTED,
+    });
+    if (rows.length === 0) return [];
+
+    const parsed = rows.flatMap((row) => {
+        if (row.kind !== COLLECTION_FOLLOWUP_KIND) return [];
+        const result = collectionFollowupSchema.safeParse(row.payload);
+        return result.success ? [{ row, payload: result.data }] : [];
+    });
+    if (parsed.length === 0) return [];
+
+    const invoices = await prisma.invoice.findMany({
+        where: { id: { in: parsed.map((p) => p.payload.invoiceId) } },
+        select: { id: true, invoiceNumber: true },
+    });
+    const numbers = new Map(invoices.map((i) => [i.id, i.invoiceNumber]));
+
+    return parsed.map(({ row, payload }) => {
+        const number = numbers.get(payload.invoiceId) ?? payload.invoiceId;
+        const details: PendingProposalView['details'] = [];
+        if (payload.promisedDate) {
+            details.push({
+                label: 'Janji bayar',
+                value: formatDay(payload.promisedDate),
+            });
+        }
+        if (payload.promisedAmount != null) {
+            details.push({
+                label: 'Nominal janji',
+                value: `Rp ${payload.promisedAmount.toLocaleString('id-ID')}`,
+            });
+        }
+        if (payload.outcome) {
+            details.push({ label: 'Hasil', value: payload.outcome });
+        }
+        if (payload.notes) {
+            details.push({ label: 'Catatan', value: payload.notes });
+        }
+        return {
+            id: row.id,
+            kind: row.kind,
+            summary: `Catat ${ACTIVITY_LABEL[payload.type]} pada invoice ${number}`,
+            details,
+            expiresAt: row.expiresAt.toISOString(),
+        };
+    });
+}

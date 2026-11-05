@@ -53,6 +53,8 @@ beforeEach(() => {
         : json({ success: true, data: { answer: 'Invoice sudah diperiksa.', conversationId: 'conv-1', historySaved: true } });
     fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((input) => {
         const url = String(input);
+        // Pending-proposal cards poll their own endpoint; keep it out of chat assertions.
+        if (url.startsWith('/api/chat/proposals')) return Promise.resolve(json({ data: { proposals: [] } }));
         return url.startsWith('/api/chat/history') ? historyHandler(new URL(url, 'http://localhost')) : chatHandler(url);
     });
 });
@@ -62,7 +64,7 @@ describe('PolyflowChatPanel persistent contextual history', () => {
         renderPanel();
         await ask();
         expect(await screen.findByText('Invoice sudah diperiksa.')).toBeTruthy();
-        const calls = fetchMock.mock.calls.filter((call) => !String(call[0]).includes('/history'));
+        const calls = fetchMock.mock.calls.filter((call) => !/\/(history|proposals)/.test(String(call[0])));
         expect(calls).toHaveLength(2);
         for (const call of calls) expect(JSON.parse(String(call[1]?.body)).workContext).toEqual({ pathname });
     });
