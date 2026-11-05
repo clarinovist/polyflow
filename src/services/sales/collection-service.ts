@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/core/prisma';
 import { ValidationError } from '@/lib/errors/errors';
-import { InvoiceStatus } from '@prisma/client';
+import { InvoiceStatus, type PrismaClient } from '@prisma/client';
 import { getBucket, type AgingBucket } from '../finance/aging-service';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -128,7 +128,10 @@ export class CollectionService {
      * Log a collection activity / promise-to-pay.
      * Q3 decision: does NOT change InvoiceStatus.
      */
-    static async logCollectionActivity(input: LogCollectionActivityInput) {
+    static async logCollectionActivity(
+        input: LogCollectionActivityInput,
+        db: Pick<PrismaClient, 'collectionActivity'> = prisma,
+    ) {
         if (input.type === 'PROMISE_TO_PAY') {
             if (!input.promisedDate) {
                 throw new ValidationError(
@@ -142,7 +145,7 @@ export class CollectionService {
             }
         }
 
-        const record = await prisma.collectionActivity.create({
+        const record = await db.collectionActivity.create({
             data: {
                 invoiceId: input.invoiceId,
                 userId: input.userId,

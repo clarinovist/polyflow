@@ -4756,6 +4756,34 @@ model AssistantDurableSubmission {
   @@index([publicConversationId, status])
 }
 
+// ─── Assistant write proposals (propose → human confirm) ─────────────────
+// The assistant can only PROPOSE a business write. A human confirms it in the
+// app, which executes through the normal service layer. This table is
+// deliberately absent from the worker control-role write allowlist: only the
+// app process may move a proposal to CONFIRMED, so the model-side process can
+// never forge a confirmation. payloadDigest binds tenant/user/kind/payload and
+// makes propose idempotent per conversation.
+model AssistantActionProposal {
+  id             String    @id @default(cuid())
+  tenantId       String
+  userId         String
+  conversationId String
+  kind           String
+  payload        Json
+  payloadDigest  String
+  status         String    @default("PENDING")
+  expiresAt      DateTime
+  confirmedAt    DateTime?
+  resultRef      String?
+  failureReason  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([conversationId, payloadDigest])
+  @@index([tenantId, userId, status])
+  @@index([expiresAt])
+}
+
 model HelpMessage {
   id             String          @id @default(cuid())
   conversationId String
