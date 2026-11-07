@@ -135,8 +135,9 @@ describe.skipIf(!db)('vehicle service reminder PostgreSQL contracts', () => {
         const { itemId } = await addItem();
         const first = await record(itemId, 100, '2026-09-01');
         const second = await record(itemId, 200, '2026-10-01');
+        // Keep the note the records were created with, so an unchanged correction is really unchanged.
         const correct = (recordId: string, odometerKm: number, servicedAt: string, reason = 'synthetic reason') =>
-            run(() => correctVehicleService({ recordId, servicedAt, odometerKm, reason }, 'svc-user'));
+            run(() => correctVehicleService({ recordId, servicedAt, odometerKm, note: 'synthetic note', reason }, 'svc-user'));
         await expect(correct(first.recordId, 201, '2026-09-01')).rejects.toThrow('di atas');
         await expect(correct(second.recordId, 99, '2026-10-01')).rejects.toThrow('di bawah');
         await expect(correct(second.recordId, 200, '2026-10-01')).rejects.toThrow('Tidak ada perubahan');
