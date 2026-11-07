@@ -6,6 +6,7 @@ import {
     actualTripDistance, finishMileageSchema, parseDistanceInput, routeDistanceSchema,
     startMileageSchema, totalRouteDistance, tripDistancePlanSchema,
 } from '@/lib/sales/trip-distance';
+import { assertOdometerNotBelowPrevious } from '@/lib/sales/vehicle-mileage';
 
 type Tx = Prisma.TransactionClient;
 
@@ -77,9 +78,7 @@ export async function startTripMileage(raw: unknown, userId: string) {
         const open = await tx.vehicleTripMileage.findFirst({ where: { vehicleId: trip.vehicleId!, odometerEnd: null } });
         if (open) throw new BusinessRuleError('Lengkapi odometer akhir perjalanan sebelumnya untuk mobil ini terlebih dahulu.');
         const previous = await tx.vehicleTripMileage.aggregate({ where: { vehicleId: trip.vehicleId! }, _max: { odometerEnd: true } });
-        if (previous._max.odometerEnd != null && input.odometerStart < Number(previous._max.odometerEnd)) {
-            throw new BusinessRuleError('Odometer awal tidak boleh di bawah odometer akhir perjalanan sebelumnya.');
-        }
+        assertOdometerNotBelowPrevious(input.odometerStart, previous._max.odometerEnd == null ? null : Number(previous._max.odometerEnd));
         await tx.vehicleTripMileage.create({ data: { tripId: trip.id, vehicleId: trip.vehicleId!, driverName: input.driverName, odometerStart: input.odometerStart } });
         await audit(tx, userId, trip.id, 'START_TRIP_MILEAGE', { vehicleId: trip.vehicleId, driverName: input.driverName, odometerStart: input.odometerStart });
         return result;

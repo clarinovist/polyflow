@@ -5,7 +5,7 @@ import VehiclesPage from '../page';
 const mocks = vi.hoisted(() => ({ vehicles: vi.fn() }));
 vi.mock('@/actions/sales/vehicles', () => ({ getVehicles: mocks.vehicles }));
 vi.mock('@/components/sales/vehicles/FleetOverview', () => ({ FleetOverview: ({ vehicles }: { vehicles: unknown[] }) => <p>Fleet rows: {vehicles.length}</p> }));
-vi.mock('@/lib/utils/utils', () => ({ serializeData: (data: unknown) => data }));
+vi.mock('@/lib/utils/utils', async (importOriginal) => ({ ...(await importOriginal<typeof import('@/lib/utils/utils')>()), serializeData: (data: unknown) => data }));
 afterEach(cleanup);
 describe('fleet page', () => {
     it('renders a successful empty fleet', async () => {
@@ -13,6 +13,11 @@ describe('fleet page', () => {
         render(await VehiclesPage());
         expect(screen.getByText('Fleet rows: 0')).toBeTruthy();
         expect(screen.queryByRole('alert')).toBeNull();
+    });
+    it('links to the quick KM entry page', async () => {
+        mocks.vehicles.mockResolvedValue({ success: true, data: [] });
+        render(await VehiclesPage());
+        expect(screen.getByRole('link', { name: /Isi KM truk/ }).getAttribute('href')).toBe('/sales/vehicles/km');
     });
     it('does not disguise a failed read as an empty fleet', async () => {
         mocks.vehicles.mockResolvedValue({ success: false, error: 'Akses ditolak' });

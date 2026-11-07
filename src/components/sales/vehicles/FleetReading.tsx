@@ -16,12 +16,15 @@ export function KirBadge({ expiry }: { expiry: string | null }) {
 
 export function FleetReading({ reading }: { reading: FleetSummary['latestReading'] }) {
     if (!reading) return <p className="text-sm text-muted-foreground">Odometer belum tercatat</p>;
+    const sourceLabel = reading.source === 'TRIP_START' ? 'Odometer berangkat' : 'Odometer kembali';
     return <div className="space-y-1 text-sm">
         <p className="font-medium tabular-nums">Odometer {formatFleetKm(reading.km)}</p>
         <p className="text-xs text-muted-foreground">Dicatat {formatFleetDate(reading.recordedAt)} WIB</p>
-        <Link className="text-xs underline underline-offset-4" href={`/sales/delivery-schedules/${reading.scheduleId}`}>
-            {reading.source === 'TRIP_START' ? 'Odometer berangkat' : 'Odometer kembali'} · {reading.scheduleNumber}
-        </Link>
+        {reading.scheduleId
+            ? <Link className="text-xs underline underline-offset-4" href={`/sales/delivery-schedules/${reading.scheduleId}`}>
+                {sourceLabel} · {reading.scheduleNumber}
+            </Link>
+            : <p className="text-xs text-muted-foreground">{sourceLabel} · Tanpa jadwal</p>}
     </div>;
 }
 

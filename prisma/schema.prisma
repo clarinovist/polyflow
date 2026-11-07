@@ -2438,19 +2438,21 @@ model DeliveryRouteDistance {
   @@unique([originAddress, destinationAddress])
 }
 
-// One odometer record per rit. Totals are derived, never incremented on Vehicle.
+// Per-truck odometer log. A record may link to a schedule trip (tripId) but does not need to.
+// Totals are derived, never incremented on Vehicle.
 model VehicleTripMileage {
   id            String    @id @default(uuid())
-  tripId        String    @unique
+  tripId        String?   @unique
   vehicleId     String
   driverName    String
   odometerStart Decimal   @db.Decimal(12, 2)
   odometerEnd   Decimal?  @db.Decimal(12, 2)
   startedAt     DateTime  @default(now())
   returnedAt    DateTime?
+  note          String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  trip          DeliveryScheduleVehicle @relation(fields: [tripId], references: [id], onDelete: Restrict)
+  trip          DeliveryScheduleVehicle? @relation(fields: [tripId], references: [id], onDelete: Restrict)
   vehicle       Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
   @@index([vehicleId, startedAt])

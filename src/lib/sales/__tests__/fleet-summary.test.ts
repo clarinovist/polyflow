@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fleetMonth, fleetMonthRange, formatFleetKm, kirStatus, summarizeFleetTrips } from '../fleet-summary';
+import { fleetMonth, fleetMonthRange, formatFleetKm, kirStatus, summarizeFleetMileage, summarizeFleetTrips } from '../fleet-summary';
 
 describe('fleet summary invariants', () => {
     it('uses WIB boundaries including year rollover and validates operational months', () => {
@@ -30,5 +30,13 @@ describe('fleet summary invariants', () => {
         expect(kirStatus('2026-09-24', now).label).toContain('(0 hari)');
         expect(kirStatus('2026-10-24', now).tone).toBe('due');
         expect(kirStatus('2026-10-25', now).tone).toBe('valid');
+    });
+    it('counts records without a trip, keeps open records pending and ignores trips for km', () => {
+        const trip = { departureDate: '2026-09-23', status: 'COMPLETED', actualDistanceKm: null, hasMileage: false, eligible: true };
+        expect(summarizeFleetMileage(
+            [{ actualDistanceKm: 84.5 }, { actualDistanceKm: 0 }, { actualDistanceKm: null }],
+            [trip, { ...trip, departureDate: null }, { ...trip, status: 'PLANNED' }, { ...trip, hasMileage: true, departureDate: null }],
+        )).toEqual({ actualKm: 84.5, recordedTrips: 2, pendingTrips: 2, undatedTrips: 2 });
+        expect(summarizeFleetMileage([], [])).toEqual({ actualKm: null, recordedTrips: 0, pendingTrips: 0, undatedTrips: 0 });
     });
 });

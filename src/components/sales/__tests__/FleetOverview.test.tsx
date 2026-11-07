@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FleetOverview } from '../vehicles/FleetOverview';
 import { VehicleDistanceHistory } from '../vehicles/VehicleDistanceHistory';
 import { FleetMileageSummary, KirBadge } from '../vehicles/FleetReading';
 import { VehicleDetailClient } from '../vehicles/VehicleDetailClient';
 import type { VehicleRow } from '../vehicles/VehicleTable';
-const mocks = vi.hoisted(() => ({ overview: vi.fn(), history: vi.fn(), refresh: vi.fn() }));
+const mocks = vi.hoisted(() => ({ overview: vi.fn(), history: vi.fn(), refresh: vi.fn(), correct: vi.fn() }));
 vi.mock('@/actions/sales/fleet-summary', () => ({ getFleetOverview: mocks.overview }));
 vi.mock('@/actions/sales/trip-distance', () => ({ getVehicleDistanceHistory: mocks.history }));
+vi.mock('@/actions/sales/vehicle-mileage', () => ({ correctVehicleMileage: mocks.correct }));
 vi.mock('@/actions/sales/vehicles', () => ({ deleteVehicle: vi.fn() }));
 vi.mock('@/actions/sales/vehicle-tariffs', () => ({ deleteVehicleTariff: vi.fn() }));
 vi.mock('../vehicles/VehicleDialog', () => ({ VehicleDialog: () => null }));
@@ -70,6 +71,32 @@ describe('fleet overview and detail', () => {
         expect(screen.getByText(/Kembali dicatat.*WIB/)).toBeTruthy();
         expect(screen.getByText('Aktual periode: 0 km')).toBeTruthy();
         expect(screen.getByText('Belum ada SJ tertaut pada trip ini.')).toBeTruthy();
+    });
+    it('labels a record without a schedule, shows its note and reloads history after a correction', async () => {
+        const standalone = { ...row, id: 'u', mileageId: 'u', scheduleId: null, scheduleNumber: null, status: null, departureDate: '2026-09-24T01:00:00Z', driverName: 'Sopir A', odometerStart: 200, odometerEnd: 230, actualDistanceKm: 30, note: 'ke gudang', deliveries: [] };
+        mocks.history.mockResolvedValue({ success: true, data: { ...summary, rows: [standalone] } });
+        mocks.correct.mockResolvedValue({ success: true, data: {} });
+        render(<VehicleDistanceHistory vehicleId="v" />);
+        await screen.findByText(/Tanpa jadwal ·/);
+        expect(screen.getByText('Keterangan: ke gudang')).toBeTruthy();
+        expect(screen.queryByText(/Trip:/)).toBeNull();
+        expect(screen.queryByText('Belum ada SJ tertaut pada trip ini.')).toBeNull();
+        fireEvent.click(screen.getByText('Koreksi'));
+        const dialog = await screen.findByRole('dialog');
+        fireEvent.change(within(dialog).getByLabelText('Alasan koreksi (wajib)'), { target: { value: 'salah ketik' } });
+        fireEvent.click(within(dialog).getByText('Simpan koreksi'));
+        await waitFor(() => expect(mocks.correct).toHaveBeenCalledWith(expect.objectContaining({ mileageId: 'u', odometerStart: 200, odometerEnd: 230, reason: 'salah ketik' })));
+        await waitFor(() => expect(mocks.history).toHaveBeenCalledTimes(2));
+    });
+    it('offers no correction for a trip without an odometer record', async () => {
+        render(<VehicleDistanceHistory vehicleId="v" />);
+        await screen.findByText('Trip: Selesai');
+        expect(screen.queryByText('Koreksi')).toBeNull();
+    });
+    it('shows a latest reading without a schedule as Tanpa jadwal', () => {
+        render(<FleetMileageSummary summary={{ ...summary, latestReading: { km: 230, recordedAt: '2026-09-24T01:00:00Z', source: 'TRIP_RETURN', scheduleId: null, scheduleNumber: null } }} />);
+        expect(screen.getByText('Odometer kembali · Tanpa jadwal')).toBeTruthy();
+        expect(screen.queryByRole('link')).toBeNull();
     });
     it('places the same trip history ahead of tariffs and labels SJ count honestly', () => {
         render(<VehicleDetailClient vehicle={{ ...vehicle, notes: null, tariffs: [] }}><p>Existing history slot</p></VehicleDetailClient>);

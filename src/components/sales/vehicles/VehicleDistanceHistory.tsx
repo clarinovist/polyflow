@@ -9,14 +9,33 @@ import { Label } from '@/components/ui/label';
 import { TRIP_STATUS_LABELS } from '@/components/sales/schedules/schedule-detail/presentation';
 import { fleetMonth, formatFleetDate, formatFleetKm as km } from '@/lib/sales/fleet-summary';
 import { FleetReading } from './FleetReading';
+import { MileageCorrectionDialog, type CorrectionTarget } from './MileageCorrectionDialog';
 
 type History = Extract<Awaited<ReturnType<typeof getVehicleDistanceHistory>>, { success: true }>['data'];
+type HistoryRow = History['rows'][number];
+const NO_SCHEDULE_LABEL = 'Tanpa jadwal';
+
+function rowDate(row: HistoryRow) {
+    return row.departureDate ? new Date(row.departureDate).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' }) : 'Tanggal belum tercatat';
+}
+function correctionTarget(row: HistoryRow): CorrectionTarget | null {
+    if (!row.mileageId || row.odometerStart === null || row.driverName === null) return null;
+    return {
+        mileageId: row.mileageId, label: `${row.scheduleNumber ?? NO_SCHEDULE_LABEL} · ${rowDate(row)}`,
+        driverName: row.driverName, odometerStart: row.odometerStart, odometerEnd: row.odometerEnd,
+    };
+}
+function RowTitle({ row }: { row: HistoryRow }) {
+    if (!row.scheduleId) return <span className="font-medium">{NO_SCHEDULE_LABEL} · {rowDate(row)}</span>;
+    return <Link className="font-medium underline" href={`/sales/delivery-schedules/${row.scheduleId}`}>{row.scheduleNumber} · {rowDate(row)}</Link>;
+}
 export function VehicleDistanceHistory({ vehicleId }: { vehicleId: string }) {
     const [month, setMonth] = useState(fleetMonth);
     const [history, setHistory] = useState<History | null>(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(true);
     const [reload, setReload] = useState(0);
+    const [correcting, setCorrecting] = useState<CorrectionTarget | null>(null);
     useEffect(() => {
         let current = true;
         async function load() {
@@ -34,7 +53,7 @@ export function VehicleDistanceHistory({ vehicleId }: { vehicleId: string }) {
     }, [vehicleId, month, reload]);
     return <section className="rounded-lg border bg-card p-4 md:p-6 space-y-4" aria-label="Riwayat kilometer kendaraan">
         <div className="flex flex-wrap items-end justify-between gap-3">
-            <div><h2 className="text-lg font-semibold">Perjalanan & pengiriman</h2><p className="text-sm text-muted-foreground">Per rit, berdasarkan bulan tanggal keberangkatan (WIB). Kilometer rencana tidak masuk total aktual.</p></div>
+            <div><h2 className="text-lg font-semibold">Perjalanan & pengiriman</h2><p className="text-sm text-muted-foreground">Per catatan KM, berdasarkan bulan keberangkatan (WIB); rit tanpa catatan KM mengikuti tanggal rencana. Kilometer rencana tidak masuk total aktual.</p></div>
             <div className="space-y-1"><Label htmlFor="mileage-month">Bulan keberangkatan</Label><Input id="mileage-month" type="month" value={month} onChange={(e) => setMonth(e.target.value)} /></div>
         </div>
         {loading ? <p role="status">Memuat riwayat…</p> : error ? <div role="alert">{error} <Button variant="outline" onClick={() => setReload(reload + 1)}>Coba lagi</Button></div> : history && <>
@@ -47,10 +66,11 @@ export function VehicleDistanceHistory({ vehicleId }: { vehicleId: string }) {
             <p className="text-xs text-muted-foreground">Status trip, status SJ, dan kendaraan kembali adalah catatan terpisah. Pembatalan tidak menghapus kilometer fisik yang sudah tercatat.</p>
             {history.rows.length === 0 ? <p className="text-sm text-muted-foreground">Belum ada perjalanan pada bulan ini.</p> : <ul className="divide-y">
                 {history.rows.map((row) => <li key={row.id} className="py-4 space-y-2">
-                    <div className="flex flex-wrap justify-between gap-2 text-sm"><Link className="font-medium underline" href={`/sales/delivery-schedules/${row.scheduleId}`}>{row.scheduleNumber} · {row.departureDate ? new Date(row.departureDate).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' }) : 'Tanggal belum tercatat'}</Link><span>Trip: {TRIP_STATUS_LABELS[row.status] ?? row.status}</span></div>
+                    <div className="flex flex-wrap justify-between gap-2 text-sm"><RowTitle row={row} />{row.status && <span>Trip: {TRIP_STATUS_LABELS[row.status] ?? row.status}</span>}</div>
                     <p className="text-sm break-words">{row.legs.length ? [row.legs[0].originAddress, ...row.legs.map((leg) => leg.destinationAddress)].join(' → ') : row.routeName || 'Rute belum dicatat'}</p>
                     <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm"><span>Rencana: {km(row.plannedDistanceKm)}</span><span>Aktual: <strong>{km(row.actualDistanceKm)}</strong></span><span className="w-full sm:w-auto">Sopir: {row.driverName ?? 'Belum dicatat'}</span></div>
                     {row.odometerStart !== null && <p className="text-xs text-muted-foreground">Odometer {km(row.odometerStart)} → {km(row.odometerEnd)}</p>}
+                    {row.note && <p className="text-xs text-muted-foreground break-words">Keterangan: {row.note}</p>}
                     <p className="text-xs text-muted-foreground">{row.returnedAt ? `Kembali dicatat ${formatFleetDate(row.returnedAt)} WIB` : 'Kendaraan kembali: belum tercatat'}</p>
                     {row.deliveries.length ? <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm" aria-label="Surat jalan trip">
                         {row.deliveries.map((delivery) => <li key={delivery.id}>
@@ -58,9 +78,11 @@ export function VehicleDistanceHistory({ vehicleId }: { vehicleId: string }) {
                             <span className="text-muted-foreground"> · {delivery.status}</span>
                             {delivery.vehicleId !== vehicleId && <span className="block text-xs text-amber-800 dark:text-amber-200">Kendaraan SJ berbeda/belum diisi; KM tetap mengikuti trip.</span>}
                         </li>)}
-                    </ul> : <p className="text-xs text-muted-foreground">Belum ada SJ tertaut pada trip ini.</p>}
+                    </ul> : row.scheduleId && <p className="text-xs text-muted-foreground">Belum ada SJ tertaut pada trip ini.</p>}
+                    {correctionTarget(row) && <Button type="button" size="sm" variant="outline" className="min-h-11" onClick={() => setCorrecting(correctionTarget(row))}>Koreksi</Button>}
                 </li>)}
             </ul>}
         </>}
+        <MileageCorrectionDialog target={correcting} onClose={() => setCorrecting(null)} onSaved={() => setReload((value) => value + 1)} />
     </section>;
 }

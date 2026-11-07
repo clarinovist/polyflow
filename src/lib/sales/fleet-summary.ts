@@ -49,5 +49,21 @@ export function summarizeFleetTrips(trips: FleetTripMeasure[]) {
     };
 }
 
+/**
+ * Mileage-record driven totals: every odometer record counts, linked to a trip or not.
+ * Trips only add coverage: dated trips that departed without a record are pending, and
+ * every undated trip stays visible but outside the month total.
+ */
+export function summarizeFleetMileage(records: { actualDistanceKm: number | null }[], trips: FleetTripMeasure[]) {
+    const recorded = records.filter((record) => record.actualDistanceKm !== null);
+    const planned = summarizeFleetTrips(trips.filter((trip) => !trip.hasMileage));
+    return {
+        actualKm: recorded.length ? Math.round(recorded.reduce((sum, record) => sum + record.actualDistanceKm!, 0) * 100) / 100 : null,
+        recordedTrips: recorded.length,
+        pendingTrips: records.length - recorded.length + planned.pendingTrips,
+        undatedTrips: trips.filter((trip) => trip.departureDate === null).length,
+    };
+}
+
 export const formatFleetKm = (value: number | null) => value === null ? 'Belum tercatat' : `${value.toLocaleString('id-ID')} km`;
 export const formatFleetDate = (value: string) => new Date(value).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'medium', timeStyle: 'short' });

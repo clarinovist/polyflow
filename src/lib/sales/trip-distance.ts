@@ -6,6 +6,7 @@ const km = z.number().finite().min(0).max(99999999.99).refine(
     (value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.000001,
     'Gunakan maksimal dua angka desimal',
 );
+export const kmReadingSchema = km;
 export const routeDistanceSchema = z.object({
     originAddress: address,
     destinationAddress: address,
