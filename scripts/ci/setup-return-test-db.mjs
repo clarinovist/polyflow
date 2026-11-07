@@ -106,6 +106,7 @@ const guards = [
     '20261023_material_order_unit_snapshot',
     '20261029_atk_cost_correction',
     '20261030_purchase_price_correction',
+    '20261107_vehicle_mileage_log',
 ]
     .map(migration)
     .join('\n');
