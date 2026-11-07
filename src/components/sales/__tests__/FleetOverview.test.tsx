@@ -103,8 +103,32 @@ describe('fleet overview and detail', () => {
         expect(screen.getByText('SJ tertaut (semua status)')).toBeTruthy();
         expect(screen.getByRole('link', { name: 'Perjalanan & pengiriman' }).getAttribute('href')).toBe('#vehicle-trips');
         expect(document.getElementById('vehicle-trips')?.textContent).toContain('Existing history slot');
-        expect(screen.getByText(/riwayat servis belum tersedia/)).toBeTruthy();
+        expect(screen.getByText(/Pengingat servis dihitung dari interval yang diisi admin/)).toBeTruthy();
+        expect(screen.queryByText(/riwayat servis belum tersedia/)).toBeNull();
         expect(screen.getByText('KIR belum diisi')).toBeTruthy();
+    });
+    it('renders the Servis panel slot after the summary and links to it', () => {
+        render(<VehicleDetailClient vehicle={{ ...vehicle, notes: null, tariffs: [] }} servicePanel={<p>Service panel slot</p>}><p>Existing history slot</p></VehicleDetailClient>);
+        expect(screen.getByRole('link', { name: 'Servis' }).getAttribute('href')).toBe('#vehicle-service');
+        expect(document.getElementById('vehicle-service')?.textContent).toBe('Service panel slot');
+    });
+    it('summarises trucks that need service and marks their rows', async () => {
+        const alerts = [{ vehicleId: 'v', plateNumber: 'SYNTHETIC', items: [{ itemId: 'i', label: 'Oli mesin', status: 'LEWAT' as const, dueBy: 'KM' as const, remainingText: 'lewat 1.200 km' }] }];
+        render(<FleetOverview vehicles={[vehicle]} serviceAlerts={alerts} />);
+        expect(screen.getByLabelText('Ringkasan servis').textContent).toContain('1 truk perlu servis');
+        expect(screen.getByLabelText('Ringkasan servis').textContent).toContain('SYNTHETIC');
+        await screen.findAllByText('KM trip: Belum tercatat');
+        expect(screen.getAllByText('Oli mesin: lewat 1.200 km')).toHaveLength(2); // desktop/mobile
+        expect(screen.queryByText(/Jadwal\/riwayat servis belum dicatat/)).toBeNull();
+    });
+    it('says so when no truck needs service and when the alerts could not be loaded', async () => {
+        const { unmount } = render(<FleetOverview vehicles={[vehicle]} />);
+        expect(screen.getByLabelText('Ringkasan servis').textContent).toContain('Tidak ada truk pabrik');
+        await screen.findAllByText('KM trip: Belum tercatat');
+        unmount();
+        render(<FleetOverview vehicles={[vehicle]} serviceAlerts={null} />);
+        expect(screen.getByLabelText('Ringkasan servis').textContent).toContain('belum dapat dimuat');
+        await screen.findAllByText('KM trip: Belum tercatat');
     });
     it('renders warning text without pulsing or treating missing KIR as valid', () => {
         const { container } = render(<KirBadge expiry="2000-01-01" />);

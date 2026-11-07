@@ -82,6 +82,8 @@ interface Vehicle {
 interface VehicleDetailClientProps {
     vehicle: Vehicle;
     children?: ReactNode;
+    /** Server-rendered "Servis" panel; omitted when its data could not be loaded. */
+    servicePanel?: ReactNode;
 }
 
 function formatRupiah(amount: number): string {
@@ -100,7 +102,7 @@ function formatDate(dateStr: string): string {
     });
 }
 
-export function VehicleDetailClient({ vehicle, children }: VehicleDetailClientProps) {
+export function VehicleDetailClient({ vehicle, children, servicePanel }: VehicleDetailClientProps) {
     const [editOpen, setEditOpen] = useState(false);
     const [editTariff, setEditTariff] = useState<Tariff | null>(null);
     const [tariffDialogOpen, setTariffDialogOpen] = useState(false);
@@ -141,10 +143,11 @@ export function VehicleDetailClient({ vehicle, children }: VehicleDetailClientPr
             <nav aria-label="Bagian detail armada" className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
                 <a className="underline underline-offset-4" href="#vehicle-summary">Ringkasan</a>
                 <a className="underline underline-offset-4" href="#vehicle-trips">Perjalanan & pengiriman</a>
+                <a className="underline underline-offset-4" href="#vehicle-service">Servis</a>
                 <a className="underline underline-offset-4" href="#vehicle-kir">Dokumen & KIR</a>
                 <a className="underline underline-offset-4" href="#vehicle-tariffs">Tarif</a>
             </nav>
-            <p className="text-sm text-muted-foreground">Status aktif bukan jaminan kendaraan tersedia. Jadwal dan riwayat servis belum tersedia; KM pengiriman bukan seluruh pemakaian kendaraan.</p>
+            <p className="text-sm text-muted-foreground">Status aktif bukan jaminan kendaraan tersedia. Pengingat servis dihitung dari interval yang diisi admin dan KM terakhir di buku KM; KM pengiriman bukan seluruh pemakaian kendaraan.</p>
             {/* Info Card */}
             <Card id="vehicle-summary">
                 <CardHeader>
@@ -275,6 +278,7 @@ export function VehicleDetailClient({ vehicle, children }: VehicleDetailClientPr
                 </CardContent>
             </Card>
 
+            <div id="vehicle-service">{servicePanel}</div>
             <div id="vehicle-trips">{children}</div>
             {/* Tariffs */}
             <Card id="vehicle-tariffs">

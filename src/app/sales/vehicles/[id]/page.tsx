@@ -1,4 +1,6 @@
 import { getVehicle } from '@/actions/sales/vehicles';
+import { getVehicleServiceStatus } from '@/actions/sales/vehicle-service';
+import { VehicleServicePanel } from '@/components/sales/vehicles/VehicleServicePanel';
 import { VehicleDetailClient } from '@/components/sales/vehicles/VehicleDetailClient';
 import { redirect } from 'next/navigation';
 import { VehicleDistanceHistory } from '@/components/sales/vehicles/VehicleDistanceHistory';
@@ -9,7 +11,7 @@ export default async function VehicleDetailPage({
     params: Promise<{ id: string }>;
 }) {
     const { id } = await params;
-    const result = await getVehicle(id);
+    const [result, serviceRes] = await Promise.all([getVehicle(id), getVehicleServiceStatus(id)]);
 
     if (!result.success || !result.data) {
         redirect('/sales/vehicles');
@@ -51,7 +53,11 @@ export default async function VehicleDetailPage({
         _count: result.data._count,
     };
 
-    return <VehicleDetailClient vehicle={vehicle}>
+    const servicePanel = serviceRes.success
+        ? <VehicleServicePanel view={serviceRes.data} />
+        : <div role="alert" className="rounded-lg border p-4 text-sm">Pengingat servis gagal dimuat. {serviceRes.error}</div>;
+
+    return <VehicleDetailClient vehicle={vehicle} servicePanel={servicePanel}>
         <VehicleDistanceHistory vehicleId={id} />
     </VehicleDetailClient>;
 }

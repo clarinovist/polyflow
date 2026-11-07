@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { Gauge } from 'lucide-react';
 import { getFleetMileageBoard } from '@/actions/sales/vehicle-mileage';
+import { getFleetServiceAlerts } from '@/actions/sales/vehicle-service';
 import { MileageBoard } from '@/components/sales/vehicles/MileageBoard';
 
 export default async function VehicleMileagePage() {
-    const board = await getFleetMileageBoard();
+    const [board, alerts] = await Promise.all([getFleetMileageBoard(), getFleetServiceAlerts()]);
     return (
         <div className="p-4 md:p-6 space-y-6">
             <div>
@@ -15,7 +16,7 @@ export default async function VehicleMileagePage() {
                 <p className="text-muted-foreground">Catat KM berangkat dan kembali per truk pabrik. Tidak harus terhubung ke jadwal pengiriman.</p>
                 <Link href="/sales/vehicles" className="text-sm underline underline-offset-4">Kembali ke daftar kendaraan</Link>
             </div>
-            {board.success ? <MileageBoard cards={board.data} /> : <div role="alert" className="space-y-2 rounded-lg border p-4">
+            {board.success ? <MileageBoard cards={board.data} serviceAlerts={alerts.success ? alerts.data : []} /> : <div role="alert" className="space-y-2 rounded-lg border p-4">
                 <p>Data KM truk gagal dimuat. {board.error}</p>
                 {/* Full navigation retries the failed server read, not a cached same-route RSC. */}
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}

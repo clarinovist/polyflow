@@ -65,6 +65,8 @@ const addedObjects = [
     'CustomerCreditLink',
     'DeliveryRouteDistance',
     'VehicleTripMileage',
+    'VehicleServiceItem',
+    'VehicleServiceRecord',
 ];
 const schema = generated
     .split(';')
@@ -107,6 +109,7 @@ const guards = [
     '20261029_atk_cost_correction',
     '20261030_purchase_price_correction',
     '20261107_vehicle_mileage_log',
+    '20261108_vehicle_service_reminder',
 ]
     .map(migration)
     .join('\n');

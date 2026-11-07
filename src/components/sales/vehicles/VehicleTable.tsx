@@ -28,6 +28,8 @@ import { VehicleDialog } from './VehicleDialog';
 import { salesLabels } from '@/lib/labels';
 import type { FleetSummary } from '@/services/sales/fleet-summary-service';
 import { FleetMileageSummary, KirBadge } from './FleetReading';
+import type { FleetServiceAlert } from '@/services/sales/vehicle-service-service';
+import { ServiceAlertBadges } from './ServiceStatusBadge';
 import { formatQuantity } from '@/lib/utils/utils';
 
 const VEHICLE_TYPE_LABELS: Record<string, string> = {
@@ -70,10 +72,12 @@ export interface VehicleRow {
 interface VehicleTableProps {
     vehicles: VehicleRow[];
     summaries?: FleetSummary[];
+    serviceAlerts?: FleetServiceAlert[];
 }
 
-export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
+export function VehicleTable({ vehicles, summaries = [], serviceAlerts = [] }: VehicleTableProps) {
     const summaryByVehicle = new Map(summaries.map((summary) => [summary.vehicleId, summary]));
+    const alertsByVehicle = new Map(serviceAlerts.map((alert) => [alert.vehicleId, alert.items]));
     const [filterOwnership, setFilterOwnership] = useState<string>('ALL');
     const [editVehicle, setEditVehicle] = useState<VehicleRow | null>(null);
     const [editOpen, setEditOpen] = useState(false);
@@ -169,6 +173,7 @@ export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
                                                     {v.plateNumber}
                                                 </Link>
                                                 <KirBadge expiry={v.kirExpireDate} />
+                                                <ServiceAlertBadges items={alertsByVehicle.get(v.id) ?? []} />
                                             </div>
                                         </TableCell>
                                         <TableCell>{v.name}</TableCell>
@@ -289,6 +294,7 @@ export function VehicleTable({ vehicles, summaries = [] }: VehicleTableProps) {
                                         </Link>
                                         <KirBadge expiry={v.kirExpireDate} />
                                     </div>
+                                    <div className="mt-1"><ServiceAlertBadges items={alertsByVehicle.get(v.id) ?? []} /></div>
                                     <p className="text-sm text-muted-foreground">
                                         {v.name}
                                     </p>

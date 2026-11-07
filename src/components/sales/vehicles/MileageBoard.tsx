@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatFleetDate, formatFleetKm } from '@/lib/sales/fleet-summary';
 import type { MileageBoardCard } from '@/services/sales/vehicle-mileage-service';
+import type { FleetServiceAlert } from '@/services/sales/vehicle-service-service';
+import { ServiceAlertBadges } from './ServiceStatusBadge';
 import { MileageFinishForm, MileageStartForm } from './MileageForms';
 import { MileageCorrectionDialog, type CorrectionTarget } from './MileageCorrectionDialog';
 
@@ -37,7 +39,9 @@ function TodayDeliveries({ items }: { items: MileageBoardCard['todayDeliveries']
     </div>;
 }
 
-function TruckCard({ card, onCorrect, onSaved }: { card: MileageBoardCard; onCorrect: (target: CorrectionTarget) => void; onSaved: () => void }) {
+interface TruckCardProps { card: MileageBoardCard; alerts: FleetServiceAlert['items']; onCorrect: (target: CorrectionTarget) => void; onSaved: () => void }
+
+function TruckCard({ card, alerts, onCorrect, onSaved }: TruckCardProps) {
     const target = correctionTarget(card);
     return <section className="rounded-lg border bg-card p-4 space-y-4" aria-label={`KM ${card.plateNumber}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -45,6 +49,7 @@ function TruckCard({ card, onCorrect, onSaved }: { card: MileageBoardCard; onCor
             <div className="text-right"><p className="text-xs text-muted-foreground">KM terakhir</p><p className="font-medium tabular-nums">{formatFleetKm(lastReading(card))}</p></div>
         </div>
         <TruckStatus card={card} />
+        <ServiceAlertBadges items={alerts} />
         <TodayDeliveries items={card.todayDeliveries} />
         {card.isOpen && card.latest
             ? <MileageFinishForm mileageId={card.latest.id} odometerStart={card.latest.odometerStart} onSaved={onSaved} />
@@ -53,13 +58,14 @@ function TruckCard({ card, onCorrect, onSaved }: { card: MileageBoardCard; onCor
     </section>;
 }
 
-export function MileageBoard({ cards }: { cards: MileageBoardCard[] }) {
+export function MileageBoard({ cards, serviceAlerts = [] }: { cards: MileageBoardCard[]; serviceAlerts?: FleetServiceAlert[] }) {
     const router = useRouter();
     const [target, setTarget] = useState<CorrectionTarget | null>(null);
+    const alertsByVehicle = new Map(serviceAlerts.map((alert) => [alert.vehicleId, alert.items]));
     if (!cards.length) return <p className="rounded-lg border p-4 text-sm text-muted-foreground">Belum ada mobil pabrik berstatus aktif.</p>;
     return <>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {cards.map((card) => <TruckCard key={card.vehicleId} card={card} onCorrect={setTarget} onSaved={() => router.refresh()} />)}
+            {cards.map((card) => <TruckCard key={card.vehicleId} card={card} alerts={alertsByVehicle.get(card.vehicleId) ?? []} onCorrect={setTarget} onSaved={() => router.refresh()} />)}
         </div>
         <MileageCorrectionDialog target={target} onClose={() => setTarget(null)} onSaved={() => router.refresh()} />
     </>;

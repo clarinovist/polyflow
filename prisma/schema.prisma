@@ -2353,6 +2353,8 @@ model Vehicle {
   schedules        DeliveryScheduleVehicle[]
   customerDefaults Customer[]                @relation("CustomerDefaultVehicle")
   tripMileages     VehicleTripMileage[]
+  serviceItems     VehicleServiceItem[]
+  serviceRecords   VehicleServiceRecord[]
 }
 
 model VehicleTariff {
@@ -2456,6 +2458,40 @@ model VehicleTripMileage {
   vehicle       Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
 
   @@index([vehicleId, startedAt])
+}
+
+// Service reminder (oil, tyres, ...) with a per-truck interval. Items are deactivated, never deleted.
+// Service cost stays in Finance; records only hold the odometer evidence.
+model VehicleServiceItem {
+  id           String                 @id @default(uuid())
+  vehicleId    String
+  label        String
+  intervalKm   Decimal                @db.Decimal(12, 2)
+  intervalDays Int?
+  warnKm       Decimal                @db.Decimal(12, 2)
+  isActive     Boolean                @default(true)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  vehicle      Vehicle                @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  records      VehicleServiceRecord[]
+
+  @@unique([vehicleId, label])
+}
+
+model VehicleServiceRecord {
+  id            String             @id @default(uuid())
+  serviceItemId String
+  vehicleId     String
+  servicedAt    DateTime
+  odometerKm    Decimal            @db.Decimal(12, 2)
+  note          String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  serviceItem   VehicleServiceItem @relation(fields: [serviceItemId], references: [id], onDelete: Restrict)
+  vehicle       Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([serviceItemId, servicedAt])
+  @@index([vehicleId])
 }
 
 model DeliveryScheduleOrder {

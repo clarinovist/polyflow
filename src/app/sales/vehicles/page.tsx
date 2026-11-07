@@ -1,4 +1,5 @@
 import { getVehicles } from '@/actions/sales/vehicles';
+import { getFleetServiceAlerts } from '@/actions/sales/vehicle-service';
 import { FleetOverview } from '@/components/sales/vehicles/FleetOverview';
 import { salesLabels } from '@/lib/labels';
 import { serializeData } from '@/lib/utils/utils';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Car, Gauge } from 'lucide-react';
 
 export default async function VehiclesPage() {
-    const vehiclesRes = await getVehicles();
+    const [vehiclesRes, alertsRes] = await Promise.all([getVehicles(), getFleetServiceAlerts()]);
     const vehicles =
         vehiclesRes.success && vehiclesRes.data
             ? serializeData(vehiclesRes.data)
@@ -30,7 +31,7 @@ export default async function VehiclesPage() {
                 </Button>
             </div>
 
-            {vehiclesRes.success ? <FleetOverview vehicles={vehicles} /> : <div role="alert" className="space-y-2 rounded-lg border p-4">
+            {vehiclesRes.success ? <FleetOverview vehicles={vehicles} serviceAlerts={alertsRes.success ? alertsRes.data : null} /> : <div role="alert" className="space-y-2 rounded-lg border p-4">
                 <p>Daftar armada gagal dimuat. {vehiclesRes.error}</p>
                 {/* Full navigation retries the failed server read, not a cached same-route RSC. */}
                 {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
