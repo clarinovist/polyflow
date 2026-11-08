@@ -126,7 +126,7 @@ function parseYmd(
 /**
  * Calculates start/end boundaries in Asia/Jakarta timezone (+07:00).
  */
-function calculateJakartaBounds(filter: UsageAnalyticsFilter): {
+export function calculateJakartaBounds(filter: UsageAnalyticsFilter): {
     start: Date;
     end: Date;
     prevStart: Date;

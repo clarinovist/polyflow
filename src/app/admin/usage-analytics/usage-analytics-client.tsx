@@ -21,6 +21,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
+import { ProductInsightsTab } from './product-insights-tab';
 
 interface Props {
     initialData: UsageAnalyticsOverviewData;
@@ -38,6 +39,9 @@ export function UsageAnalyticsClient({ initialData }: Props) {
     );
     const [tenantId, setTenantId] = useState<string>('all');
     const [moduleKey, setModuleKey] = useState<string>('all');
+    const [activeTab, setActiveTab] = useState<'overview' | 'insight'>(
+        'overview',
+    );
 
     // Sequence counter to prevent async race condition when changing filters rapidly (Finding 13)
     const requestSequenceRef = useRef(0);
@@ -306,6 +310,33 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                 </div>
             </div>
 
+            {/* Tab switcher */}
+            <div className="flex items-center gap-1 border-b border-border">
+                {(
+                    [
+                        ['overview', 'Ringkasan'],
+                        ['insight', 'Insight Produk'],
+                    ] as const
+                ).map(([key, label]) => (
+                    <button
+                        key={key}
+                        onClick={() => setActiveTab(key)}
+                        className={cn(
+                            'text-sm font-medium px-4 py-2 -mb-px border-b-2 transition-colors',
+                            activeTab === key
+                                ? 'border-red-500 text-foreground'
+                                : 'border-transparent text-muted-foreground hover:text-foreground',
+                        )}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            {activeTab === 'insight' && <ProductInsightsTab range={range} />}
+
+            {activeTab === 'overview' && (
+                <>
             {/* KPI Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Active Users */}
@@ -841,6 +872,8 @@ export function UsageAnalyticsClient({ initialData }: Props) {
                     </div>
                 </div>
             </div>
+                </>
+            )}
         </div>
     );
 }
