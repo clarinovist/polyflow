@@ -41,13 +41,13 @@ export function MarketingBottomNav() {
                             href={tab.href}
                             aria-current={active ? 'page' : undefined}
                             className={cn(
-                                'flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors',
+                                'group flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors',
                                 active
                                     ? 'font-medium text-teal-700 dark:text-teal-300'
                                     : 'text-muted-foreground active:text-teal-700',
                             )}
                         >
-                            <tab.icon aria-hidden="true" className="h-5 w-5" />
+                            <tab.icon aria-hidden="true" className="h-5 w-5 transition-transform duration-150 ease-out group-active:scale-90" />
                             <span className="max-w-full truncate">
                                 {tab.label}
                             </span>

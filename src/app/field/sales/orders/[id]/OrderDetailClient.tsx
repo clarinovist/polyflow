@@ -1,5 +1,11 @@
 'use client';
 
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -771,273 +777,279 @@ export function OrderDetailClient({
             )}
 
             {/* Return Request Modal Dialog */}
-            {showReturnModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-                    <div className="w-full max-w-lg bg-background border rounded-2xl shadow-2xl p-5 max-h-[85vh] flex flex-col space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                        {/* Modal Header */}
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h3 className="font-bold text-lg text-foreground flex items-center gap-1.5">
-                                    <ClipboardList className="h-5 w-5 text-rose-600" />
-                                    Form Pengajuan Retur
-                                </h3>
-                                <p className="text-xs text-muted-foreground mt-0.5">
-                                    Ajukan dokumen retur barang dari SO:{' '}
-                                    {order.orderNumber}
-                                </p>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setShowReturnModal(false)}
-                                className="h-8 w-8 p-0 rounded-full"
+            <Dialog
+                open={showReturnModal}
+                onOpenChange={setShowReturnModal}
+            >
+                <DialogContent
+                    showCloseButton={false}
+                    onInteractOutside={(e) => e.preventDefault()}
+                    className="flex max-h-[85dvh] max-w-lg flex-col gap-0 space-y-4 rounded-2xl p-5 shadow-2xl"
+                >
+                    {/* Modal Header */}
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="font-bold text-lg text-foreground flex items-center gap-1.5">
+                                <ClipboardList className="h-5 w-5 text-rose-600" />
+                                Form Pengajuan Retur
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                Ajukan dokumen retur barang dari SO:{' '}
+                                {order.orderNumber}
+                            </DialogDescription>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowReturnModal(false)}
+                            className="h-8 w-8 p-0 rounded-full"
+                            aria-label="Tutup"
+                        >
+                            ✕
+                        </Button>
+                    </div>
+
+                    {/* Scrollable form body */}
+                    <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-sm">
+                        {/* Return Warehouse Location */}
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Lokasi Gudang Retur *
+                            </label>
+                            <select
+                                value={returnLocationId}
+                                onChange={(e) =>
+                                    setReturnLocationId(e.target.value)
+                                }
+                                className="w-full h-10 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
                             >
-                                ✕
-                            </Button>
+                                <option value="" disabled>
+                                    Pilih Gudang Retur
+                                </option>
+                                {locations.map((loc) => (
+                                    <option key={loc.id} value={loc.id}>
+                                        {loc.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
 
-                        {/* Scrollable form body */}
-                        <div className="flex-1 overflow-y-auto pr-1 space-y-4 text-sm">
-                            {/* Return Warehouse Location */}
+                        {/* General Reason & Notes */}
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    Lokasi Gudang Retur *
+                                    Alasan Umum *
                                 </label>
                                 <select
-                                    value={returnLocationId}
+                                    value={generalReason}
                                     onChange={(e) =>
-                                        setReturnLocationId(e.target.value)
+                                        setGeneralReason(e.target.value)
                                     }
                                     className="w-full h-10 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
                                 >
-                                    <option value="" disabled>
-                                        Pilih Gudang Retur
-                                    </option>
-                                    {locations.map((loc) => (
-                                        <option key={loc.id} value={loc.id}>
-                                            {loc.name}
+                                    {RETURN_REASONS.map((r) => (
+                                        <option
+                                            key={r.value}
+                                            value={r.value}
+                                        >
+                                            {r.label}
                                         </option>
                                     ))}
                                 </select>
                             </div>
-
-                            {/* General Reason & Notes */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                        Alasan Umum *
-                                    </label>
-                                    <select
-                                        value={generalReason}
-                                        onChange={(e) =>
-                                            setGeneralReason(e.target.value)
-                                        }
-                                        className="w-full h-10 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                    >
-                                        {RETURN_REASONS.map((r) => (
-                                            <option
-                                                key={r.value}
-                                                value={r.value}
-                                            >
-                                                {r.label}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                        Keterangan Umum
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={generalNotes}
-                                        onChange={(e) =>
-                                            setGeneralNotes(e.target.value)
-                                        }
-                                        placeholder="Contoh: Retur barang reject..."
-                                        className="w-full h-10 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Items checklist */}
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                    Pilih Produk Untuk Diretur
+                                    Keterangan Umum
                                 </label>
-                                <div className="space-y-3.5 border rounded-xl p-3 bg-muted/10 max-h-[30vh] overflow-y-auto">
-                                    {order.items.map((item) => {
-                                        const status = returnItems[
-                                            item.productVariantId
-                                        ] || {
-                                            returnedQty: 1,
-                                            reason: 'DAMAGED',
-                                            condition: 'DAMAGED',
-                                            notes: '',
-                                            checked: false,
-                                        };
+                                <input
+                                    type="text"
+                                    value={generalNotes}
+                                    onChange={(e) =>
+                                        setGeneralNotes(e.target.value)
+                                    }
+                                    placeholder="Contoh: Retur barang reject..."
+                                    className="w-full h-10 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                                />
+                            </div>
+                        </div>
 
-                                        return (
-                                            <div
-                                                key={item.id}
-                                                className="border-b last:border-0 pb-3 last:pb-0 space-y-2"
-                                            >
-                                                <div className="flex items-start gap-2.5">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={status.checked}
-                                                        onChange={(e) =>
-                                                            handleItemCheck(
-                                                                item.productVariantId,
-                                                                e.target
-                                                                    .checked,
-                                                            )
-                                                        }
-                                                        className="mt-1 h-4.5 w-4.5 rounded-sm border-gray-300 text-rose-600 focus:ring-rose-500"
-                                                    />
-                                                    <div className="min-w-0 flex-1">
-                                                        <p className="font-semibold text-xs text-foreground truncate">
-                                                            {item.productName}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {item.variantName} •
-                                                            Qty Order:{' '}
-                                                            {formatQuantity(
-                                                                item.quantity,
-                                                            )}
-                                                        </p>
-                                                    </div>
+                        {/* Items checklist */}
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Pilih Produk Untuk Diretur
+                            </label>
+                            <div className="space-y-3.5 border rounded-xl p-3 bg-muted/10 max-h-[30vh] overflow-y-auto">
+                                {order.items.map((item) => {
+                                    const status = returnItems[
+                                        item.productVariantId
+                                    ] || {
+                                        returnedQty: 1,
+                                        reason: 'DAMAGED',
+                                        condition: 'DAMAGED',
+                                        notes: '',
+                                        checked: false,
+                                    };
+
+                                    return (
+                                        <div
+                                            key={item.id}
+                                            className="border-b last:border-0 pb-3 last:pb-0 space-y-2"
+                                        >
+                                            <div className="flex items-start gap-2.5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={status.checked}
+                                                    onChange={(e) =>
+                                                        handleItemCheck(
+                                                            item.productVariantId,
+                                                            e.target
+                                                                .checked,
+                                                        )
+                                                    }
+                                                    className="mt-1 h-4.5 w-4.5 rounded-sm border-gray-300 text-rose-600 focus:ring-rose-500"
+                                                />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="font-semibold text-xs text-foreground truncate">
+                                                        {item.productName}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {item.variantName} •
+                                                        Qty Order:{' '}
+                                                        {formatQuantity(
+                                                            item.quantity,
+                                                        )}
+                                                    </p>
                                                 </div>
+                                            </div>
 
-                                                {status.checked && (
-                                                    <div className="pl-7 grid grid-cols-2 gap-2.5 animate-in slide-in-from-top-2 duration-150">
-                                                        {/* Quantity Input */}
-                                                        <div className="space-y-0.5">
-                                                            <span className="text-xs text-muted-foreground font-bold uppercase">
-                                                                Jumlah Retur
-                                                            </span>
-                                                            <div className="flex items-center gap-1">
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        handleItemQtyChange(
-                                                                            item.productVariantId,
-                                                                            status.returnedQty -
-                                                                                1,
-                                                                            item.quantity,
-                                                                        )
-                                                                    }
-                                                                    className="h-8 w-8 rounded-lg p-0 font-bold"
-                                                                >
-                                                                    -
-                                                                </Button>
-                                                                <input
-                                                                    type="number"
-                                                                    value={
-                                                                        status.returnedQty
-                                                                    }
-                                                                    onChange={(
-                                                                        e,
-                                                                    ) =>
-                                                                        handleItemQtyChange(
-                                                                            item.productVariantId,
-                                                                            parseInt(
-                                                                                e
-                                                                                    .target
-                                                                                    .value,
-                                                                            ) ||
-                                                                                1,
-                                                                            item.quantity,
-                                                                        )
-                                                                    }
-                                                                    className="h-8 pointer-coarse:h-11 w-12 border rounded-lg bg-background text-center text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
-                                                                />
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() =>
-                                                                        handleItemQtyChange(
-                                                                            item.productVariantId,
-                                                                            status.returnedQty +
-                                                                                1,
-                                                                            item.quantity,
-                                                                        )
-                                                                    }
-                                                                    className="h-8 w-8 rounded-lg p-0 font-bold"
-                                                                >
-                                                                    +
-                                                                </Button>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Condition Pick */}
-                                                        <div className="space-y-0.5">
-                                                            <span className="text-xs text-muted-foreground font-bold uppercase">
-                                                                Kondisi Barang
-                                                            </span>
-                                                            <select
-                                                                value={
-                                                                    status.condition
-                                                                }
-                                                                onChange={(e) =>
-                                                                    handleItemFieldChange(
+                                            {status.checked && (
+                                                <div className="pl-7 grid grid-cols-2 gap-2.5 animate-in slide-in-from-top-2 duration-150">
+                                                    {/* Quantity Input */}
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-xs text-muted-foreground font-bold uppercase">
+                                                            Jumlah Retur
+                                                        </span>
+                                                        <div className="flex items-center gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    handleItemQtyChange(
                                                                         item.productVariantId,
-                                                                        'condition',
-                                                                        e.target
-                                                                            .value,
+                                                                        status.returnedQty -
+                                                                            1,
+                                                                        item.quantity,
                                                                     )
                                                                 }
-                                                                className="w-full h-8 pointer-coarse:h-11 px-2 border rounded-lg bg-background text-xs outline-none focus:ring-1 focus:ring-primary"
+                                                                className="h-8 w-8 rounded-lg p-0 font-bold"
                                                             >
-                                                                {ITEM_CONDITIONS.map(
-                                                                    (c) => (
-                                                                        <option
-                                                                            key={
-                                                                                c.value
-                                                                            }
-                                                                            value={
-                                                                                c.value
-                                                                            }
-                                                                        >
-                                                                            {
-                                                                                c.label
-                                                                            }
-                                                                        </option>
-                                                                    ),
-                                                                )}
-                                                            </select>
+                                                                -
+                                                            </Button>
+                                                            <input
+                                                                type="number"
+                                                                value={
+                                                                    status.returnedQty
+                                                                }
+                                                                onChange={(
+                                                                    e,
+                                                                ) =>
+                                                                    handleItemQtyChange(
+                                                                        item.productVariantId,
+                                                                        parseInt(
+                                                                            e
+                                                                                .target
+                                                                                .value,
+                                                                        ) ||
+                                                                            1,
+                                                                        item.quantity,
+                                                                    )
+                                                                }
+                                                                className="h-8 pointer-coarse:h-11 w-12 border rounded-lg bg-background text-center text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
+                                                            />
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    handleItemQtyChange(
+                                                                        item.productVariantId,
+                                                                        status.returnedQty +
+                                                                            1,
+                                                                        item.quantity,
+                                                                    )
+                                                                }
+                                                                className="h-8 w-8 rounded-lg p-0 font-bold"
+                                                            >
+                                                                +
+                                                            </Button>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+
+                                                    {/* Condition Pick */}
+                                                    <div className="space-y-0.5">
+                                                        <span className="text-xs text-muted-foreground font-bold uppercase">
+                                                            Kondisi Barang
+                                                        </span>
+                                                        <select
+                                                            value={
+                                                                status.condition
+                                                            }
+                                                            onChange={(e) =>
+                                                                handleItemFieldChange(
+                                                                    item.productVariantId,
+                                                                    'condition',
+                                                                    e.target
+                                                                        .value,
+                                                                )
+                                                            }
+                                                            className="w-full h-8 pointer-coarse:h-11 px-2 border rounded-lg bg-background text-xs outline-none focus:ring-1 focus:ring-primary"
+                                                        >
+                                                            {ITEM_CONDITIONS.map(
+                                                                (c) => (
+                                                                    <option
+                                                                        key={
+                                                                            c.value
+                                                                        }
+                                                                        value={
+                                                                            c.value
+                                                                        }
+                                                                    >
+                                                                        {
+                                                                            c.label
+                                                                        }
+                                                                    </option>
+                                                                ),
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
-
-                        {/* Modal Footer */}
-                        <div className="flex gap-3 justify-end pt-3 border-t">
-                            <Button
-                                variant="outline"
-                                onClick={() => setShowReturnModal(false)}
-                                className="h-10 rounded-xl px-4 text-xs font-semibold"
-                                disabled={isLoading}
-                            >
-                                Batal
-                            </Button>
-                            <Button
-                                onClick={handleSubmitReturn}
-                                disabled={isLoading}
-                                className="h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-5 text-xs font-semibold flex items-center gap-1 active:scale-95 transition-transform"
-                            >
-                                Kirim Pengajuan Retur
-                            </Button>
-                        </div>
                     </div>
-                </div>
-            )}
+
+                    {/* Modal Footer */}
+                    <div className="flex gap-3 justify-end pt-3 border-t">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowReturnModal(false)}
+                            className="h-10 rounded-xl px-4 text-xs font-semibold"
+                            disabled={isLoading}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleSubmitReturn}
+                            disabled={isLoading}
+                            className="h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-5 text-xs font-semibold flex items-center gap-1 active:scale-95 transition-transform"
+                        >
+                            Kirim Pengajuan Retur
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

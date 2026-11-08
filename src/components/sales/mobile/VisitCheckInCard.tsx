@@ -11,6 +11,12 @@ import {
     FileText,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
     compressImageForUpload,
@@ -583,107 +589,110 @@ export function VisitCheckInCard({
             )}
 
             {/* Checkout Modal Dialog */}
-            {showCheckoutModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-                    <div className="w-full max-w-md bg-background border rounded-2xl shadow-xl p-5 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                        <div>
-                            <h3 className="font-bold text-lg">
-                                Laporan Hasil Kunjungan
-                            </h3>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                                Wajib isi catatan singkat dan lampirkan foto
-                                kunjungan.
+            <Dialog
+                open={showCheckoutModal}
+                onOpenChange={setShowCheckoutModal}
+            >
+                <DialogContent
+                    showCloseButton={false}
+                    overlayClassName="z-[100]"
+                    onInteractOutside={(e) => e.preventDefault()}
+                    onEscapeKeyDown={(e) => e.preventDefault()}
+                    className="z-[100] max-w-md gap-0 space-y-4 rounded-2xl p-5 shadow-xl"
+                >
+                    <div>
+                        <DialogTitle className="font-bold text-lg">
+                            Laporan Hasil Kunjungan
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                            Wajib isi catatan singkat dan lampirkan foto
+                            kunjungan.
+                        </DialogDescription>
+                    </div>
+
+                    {/* Foto Bukti Kunjungan */}
+                    {photoUrl ? (
+                        <div className="relative border rounded-xl overflow-hidden h-36 bg-muted/20">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={photoUrl}
+                                className="w-full h-full object-cover"
+                                alt="Bukti Kunjungan"
+                            />
+                            <Button
+                                size="sm"
+                                variant="destructive"
+                                className="absolute top-2 right-2 h-7 px-2.5 text-xs font-bold rounded-lg"
+                                onClick={() => setPhotoUrl(null)}
+                            >
+                                Hapus Foto
+                            </Button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 bg-muted/5">
+                            <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                className="hidden"
+                                id="visit-photo-capture"
+                                onChange={(ev) => void handlePhotoCapture(ev)}
+                                disabled={compressingPhoto}
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                disabled={compressingPhoto}
+                                onClick={() =>
+                                    document
+                                        .getElementById('visit-photo-capture')
+                                        ?.click()
+                                }
+                                className="h-10 text-xs font-semibold rounded-xl border-primary/30 text-primary hover:bg-primary/5 bg-transparent"
+                            >
+                                {compressingPhoto ? (
+                                    <>
+                                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                        Mengompres…
+                                    </>
+                                ) : (
+                                    '📸 Ambil Foto Bukti Toko'
+                                )}
+                            </Button>
+                            <p className="text-xs text-muted-foreground mt-1.5">
+                                Wajib ambil foto bukti kunjungan fisik
                             </p>
                         </div>
+                    )}
 
-                        {/* Foto Bukti Kunjungan */}
-                        {photoUrl ? (
-                            <div className="relative border rounded-xl overflow-hidden h-36 bg-muted/20">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                    src={photoUrl}
-                                    className="w-full h-full object-cover"
-                                    alt="Bukti Kunjungan"
-                                />
-                                <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    className="absolute top-2 right-2 h-7 px-2.5 text-xs font-bold rounded-lg"
-                                    onClick={() => setPhotoUrl(null)}
-                                >
-                                    Hapus Foto
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-5 bg-muted/5">
-                                <input
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    className="hidden"
-                                    id="visit-photo-capture"
-                                    onChange={(ev) =>
-                                        void handlePhotoCapture(ev)
-                                    }
-                                    disabled={compressingPhoto}
-                                />
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={compressingPhoto}
-                                    onClick={() =>
-                                        document
-                                            .getElementById(
-                                                'visit-photo-capture',
-                                            )
-                                            ?.click()
-                                    }
-                                    className="h-10 text-xs font-semibold rounded-xl border-primary/30 text-primary hover:bg-primary/5 bg-transparent"
-                                >
-                                    {compressingPhoto ? (
-                                        <>
-                                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                                            Mengompres…
-                                        </>
-                                    ) : (
-                                        '📸 Ambil Foto Bukti Toko'
-                                    )}
-                                </Button>
-                                <p className="text-xs text-muted-foreground mt-1.5">
-                                    Wajib ambil foto bukti kunjungan fisik
-                                </p>
-                            </div>
-                        )}
+                    <textarea
+                        className="w-full h-24 p-3 border rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground"
+                        placeholder="Contoh: Toko sedang ramai, customer memesan 20 pack Karung Rafia, pembayaran akan ditransfer besok pagi..."
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                    />
 
-                        <textarea
-                            className="w-full h-24 p-3 border rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground"
-                            placeholder="Contoh: Toko sedang ramai, customer memesan 20 pack Karung Rafia, pembayaran akan ditransfer besok pagi..."
-                            value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                        />
-
-                        <div className="flex gap-3 justify-end pt-2 border-t">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setShowCheckoutModal(false);
-                                    setPhotoUrl(null);
-                                }}
-                                className="h-10 px-4 rounded-xl text-sm"
-                            >
-                                Kembali
-                            </Button>
-                            <Button
-                                onClick={submitCheckOut}
-                                disabled={!notes.trim() || !photoUrl}
-                                className="h-10 px-5 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl text-sm active:scale-95 transition-transform"
-                            >
-                                Simpan & Selesai
-                            </Button>
-                        </div>
+                    <div className="flex gap-3 justify-end pt-2 border-t">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setShowCheckoutModal(false);
+                                setPhotoUrl(null);
+                            }}
+                            className="h-10 px-4 rounded-xl text-sm"
+                        >
+                            Kembali
+                        </Button>
+                        <Button
+                            onClick={submitCheckOut}
+                            disabled={!notes.trim() || !photoUrl}
+                            className="h-10 px-5 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl text-sm active:scale-95 transition-transform"
+                        >
+                            Simpan & Selesai
+                        </Button>
                     </div>
-                </div>
-            )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

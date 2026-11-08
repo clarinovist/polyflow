@@ -128,13 +128,13 @@ export function MobilePortalBottomNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-xs font-medium',
+                            'group flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-xs font-medium',
                             active
                                 ? config.activeClass
                                 : 'text-muted-foreground hover:text-foreground',
                         )}
                     >
-                        <item.icon aria-hidden="true" className="h-5 w-5" />
+                        <item.icon aria-hidden="true" className="h-5 w-5 transition-transform duration-150 ease-out group-active:scale-90" />
                         <span className="max-w-full truncate">
                             {item.label}
                         </span>

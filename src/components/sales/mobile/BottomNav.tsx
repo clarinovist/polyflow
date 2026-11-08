@@ -113,14 +113,14 @@ export function BottomNav({ permissions, badges }: BottomNavProps) {
                             href={tab.href}
                             aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'relative flex min-h-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
+                                'group relative flex min-h-11 flex-col items-center justify-center gap-0.5 text-xs transition-colors',
                                 isActive
                                     ? 'text-primary font-medium'
                                     : 'text-muted-foreground active:text-primary',
                             )}
                         >
                             <span className="relative">
-                                <tab.icon aria-hidden="true" className="h-5 w-5" />
+                                <tab.icon aria-hidden="true" className="h-5 w-5 transition-transform duration-150 ease-out group-active:scale-90" />
                                 {!!badgeCount && badgeCount > 0 && (
                                     <span className="absolute -top-1.5 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
                                         {badgeCount > 99 ? '99+' : badgeCount}
