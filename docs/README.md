@@ -49,8 +49,8 @@ pengganti validasi permission, tenant, stok, atau jurnal.
 - [Arsip dokumentasi](archive/README.md) — laporan implementasi/desain lama.
 - [Changelog historis](CHANGELOG.md) — dipertahankan untuk riwayat; rilis baru hanya
   masuk changelog root.
-- `docs/plan/` — plan dan bukti kerja **lokal/gitignored**; hanya
-  [template plan](plan/_TEMPLATE.md) yang tracked. Bukan daftar backlog otomatis:
+- `docs/plan/` — plan dan bukti kerja **lokal/gitignored**; tidak
+  ada yang tracked. Bukan daftar backlog otomatis:
   periksa catatan integrasi terbaru sebelum menganggap status lama masih berlaku.
 - `docs/ops/` — runbook produksi lokal. Untuk operasi produksi baca
   `docs/ops/vps.md`; jika tidak tersedia, minta detail/approval, jangan menebak.

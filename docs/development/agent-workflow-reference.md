@@ -101,7 +101,7 @@ git config core.hooksPath .githooks
   Jika file legitimate terblokir, jelaskan alasannya dan minta approval eksplisit;
   pindahkan informasi sensitif ke lokasi lokal bila tidak perlu tracked.
 - Guard konsistensi memeriksa struktur/routing, bukan seluruh makna aturan. Perubahan
-  workflow harus direview juga terhadap `.agents/AGENTS.md` dan template plan agar tidak
+  workflow harus direview juga terhadap `.agents/AGENTS.md` agar tidak
   ada gate lama yang masih menduplikasi kebijakan root.
 
 ## Environment lokal, Node & container

@@ -39,7 +39,6 @@ path, import, discovery, deployment, dan invariant domain bisa terdampak.
 | `docs/uat/` | Skenario pengujian penerimaan per modul |
 | `docs/polyflow-v2/` | Roadmap/desain target modularisasi |
 | `docs/archive/` | Catatan historis yang diberi konteks arsip |
-| `docs/plan/_TEMPLATE.md` | Satu-satunya plan template yang dibagikan lewat Git |
 
 Dokumen domain existing tetap di path-nya untuk menjaga referensi. Bila suatu
 kelompok perlu dipindah, cari seluruh referensinya, pindahkan satu kelompok utuh,
