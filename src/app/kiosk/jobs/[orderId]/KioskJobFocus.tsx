@@ -41,6 +41,7 @@ import {
 } from '@/lib/utils/production-units';
 import { kioskLabels } from '@/lib/labels';
 import { getStatusLabel } from '@/lib/labels/helpers';
+import { hapticSuccess } from '@/lib/mobile/haptics';
 import { legacyScrapSummary } from '@/lib/production/quantity-summary';
 import { cn } from '@/lib/utils/utils';
 import {
@@ -234,6 +235,7 @@ export default function KioskJobFocus({
             });
 
             if (result.success) {
+                hapticSuccess();
                 toast.success(
                     activeExecution ? 'Operator diganti!' : 'Produksi dimulai!',
                 );

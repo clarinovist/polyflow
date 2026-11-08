@@ -108,7 +108,7 @@ export default async function FieldSalesDashboardPage() {
                         </div>
                         <div className="w-full bg-muted rounded-full h-1.5">
                             <div
-                                className="bg-primary h-1.5 rounded-full transition-all"
+                                className="bg-primary h-1.5 rounded-full"
                                 style={{
                                     width: `${sections.compliance.data.compliance}%`,
                                 }}

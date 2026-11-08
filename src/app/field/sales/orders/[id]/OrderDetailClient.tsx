@@ -6,6 +6,7 @@ import {
     DialogDescription,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { hapticSuccess } from '@/lib/mobile/haptics';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -173,6 +174,7 @@ export function OrderDetailClient({
         try {
             const result = await handler();
             if (result.success) {
+                hapticSuccess();
                 toast.success(`${actionLabel} berhasil`);
                 if (onSuccess) {
                     onSuccess(result.data);
@@ -263,6 +265,7 @@ export function OrderDetailClient({
             });
 
             if (response?.success) {
+                hapticSuccess();
                 toast.success('Pengajuan retur berhasil dibuat!');
                 setShowReturnModal(false);
                 router.refresh();
@@ -783,6 +786,7 @@ export function OrderDetailClient({
             >
                 <DialogContent
                     showCloseButton={false}
+                    mobileSheet
                     onInteractOutside={(e) => e.preventDefault()}
                     className="flex max-h-[85dvh] max-w-lg flex-col gap-0 space-y-4 rounded-2xl p-5 shadow-2xl"
                 >

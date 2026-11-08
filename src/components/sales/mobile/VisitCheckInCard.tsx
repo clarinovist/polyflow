@@ -17,6 +17,7 @@ import {
     DialogDescription,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { hapticSuccess } from '@/lib/mobile/haptics';
 import { Button } from '@/components/ui/button';
 import {
     compressImageForUpload,
@@ -371,6 +372,7 @@ export function VisitCheckInCard({
                 photoUrl: photoUrl || undefined,
             });
             if (result.success) {
+                hapticSuccess();
                 enqueueVisit(localStorage, queuePartition, {
                     ...log,
                     synced: true,
@@ -596,6 +598,7 @@ export function VisitCheckInCard({
                 <DialogContent
                     showCloseButton={false}
                     overlayClassName="z-[100]"
+                    mobileSheet
                     onInteractOutside={(e) => e.preventDefault()}
                     onEscapeKeyDown={(e) => e.preventDefault()}
                     className="z-[100] max-w-md gap-0 space-y-4 rounded-2xl p-5 shadow-xl"
