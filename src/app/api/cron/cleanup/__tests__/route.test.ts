@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GET } from '../route';
 import { prisma } from '@/lib/core/prisma';
 import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
@@ -111,6 +111,8 @@ describe('Cleanup Cron Route', () => {
         vi.resetModules();
         process.env = { ...ORIGINAL_ENV };
         process.env.CRON_SECRET = 'test-secret';
+        delete process.env.FINDINGS_OBSERVE_TENANTS;
+        delete process.env.FINDINGS_NOTIFY_TENANTS;
         mockRunForEachActiveTenant.mockReset();
         vi.mocked(hasTenantModule).mockReset().mockResolvedValue(true);
         vi.mocked(InventoryCoreService.checkLowStockTriggers).mockClear();
@@ -137,6 +139,10 @@ describe('Cleanup Cron Route', () => {
         stockLedgerHealth.summarizeStockLedgerHealth
             .mockReset()
             .mockReturnValue('[StockLedgerHealth] acme: ok');
+    });
+
+    afterEach(() => {
+        process.env = ORIGINAL_ENV;
     });
 
     it('preserves live forward-cost boundary receipts beyond routine log retention', async () => {
@@ -434,5 +440,114 @@ describe('Cleanup Cron Route', () => {
         expect(data.success).toBe(true);
         expect(data.perTenant).toHaveLength(2);
         expect(data.perTenant[1].error).toBe('Tenant DB connection failed');
+    });
+
+    describe('legacy notification producers by findings mode', () => {
+        const runWithTenants = async (subdomains: string[]) => {
+            mockRunForEachActiveTenant.mockImplementation(
+                async (fn: (tenant: { id: string; subdomain: string }) => unknown) => {
+                    const results = [];
+                    for (const subdomain of subdomains) {
+                        results.push({
+                            tenant: subdomain,
+                            result: await fn({ id: `id-${subdomain}`, subdomain }),
+                        });
+                    }
+                    return results;
+                },
+            );
+            const response = await GET(new Request('http://localhost/api/cron/cleanup', {
+                method: 'GET', headers: { authorization: 'Bearer test-secret' },
+            }));
+            return { response, data: await response.json() };
+        };
+
+        it('calls all three legacy producers when the tenant mode is off', async () => {
+            // Arrange: FINDINGS_* env left empty by beforeEach
+
+            // Act
+            const { response } = await runWithTenants(['acme']);
+
+            // Assert
+            expect(response.status).toBe(200);
+            expect(InventoryCoreService.checkLowStockTriggers).toHaveBeenCalledTimes(1);
+            expect(checkOverduePurchasingInvoices).toHaveBeenCalledTimes(1);
+            expect(InvoiceService.checkOverdueSalesInvoices).toHaveBeenCalledTimes(1);
+        });
+
+        it('calls all three legacy producers when the tenant mode is observe', async () => {
+            // Arrange
+            process.env.FINDINGS_OBSERVE_TENANTS = 'acme';
+
+            // Act
+            const { response } = await runWithTenants(['acme']);
+
+            // Assert
+            expect(response.status).toBe(200);
+            expect(InventoryCoreService.checkLowStockTriggers).toHaveBeenCalledTimes(1);
+            expect(checkOverduePurchasingInvoices).toHaveBeenCalledTimes(1);
+            expect(InvoiceService.checkOverdueSalesInvoices).toHaveBeenCalledTimes(1);
+        });
+
+        it('skips all three legacy producers but still dispatches HRD reminders when the tenant mode is notify', async () => {
+            // Arrange
+            process.env.FINDINGS_NOTIFY_TENANTS = 'acme';
+
+            // Act
+            const { response, data } = await runWithTenants(['acme']);
+
+            // Assert
+            expect(response.status).toBe(200);
+            expect(data.success).toBe(true);
+            expect(InventoryCoreService.checkLowStockTriggers).not.toHaveBeenCalled();
+            expect(checkOverduePurchasingInvoices).not.toHaveBeenCalled();
+            expect(InvoiceService.checkOverdueSalesInvoices).not.toHaveBeenCalled();
+            expect(dispatchReminders).toHaveBeenCalledTimes(1);
+            expect(data.perTenant[0].result.subsystemError).toBeUndefined();
+        });
+
+        it('does not count the notify skip as an entitlement skip', async () => {
+            // Arrange: fully entitled notify tenant
+            process.env.FINDINGS_NOTIFY_TENANTS = 'acme';
+
+            // Act
+            const { data } = await runWithTenants(['acme']);
+
+            // Assert
+            expect(data.entitlementSkips).toBe(0);
+        });
+
+        it('adds no legacy entitlement skips for a notify tenant but keeps them for an observe tenant', async () => {
+            // Arrange: PURCHASING and FINANCE not entitled
+            vi.mocked(hasTenantModule).mockImplementation(
+                async (moduleKey: string) => moduleKey !== 'PURCHASING' && moduleKey !== 'FINANCE',
+            );
+            process.env.FINDINGS_NOTIFY_TENANTS = 'acme';
+            process.env.FINDINGS_OBSERVE_TENANTS = 'globex';
+
+            // Act
+            const notifyRun = await runWithTenants(['acme']);
+            const observeRun = await runWithTenants(['globex']);
+
+            // Assert
+            expect(notifyRun.data.entitlementSkips).toBe(0);
+            expect(observeRun.data.entitlementSkips).toBe(2);
+        });
+
+        it('calls the legacy producers only for the observe tenant when one run mixes notify and observe tenants', async () => {
+            // Arrange
+            process.env.FINDINGS_NOTIFY_TENANTS = 'acme';
+            process.env.FINDINGS_OBSERVE_TENANTS = 'globex';
+
+            // Act
+            const { data } = await runWithTenants(['acme', 'globex']);
+
+            // Assert
+            expect(data.perTenant).toHaveLength(2);
+            expect(InventoryCoreService.checkLowStockTriggers).toHaveBeenCalledTimes(1);
+            expect(checkOverduePurchasingInvoices).toHaveBeenCalledTimes(1);
+            expect(InvoiceService.checkOverdueSalesInvoices).toHaveBeenCalledTimes(1);
+            expect(dispatchReminders).toHaveBeenCalledTimes(2);
+        });
     });
 });

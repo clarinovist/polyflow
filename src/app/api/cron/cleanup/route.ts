@@ -3,6 +3,7 @@ import { getMainPrisma, prisma } from '@/lib/core/prisma';
 import { verifyCronAuth } from '@/lib/core/cron-auth';
 import { runForEachActiveTenant } from '@/lib/core/tenant-loop';
 import { hasTenantModule } from '@/lib/modules/tenant-entitlements';
+import { getFindingsMode } from '@/lib/findings/findings-mode';
 import { COST_PERIOD_ACTION } from '@/services/accounting/production-cost-period';
 
 export async function GET(req: Request) {
@@ -85,38 +86,47 @@ export async function GET(req: Request) {
                     );
                 }
 
+                // Notify tenants get overdue/low-stock alerts from the Finding
+                // inbox/digest, so the legacy Notification producers are retired
+                // for them (docs/plan/2026-11-08-findings-fase2-legacy-gating.md).
+                // This is not an entitlement skip, so it never feeds moduleSkips.
+                const isLegacyProducersRetired =
+                    getFindingsMode(tenant.subdomain) === 'notify';
+
                 try {
-                    if (inventoryEntitled) {
-                        const { InventoryCoreService } =
-                            await import('@/services/inventory/core-service');
-                        await InventoryCoreService.checkLowStockTriggers();
-                    } else {
-                        moduleSkips.push({
-                            tenant: tenant.subdomain,
-                            module: 'INVENTORY',
-                        });
-                    }
+                    if (!isLegacyProducersRetired) {
+                        if (inventoryEntitled) {
+                            const { InventoryCoreService } =
+                                await import('@/services/inventory/core-service');
+                            await InventoryCoreService.checkLowStockTriggers();
+                        } else {
+                            moduleSkips.push({
+                                tenant: tenant.subdomain,
+                                module: 'INVENTORY',
+                            });
+                        }
 
-                    if (purchasingEntitled) {
-                        const { checkOverduePurchasingInvoices } =
-                            await import('@/services/purchasing/invoices-service');
-                        await checkOverduePurchasingInvoices();
-                    } else {
-                        moduleSkips.push({
-                            tenant: tenant.subdomain,
-                            module: 'PURCHASING',
-                        });
-                    }
+                        if (purchasingEntitled) {
+                            const { checkOverduePurchasingInvoices } =
+                                await import('@/services/purchasing/invoices-service');
+                            await checkOverduePurchasingInvoices();
+                        } else {
+                            moduleSkips.push({
+                                tenant: tenant.subdomain,
+                                module: 'PURCHASING',
+                            });
+                        }
 
-                    if (financeEntitled) {
-                        const { InvoiceService } =
-                            await import('@/services/finance/invoice-service');
-                        await InvoiceService.checkOverdueSalesInvoices();
-                    } else {
-                        moduleSkips.push({
-                            tenant: tenant.subdomain,
-                            module: 'FINANCE',
-                        });
+                        if (financeEntitled) {
+                            const { InvoiceService } =
+                                await import('@/services/finance/invoice-service');
+                            await InvoiceService.checkOverdueSalesInvoices();
+                        } else {
+                            moduleSkips.push({
+                                tenant: tenant.subdomain,
+                                module: 'FINANCE',
+                            });
+                        }
                     }
 
                     if (hrdEntitled) {
