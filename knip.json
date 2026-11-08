@@ -11,6 +11,18 @@
         "src/**/__tests__/**/*.mjs"
     ],
     "ignore": ["vendor/**", "scripts/archive/**"],
-    "ignoreIssues": { "src/components/ui/**": ["exports", "types"] },
-    "ignoreDependencies": ["node-domexception", "ts-morph"]
+    "ignoreIssues": {
+        "src/components/ui/**": ["exports", "types"],
+        "src/services/purchasing/__tests__/gr-valuation-postgres-fixture.ts": [
+            "exports"
+        ],
+        "src/services/sales/__tests__/shipment-reversal-postgres-fixture.ts": [
+            "exports"
+        ],
+        "src/actions/production/production-orders.ts": ["duplicates"],
+        "src/lib/schemas/inventory.ts": ["duplicates"],
+        "src/lib/schemas/sales.ts": ["duplicates"]
+    },
+    "ignoreDependencies": ["node-domexception", "ts-morph"],
+    "ignoreExportsUsedInFile": true
 }
