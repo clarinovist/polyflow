@@ -28,7 +28,7 @@ export default async function MyLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#f6f7fb] dark:bg-zinc-950 flex flex-col">
+        <div className="min-h-dvh bg-muted/40 dark:bg-zinc-950 flex flex-col">
             <header className="h-14 border-b bg-white dark:bg-zinc-900 px-4 flex items-center justify-between sticky top-0 z-40">
                 <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-sm">
@@ -62,7 +62,7 @@ export default async function MyLayout({
 
             <div className="flex-1 max-w-5xl w-full mx-auto flex flex-col lg:flex-row">
                 {session && (
-                    <aside className="lg:w-60 lg:shrink-0 lg:border-r bg-white dark:bg-zinc-900 lg:min-h-[calc(100vh-56px)]">
+                    <aside className="lg:w-60 lg:shrink-0 lg:border-r bg-white dark:bg-zinc-900 lg:min-h-[calc(100dvh-56px)]">
                         <MyNav />
                     </aside>
                 )}

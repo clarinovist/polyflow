@@ -20,7 +20,7 @@ export function MobilePortalHeader({
     return (
         <header
             className={cn(
-                'sticky top-0 z-40 border-b border-slate-200 bg-white/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur dark:border-slate-800 dark:bg-slate-900/95',
+                'sticky top-0 z-40 border-b border-border bg-background/95 px-4 pt-[env(safe-area-inset-top)] backdrop-blur ',
                 className,
             )}
         >
@@ -35,7 +35,7 @@ export function MobilePortalHeader({
                         {icon}
                         <span
                             className={cn(
-                                'truncate font-semibold text-slate-900 dark:text-slate-100',
+                                'truncate font-semibold text-foreground',
                                 titleClassName,
                             )}
                         >

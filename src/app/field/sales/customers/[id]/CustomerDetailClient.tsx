@@ -110,6 +110,7 @@ export function CustomerDetailClient({
                 <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Kembali"
                     onClick={() => router.back()}
                     className="shrink-0"
                 >

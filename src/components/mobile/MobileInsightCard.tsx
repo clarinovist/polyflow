@@ -60,7 +60,7 @@ export function MobileInsightCard({ insight, className }: MobileInsightCardProps
                 {insight.trend && TrendIcon && (
                     <div
                         className={cn(
-                            'flex items-center gap-1 mt-1 text-[10px] font-medium',
+                            'flex items-center gap-1 mt-1 text-xs font-medium',
                             TREND_COLORS[insight.trend.direction],
                         )}
                     >

@@ -135,7 +135,7 @@ export function RouteTodaySection({
                         {/* Progress Bar */}
                         <div className="space-y-1">
                             <Progress value={stats.percent} className="h-2" />
-                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                            <div className="flex justify-between text-xs text-muted-foreground">
                                 <span>Progres Rute</span>
                                 <span>{stats.percent}% Selesai</span>
                             </div>
@@ -147,7 +147,7 @@ export function RouteTodaySection({
                         <p className="text-sm font-medium text-muted-foreground">
                             Belum ada rute dari admin
                         </p>
-                        <p className="text-[11px] text-muted-foreground/70 mt-1">
+                        <p className="text-xs text-muted-foreground/70 mt-1">
                             Hubungi supervisor untuk mengatur rute harian
                         </p>
                     </div>
@@ -179,12 +179,12 @@ export function RouteTodaySection({
                                     ) : isVisiting ? (
                                         <span className="relative flex h-5 w-5 shrink-0">
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-5 w-5 bg-blue-500 items-center justify-center text-[10px] text-white font-bold">
+                                            <span className="relative inline-flex rounded-full h-5 w-5 bg-blue-500 items-center justify-center text-xs text-white font-bold">
                                                 {index + 1}
                                             </span>
                                         </span>
                                     ) : (
-                                        <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center text-[10px] text-muted-foreground/75 font-bold shrink-0">
+                                        <div className="h-5 w-5 rounded-full border-2 border-muted-foreground/30 flex items-center justify-center text-xs text-muted-foreground/75 font-bold shrink-0">
                                             {index + 1}
                                         </div>
                                     )}
@@ -196,11 +196,11 @@ export function RouteTodaySection({
                                             {item.name}
                                         </h4>
                                         <div className="flex items-center gap-2 mt-0.5">
-                                            <span className="text-[10px] text-muted-foreground">
+                                            <span className="text-xs text-muted-foreground">
                                                 {item.code || '-'}
                                             </span>
                                             {item.city && (
-                                                <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+                                                <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
                                                     <MapPin className="h-2.5 w-2.5" />
                                                     {item.city}
                                                 </span>
@@ -211,12 +211,12 @@ export function RouteTodaySection({
 
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     {isVisiting && (
-                                        <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 animate-pulse uppercase tracking-wider">
+                                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 animate-pulse uppercase tracking-wider">
                                             Sedang Dikunjungi
                                         </span>
                                     )}
                                     {isCompleted && (
-                                        <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                                             Selesai
                                         </span>
                                     )}

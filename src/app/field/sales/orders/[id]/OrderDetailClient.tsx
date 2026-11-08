@@ -294,6 +294,7 @@ export function OrderDetailClient({
                 <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Kembali"
                     onClick={() => router.push('/field/sales/orders')}
                     className="shrink-0"
                 >

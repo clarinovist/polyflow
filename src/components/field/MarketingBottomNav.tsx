@@ -41,7 +41,7 @@ export function MarketingBottomNav() {
                             href={tab.href}
                             aria-current={active ? 'page' : undefined}
                             className={cn(
-                                'flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-[10px] transition-colors min-[360px]:text-xs',
+                                'flex min-h-12 min-w-0 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors',
                                 active
                                     ? 'font-medium text-teal-700 dark:text-teal-300'
                                     : 'text-muted-foreground active:text-teal-700',

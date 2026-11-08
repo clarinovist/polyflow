@@ -329,6 +329,7 @@ export function QuickOrderWizard({
                 <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Kembali"
                     onClick={() =>
                         step === 1 ? router.back() : setStep(step - 1)
                     }
@@ -640,6 +641,7 @@ export function QuickOrderWizard({
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 text-muted-foreground hover:text-red-500"
+                                                aria-label="Hapus item"
                                                 onClick={() =>
                                                     removeItem(
                                                         item.productVariantId,

@@ -342,6 +342,7 @@ export function CollectionListClient({
                 <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Kembali"
                     onClick={() => router.push('/field/sales')}
                     className="shrink-0"
                 >

@@ -53,7 +53,7 @@ export default async function KioskLayout({
 
     return (
         <KioskIdleShell>
-            <div className="min-h-screen bg-background flex flex-col">
+            <div className="min-h-dvh bg-background flex flex-col">
                 <header className="sticky top-0 z-50 flex min-h-16 items-center justify-between gap-3 border-b bg-card px-4 md:min-h-20 md:px-6">
                     <a
                         href="/kiosk"

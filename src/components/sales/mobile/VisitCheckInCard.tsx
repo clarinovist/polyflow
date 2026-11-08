@@ -428,7 +428,7 @@ export function VisitCheckInCard({
                 ) : (
                     <Badge
                         variant="outline"
-                        className="text-[10px] text-muted-foreground font-semibold"
+                        className="text-xs text-muted-foreground font-semibold"
                     >
                         Belum Check-in
                     </Badge>
@@ -478,12 +478,12 @@ export function VisitCheckInCard({
                         <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />
                         <p className="font-semibold">Di Luar Rute Hari Ini</p>
                     </div>
-                    <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80">
+                    <p className="text-xs text-amber-700/80 dark:text-amber-400/80">
                         Kunjungan ini akan dicatat sebagai Extra Call (EC) dan
                         terpisah dari compliance rute.
                     </p>
                     <div className="space-y-1">
-                        <label className="text-[10px] font-semibold text-amber-800 dark:text-amber-300">
+                        <label className="text-xs font-semibold text-amber-800 dark:text-amber-300">
                             Alasan kunjungan luar rute *
                         </label>
                         <select
@@ -512,7 +512,7 @@ export function VisitCheckInCard({
                     {/* Active Visit UI */}
                     <div className="p-3 bg-muted/30 rounded-xl flex items-center justify-between">
                         <div className="space-y-0.5">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider">
                                 Durasi Kunjungan
                             </p>
                             <p className="text-xl font-bold font-mono text-primary animate-pulse">
@@ -520,7 +520,7 @@ export function VisitCheckInCard({
                             </p>
                         </div>
                         <div className="text-right space-y-0.5">
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                            <p className="text-xs text-muted-foreground uppercase tracking-wider">
                                 Jarak Check-in
                             </p>
                             <p className="text-sm font-semibold">
@@ -608,7 +608,7 @@ export function VisitCheckInCard({
                                 <Button
                                     size="sm"
                                     variant="destructive"
-                                    className="absolute top-2 right-2 h-7 px-2.5 text-[10px] font-bold rounded-lg"
+                                    className="absolute top-2 right-2 h-7 px-2.5 text-xs font-bold rounded-lg"
                                     onClick={() => setPhotoUrl(null)}
                                 >
                                     Hapus Foto
@@ -649,7 +649,7 @@ export function VisitCheckInCard({
                                         '📸 Ambil Foto Bukti Toko'
                                     )}
                                 </Button>
-                                <p className="text-[10px] text-muted-foreground mt-1.5">
+                                <p className="text-xs text-muted-foreground mt-1.5">
                                     Wajib ambil foto bukti kunjungan fisik
                                 </p>
                             </div>

@@ -280,7 +280,7 @@ export function VisitSyncBanner({
                             ? `${failedCount} kunjungan gagal sync`
                             : 'Sinkronisasi Tertunda'}
                     </h4>
-                    <p className="text-[10px] text-amber-700/80 dark:text-amber-400/80 truncate">
+                    <p className="text-xs text-amber-700/80 dark:text-amber-400/80 truncate">
                         Ada {unsyncedLogs.length} kunjungan belum disimpan di
                         server database.
                     </p>

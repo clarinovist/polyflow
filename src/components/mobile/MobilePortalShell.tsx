@@ -28,7 +28,7 @@ export function MobilePortalShell({
     return (
         <div
             className={cn(
-                'min-h-dvh min-w-0 overflow-x-hidden bg-slate-50 pb-[calc(5rem+env(safe-area-inset-bottom))] dark:bg-slate-900',
+                'min-h-dvh min-w-0 overflow-x-hidden bg-muted/40 pb-[calc(5rem+env(safe-area-inset-bottom))]',
                 className,
             )}
         >

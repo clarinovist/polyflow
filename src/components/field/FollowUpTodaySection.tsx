@@ -34,14 +34,14 @@ export function FollowUpTodaySection({ items }: FollowUpTodaySectionProps) {
                                 ? 'destructive'
                                 : 'secondary'
                         }
-                        className="text-[10px]"
+                        className="text-xs"
                     >
                         {items.length}
                     </Badge>
                 </div>
                 <NextLink
                     href="/field/sales/orders?followUpDue=1"
-                    className="min-h-11 inline-flex items-center text-[10px] font-semibold text-primary hover:underline"
+                    className="min-h-11 inline-flex items-center text-xs font-semibold text-primary hover:underline"
                 >
                     Lihat semua
                 </NextLink>
@@ -58,13 +58,13 @@ export function FollowUpTodaySection({ items }: FollowUpTodaySectionProps) {
                             <p className="text-xs font-semibold text-foreground truncate">
                                 {item.customerName}
                             </p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 {item.orderNumber} · {item.displayDate}
                             </p>
                         </div>
                         <Badge
                             variant={item.isOverdue ? 'destructive' : 'outline'}
-                            className="shrink-0 text-[10px]"
+                            className="shrink-0 text-xs"
                         >
                             {item.isOverdue ? 'Terlambat' : 'Hari ini'}
                         </Badge>

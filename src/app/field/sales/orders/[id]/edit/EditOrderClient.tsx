@@ -245,7 +245,10 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
         <div className="pb-40">
             <div className="sticky top-0 z-30 bg-background border-b px-4 py-3 flex items-center gap-3">
                 <Button variant="ghost" size="icon" asChild>
-                    <Link href={`/field/sales/orders/${order.id}`}>
+                    <Link
+                        href={`/field/sales/orders/${order.id}`}
+                        aria-label="Kembali"
+                    >
                         <ArrowLeft className="h-5 w-5" />
                     </Link>
                 </Button>

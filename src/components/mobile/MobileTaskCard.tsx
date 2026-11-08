@@ -55,7 +55,7 @@ export function MobileTaskCard({
                     </h4>
                     <span
                         className={cn(
-                            'shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded',
+                            'shrink-0 text-xs font-medium px-1.5 py-0.5 rounded',
                             PRIORITY_STYLES[priority],
                         )}
                     >
@@ -68,7 +68,7 @@ export function MobileTaskCard({
                     </p>
                 )}
                 {dueAt && (
-                    <p className="text-[10px] text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                         Jatuh tempo: {dueAt}
                     </p>
                 )}

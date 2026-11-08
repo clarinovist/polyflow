@@ -42,7 +42,7 @@ export function PipelineSummaryCard({
                 </div>
                 <NextLink
                     href="/field/sales/orders"
-                    className="min-h-11 inline-flex items-center text-[10px] font-semibold text-primary hover:underline"
+                    className="min-h-11 inline-flex items-center text-xs font-semibold text-primary hover:underline"
                 >
                     Lihat semua
                 </NextLink>
@@ -55,7 +55,7 @@ export function PipelineSummaryCard({
                         {openQuotationCount} penawaran
                         {openQuotationAmount !== undefined &&
                             openQuotationAmount > 0 && (
-                                <span className="text-[10px] font-normal opacity-70">
+                                <span className="text-xs font-normal opacity-70">
                                     {formatRupiah(openQuotationAmount)}
                                 </span>
                             )}
@@ -65,7 +65,7 @@ export function PipelineSummaryCard({
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900/30 text-xs font-semibold text-amber-700 dark:text-amber-400">
                         {activeCount} aktif
                         {pipelineAmount !== undefined && pipelineAmount > 0 && (
-                            <span className="text-[10px] font-normal opacity-70">
+                            <span className="text-xs font-normal opacity-70">
                                 {formatRupiah(pipelineAmount)}
                             </span>
                         )}
@@ -98,7 +98,7 @@ export function PipelineSummaryCard({
                                 <p className="text-xs font-semibold text-foreground truncate">
                                     {item.customerName}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     {item.orderNumber}
                                 </p>
                             </div>
@@ -110,7 +110,7 @@ export function PipelineSummaryCard({
                                             : '-'}
                                     </p>
                                 )}
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     {item.status}
                                 </p>
                             </div>

@@ -146,6 +146,7 @@ export default function SalesMobileVisitsHistoryClient({
                     <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Kembali"
                         onClick={() => router.push('/field/sales')}
                         className="shrink-0"
                     >
@@ -165,6 +166,7 @@ export default function SalesMobileVisitsHistoryClient({
                         onClick={clearHistory}
                         className="text-destructive hover:bg-destructive/10"
                         title="Hapus Riwayat Lokal"
+                        aria-label="Hapus riwayat lokal"
                     >
                         <Trash2 className="h-5 w-5" />
                     </Button>

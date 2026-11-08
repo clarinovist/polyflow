@@ -196,6 +196,19 @@
     body {
         @apply bg-background text-foreground;
     }
+
+    /* Hilangkan jeda ketuk & zoom ganda pada kontrol di layar sentuh. */
+    a,
+    button,
+    summary,
+    label,
+    select,
+    input,
+    textarea,
+    [role='button'],
+    [role='tab'] {
+        touch-action: manipulation;
+    }
 }
 
 @layer utilities {
@@ -306,5 +319,33 @@ body:has([data-mobile-safe-area]) main::after {
     body {
         margin: 0;
         padding: 0;
+    }
+}
+
+/*
+ * Reduced motion: hentikan gerak dekoratif/berulang, tapi pertahankan sinyal
+ * status. Skeleton/pulse jadi statis (tetap terbaca sebagai placeholder),
+ * spinner diperlambat agar tetap menandakan "sedang memuat", transisi
+ * masuk-keluar (dialog/sheet) jadi instan tanpa zoom/slide.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .animate-pulse,
+    .animate-bounce,
+    .animate-ping,
+    .animate-gradient {
+        animation: none;
+    }
+
+    .animate-spin {
+        animation-duration: 2.4s;
+    }
+
+    .animate-in,
+    .animate-out {
+        animation: none;
+    }
+
+    html {
+        scroll-behavior: auto;
     }
 }

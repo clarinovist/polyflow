@@ -104,7 +104,7 @@ export function MobilePortalBottomNav({
     return (
         <nav
             aria-label={config.label}
-            className="fixed right-0 bottom-0 left-0 z-50 flex min-h-16 border-t bg-white py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg dark:border-slate-800 dark:bg-slate-900"
+            className="fixed right-0 bottom-0 left-0 z-50 flex min-h-16 border-t bg-background py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg"
         >
             {items.map((item) => {
                 const taskDetail =
@@ -128,10 +128,10 @@ export function MobilePortalBottomNav({
                         href={item.href}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-[10px] font-medium min-[360px]:text-[11px]',
+                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-0.5 text-xs font-medium',
                             active
                                 ? config.activeClass
-                                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400',
+                                : 'text-muted-foreground hover:text-foreground',
                         )}
                     >
                         <item.icon aria-hidden="true" className="h-5 w-5" />
