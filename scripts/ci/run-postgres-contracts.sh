@@ -38,6 +38,7 @@ npx vitest run --maxWorkers=1 --no-file-parallelism \
   src/services/production/__tests__/scrap-void-postgres.test.ts \
   src/services/sales/__tests__/trip-distance-postgres.test.ts \
   src/services/sales/__tests__/vehicle-service-postgres.test.ts \
+  src/services/assistant/__tests__/action-proposal-postgres.test.ts \
   src/actions/inventory/__tests__/deliveries-postgres.test.ts \
   src/actions/finance/__tests__/mobile-readiness-postgres.test.ts \
   src/actions/dashboard/__tests__/finance-dashboard-postgres.test.ts \
