@@ -29,7 +29,7 @@ export default async function MyLayout({
 
     return (
         <div className="min-h-dvh bg-muted/40 dark:bg-zinc-950 flex flex-col">
-            <header className="h-14 border-b bg-white dark:bg-zinc-900 px-4 flex items-center justify-between sticky top-0 z-40">
+            <header className="min-h-[calc(3.5rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] border-b bg-white dark:bg-zinc-900 px-4 flex items-center justify-between sticky top-0 z-40">
                 <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-black text-sm">
                         M
