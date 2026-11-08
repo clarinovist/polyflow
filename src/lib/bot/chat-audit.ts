@@ -119,33 +119,33 @@ export async function logVirtualCsEvent(
     }
 
     const auditUserId = input.userId || process.env.OPENCLAW_SYSTEM_USER_ID;
-    if (!auditUserId) return interactionId;
-
-    try {
-        await logActivity({
-            userId: auditUserId,
-            action: input.allowed
-                ? 'VIRTUAL_CS_QUERY_ALLOWED'
-                : 'VIRTUAL_CS_QUERY_BLOCKED',
-            entityType: 'VirtualCS',
-            entityId: input.product,
-            details: `${input.channel.toUpperCase()} | ${compactQuestion(input.question)}`,
-            changes: {
+    if (auditUserId) {
+        try {
+            await logActivity({
+                userId: auditUserId,
+                action: input.allowed
+                    ? 'VIRTUAL_CS_QUERY_ALLOWED'
+                    : 'VIRTUAL_CS_QUERY_BLOCKED',
+                entityType: 'VirtualCS',
+                entityId: input.product,
+                details: `${input.channel.toUpperCase()} | ${compactQuestion(input.question)}`,
+                changes: {
+                    channel: input.channel,
+                    success: input.success,
+                    allowed: input.allowed,
+                    blockedReason: input.blockedReason || null,
+                    requesterName: input.requesterName || null,
+                    latencyMs: input.latencyMs,
+                    citedSlugs: input.citedSlugs || [],
+                },
+            });
+        } catch (error) {
+            logger.error('Failed to persist Virtual CS audit log', {
+                module: 'VirtualCS',
                 channel: input.channel,
-                success: input.success,
-                allowed: input.allowed,
-                blockedReason: input.blockedReason || null,
-                requesterName: input.requesterName || null,
-                latencyMs: input.latencyMs,
-                citedSlugs: input.citedSlugs || [],
-            },
-        });
-    } catch (error) {
-        logger.error('Failed to persist Virtual CS audit log', {
-            module: 'VirtualCS',
-            channel: input.channel,
-            error,
-        });
+                error,
+            });
+        }
     }
 
     // Async clustering — best effort, never block chat response
@@ -171,19 +171,19 @@ export async function logVirtualCsEvent(
         /* best effort */
     }
 
-    // Feature-request signals — additive, never blocks chat response.
-    // Explicit asks route here so help clusters stay focused on how-to questions.
+    // Feature signals — explicit asks and partially answered questions. Additive,
+    // never blocks the chat response.
     try {
         const { sanitizeQuestion } = await import("./help-sanitizer");
-        const { isFeatureRequest, upsertFeatureSignal } = await import("./feature-signals");
-        if (isFeatureRequest(input.question)) {
-            const sanitized = sanitizeQuestion(input.question);
+        const { resolveSignalKind, upsertFeatureSignal } = await import("./feature-signals");
+        const signalKind = resolveSignalKind(input.question, resolveOutcome(input));
+        if (signalKind) {
             upsertFeatureSignal({
                 question: input.question.slice(0, 500),
-                redactedSample: sanitized,
+                redactedSample: sanitizeQuestion(input.question),
                 userId: input.userId,
                 tenantId: input.tenantId,
-                signalKind: "explicit_request",
+                signalKind,
             }).catch((error) => {
                 logger.error('Feature signal upsert rejected', {
                     module: 'FeatureSignals',
@@ -191,8 +191,11 @@ export async function logVirtualCsEvent(
                 });
             });
         }
-    } catch {
-        /* best effort */
+    } catch (error) {
+        logger.error('Feature signal classification failed', {
+            module: 'FeatureSignals',
+            error,
+        });
     }
 
     return interactionId;

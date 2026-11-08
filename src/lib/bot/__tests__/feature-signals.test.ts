@@ -46,3 +46,23 @@ describe('candidate threshold', () => {
         expect(FEATURE_CANDIDATE_MIN_USERS).toBeGreaterThanOrEqual(2);
     });
 });
+
+describe('signal kind resolution', () => {
+    it('keeps explicit requests as explicit_request whatever the outcome', async () => {
+        const { resolveSignalKind } = await import('../feature-signals');
+        expect(resolveSignalKind('Tolong tambahkan fitur laporan umur piutang', 'SUCCESS')).toBe('explicit_request');
+        expect(resolveSignalKind('Tolong tambahkan fitur laporan umur piutang', 'PARTIAL')).toBe('explicit_request');
+    });
+
+    it('treats a partially answered question as unanswered_repeat', async () => {
+        const { resolveSignalKind } = await import('../feature-signals');
+        expect(resolveSignalKind('Bagaimana rekap borongan per minggu?', 'PARTIAL')).toBe('unanswered_repeat');
+    });
+
+    it('ignores system failures, blocked, escalated and answered questions', async () => {
+        const { resolveSignalKind } = await import('../feature-signals');
+        for (const outcome of ['FAILED', 'BLOCKED', 'ESCALATED', 'SUCCESS'] as const) {
+            expect(resolveSignalKind('Bagaimana rekap borongan per minggu?', outcome)).toBeNull();
+        }
+    });
+});

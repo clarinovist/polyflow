@@ -37,6 +37,20 @@ export function isFeatureRequest(question: string): boolean {
     return REQUEST_PATTERNS.some((re) => re.test(question));
 }
 
+export type SignalKind = 'explicit_request' | 'unanswered_repeat';
+
+/**
+ * Decide whether an assistant interaction is an unmet-need signal.
+ * Explicit asks always win. A PARTIAL outcome means the assistant answered but
+ * could not resolve the question. FAILED is excluded (system or network errors,
+ * not product gaps), as are BLOCKED, ESCALATED and answered questions.
+ */
+export function resolveSignalKind(question: string, outcome: string): SignalKind | null {
+    if (isFeatureRequest(question)) return 'explicit_request';
+    if (outcome === 'PARTIAL' && question.trim().length >= 8) return 'unanswered_repeat';
+    return null;
+}
+
 export function normalizeRequest(question: string): string {
     return question
         .toLowerCase()
