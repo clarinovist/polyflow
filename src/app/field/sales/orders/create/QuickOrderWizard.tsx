@@ -432,7 +432,7 @@ export function QuickOrderWizard({
                                                 {c.name}
                                             </span>
                                             {c.code && (
-                                                <span className="text-[10px] text-muted-foreground">
+                                                <span className="text-xs text-muted-foreground">
                                                     {c.code}
                                                 </span>
                                             )}
@@ -476,7 +476,7 @@ export function QuickOrderWizard({
                                 </option>
                             ))}
                         </select>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                             Bisa dikosongkan untuk order cepat. Pilih gudang
                             saat ingin kirim barang.
                         </p>
@@ -581,7 +581,7 @@ export function QuickOrderWizard({
                                                               )
                                                             : '-'} /{p.primaryUnit}
                                                     </p>
-                                                    <p className="text-[10px] text-muted-foreground">
+                                                    <p className="text-xs text-muted-foreground">
                                                         {locationStock !== null
                                                             ? `Stok gudang: ${formatQuantity(locationStock)} ${p.primaryUnit} (total: ${formatQuantity(totalStock)} ${p.primaryUnit})`
                                                             : `Stok: ${formatQuantity(totalStock)} ${p.primaryUnit}`}
@@ -652,7 +652,7 @@ export function QuickOrderWizard({
                                         <UnitEntryControl meta={meta} quantity={item.quantity} price={item.unitPrice} index={index} onChange={unit => changeUnit(product, item, unit)} disabled={isSubmitting} />
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
-                                                <label htmlFor={`field-qty-${index}`} className="text-[10px] text-muted-foreground">
+                                                <label htmlFor={`field-qty-${index}`} className="text-xs text-muted-foreground">
                                                     Jumlah ({meta.displayUnit})
                                                 </label>
                                                 <Input
@@ -690,7 +690,7 @@ export function QuickOrderWizard({
                                                 />
                                             </div>
                                             <div>
-                                                <label htmlFor={`field-price-${index}`} className="text-[10px] text-muted-foreground">
+                                                <label htmlFor={`field-price-${index}`} className="text-xs text-muted-foreground">
                                                     Harga per {meta.displayUnit}
                                                 </label>
                                                 <Input
@@ -825,7 +825,7 @@ export function QuickOrderWizard({
                             <p className="text-sm font-medium">
                                 Simpan sebagai penawaran
                             </p>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Harga belum final, bisa dilengkapi sebelum
                                 konfirmasi
                             </p>
@@ -861,7 +861,7 @@ export function QuickOrderWizard({
                                 onChange={(e) => setValidUntil(e.target.value)}
                                 className="h-11 mt-1"
                             />
-                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                                 Tanggal kedaluwarsa penawaran
                             </p>
                         </div>
@@ -1039,7 +1039,7 @@ export function QuickOrderWizard({
                                     className="h-11 mt-1"
                                     maxLength={20}
                                 />
-                                <p className="text-[10px] text-muted-foreground mt-0.5">
+                                <p className="text-xs text-muted-foreground mt-0.5">
                                     5-20 karakter, huruf besar & angka
                                 </p>
                             </div>

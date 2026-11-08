@@ -47,7 +47,7 @@ export default async function MyProduksiPage({
                 <h1 className="text-lg font-black tracking-tight">
                     Hasil Produksi Saya
                 </h1>
-                <div className="text-[11px] text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                     30 hari terakhir
                 </div>
             </div>
@@ -55,7 +55,7 @@ export default async function MyProduksiPage({
             <div className="grid grid-cols-3 gap-2">
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Total Laporan
                         </div>
                         <div className="font-black">{prods.length}</div>
@@ -63,7 +63,7 @@ export default async function MyProduksiPage({
                 </Card>
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Total Kg
                         </div>
                         <div className="font-black">{totalKg.toFixed(1)}</div>
@@ -71,7 +71,7 @@ export default async function MyProduksiPage({
                 </Card>
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Borongan
                         </div>
                         <div className="font-black text-emerald-600">
@@ -83,7 +83,7 @@ export default async function MyProduksiPage({
 
             {weekly && (
                 <Card className="bg-amber-50 border-amber-200">
-                    <CardContent className="p-3 text-[11px] flex justify-between">
+                    <CardContent className="p-3 text-xs flex justify-between">
                         <span>
                             Progress minggu ini: {weekly.daysWorked ?? 0} hari •{' '}
                             {weekly.totalKgPaid ?? 0} Kg
@@ -118,10 +118,10 @@ export default async function MyProduksiPage({
                                         <div className="text-xs font-semibold truncate">
                                             {p.productName}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground truncate">
+                                        <div className="text-xs text-muted-foreground truncate">
                                             {p.orderNumber} • {p.machineName}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {new Date(
                                                 p.startTime,
                                             ).toLocaleString('id-ID')}
@@ -132,7 +132,7 @@ export default async function MyProduksiPage({
                                             {formatQuantity(p.quantity)} Kg
                                         </div>
                                         {p.pieceEarnings != null && (
-                                            <div className="text-[10px] text-emerald-600">
+                                            <div className="text-xs text-emerald-600">
                                                 {fmtIdr(p.pieceEarnings)}
                                             </div>
                                         )}
@@ -144,7 +144,7 @@ export default async function MyProduksiPage({
                 </CardContent>
             </Card>
 
-            <div className="text-[11px] text-muted-foreground bg-muted/40 rounded-xl p-3">
+            <div className="text-xs text-muted-foreground bg-muted/40 rounded-xl p-3">
                 💡 Tips: Setiap input produksi di kiosk akan langsung menambah
                 estimasi gaji minggu ini. Pastikan operator & helper terisi
                 benar supaya upah terbagi sesuai.

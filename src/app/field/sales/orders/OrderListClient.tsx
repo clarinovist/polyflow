@@ -96,7 +96,7 @@ export function OrderListClient({ orders }: OrderListClientProps) {
                                         </h3>
                                         <Badge
                                             variant="secondary"
-                                            className={`text-[10px] px-1.5 h-4 ${getMobileStatusColor(order.status)}`}
+                                            className={`text-xs px-1.5 h-4 ${getMobileStatusColor(order.status)}`}
                                         >
                                             {getMobileStatusLabel(
                                                 order.status,

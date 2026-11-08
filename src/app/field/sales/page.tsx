@@ -98,7 +98,7 @@ export default async function FieldSalesDashboardPage() {
                 sections.compliance.data.assigned > 0 && (
                     <div className="border rounded-xl p-3 bg-card">
                         <div className="flex items-center justify-between mb-1.5">
-                            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
+                            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
                                 Compliance Hari Ini
                             </span>
                             <span className="text-xs font-bold">
@@ -115,11 +115,11 @@ export default async function FieldSalesDashboardPage() {
                             />
                         </div>
                         <div className="flex justify-between mt-1">
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                                 {sections.compliance.data.compliance}% selesai
                             </span>
                             {sections.compliance.data.extraCalls > 0 && (
-                                <span className="text-[10px] text-orange-600 font-semibold">
+                                <span className="text-xs text-orange-600 font-semibold">
                                     +{sections.compliance.data.extraCalls} EC
                                 </span>
                             )}
@@ -203,7 +203,7 @@ export default async function FieldSalesDashboardPage() {
                         >
                             <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
                             <div className="min-w-0">
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     Piutang
                                     {receivables.data.overdueCount > 0
                                         ? ` (${receivables.data.overdueCount} overdue)`
@@ -221,7 +221,7 @@ export default async function FieldSalesDashboardPage() {
                         <div className="flex items-center gap-3 p-3 border rounded-xl text-sm min-h-[48px]">
                             <ReceiptText className="h-5 w-5 text-rose-500 shrink-0" />
                             <div className="min-w-0">
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     Piutang aktif
                                 </p>
                                 <p className="font-bold text-sm">
@@ -237,7 +237,7 @@ export default async function FieldSalesDashboardPage() {
                     <div className="flex items-center gap-3 p-3 border rounded-xl min-h-[48px]">
                         <ShoppingCart className="h-5 w-5 text-blue-500 shrink-0" />
                         <div className="min-w-0">
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Order Aktif
                             </p>
                             <p className="font-bold text-sm">

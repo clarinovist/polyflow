@@ -139,7 +139,7 @@ export default async function MobileSelectorPage({
                                                 {portal.description}
                                             </p>
                                             {portal.status === 'BETA' && (
-                                                <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                                <span className="inline-block text-xs font-medium px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
                                                     BETA
                                                 </span>
                                             )}

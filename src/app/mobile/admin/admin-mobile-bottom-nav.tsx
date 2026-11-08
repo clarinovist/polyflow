@@ -35,7 +35,7 @@ export function AdminMobileBottomNav() {
                         href={item.path}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[11px] font-medium',
+                            'flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-xs font-medium',
                             active
                                 ? 'text-sky-700 dark:text-sky-300'
                                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400',

@@ -306,7 +306,7 @@ export function OrderDetailClient({
                         </h1>
                         <Badge
                             variant="secondary"
-                            className={`text-[10px] px-1.5 h-4 shrink-0 ${getMobileStatusColor(order.status)}`}
+                            className={`text-xs px-1.5 h-4 shrink-0 ${getMobileStatusColor(order.status)}`}
                         >
                             {getMobileStatusLabel(
                                 order.status,
@@ -417,14 +417,14 @@ export function OrderDetailClient({
                                     </span>
                                     <Badge
                                         variant="outline"
-                                        className="text-[10px] px-2 py-0.5 rounded-full capitalize font-semibold border-primary/20 text-primary bg-primary/5"
+                                        className="text-xs px-2 py-0.5 rounded-full capitalize font-semibold border-primary/20 text-primary bg-primary/5"
                                     >
                                         {doItem.status.toLowerCase()}
                                     </Badge>
                                 </div>
                                 {(doItem.status === 'PENDING' ||
                                     doItem.status === 'LOADING') && (
-                                    <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                                    <p className="text-xs text-amber-700 dark:text-amber-400">
                                         {salesLabels.sjPendingHint}. Konfirmasi
                                         pengiriman melalui petugas gudang yang
                                         berwenang.
@@ -451,7 +451,7 @@ export function OrderDetailClient({
                                     </div>
                                 )}
                                 <div className="pt-2 border-t space-y-1.5">
-                                    <p className="font-bold text-muted-foreground text-[10px] uppercase tracking-wider">
+                                    <p className="font-bold text-muted-foreground text-xs uppercase tracking-wider">
                                         Item dalam Pengiriman:
                                     </p>
                                     {doItem.items.map((item) => (
@@ -526,7 +526,7 @@ export function OrderDetailClient({
 
             {/* Sticky Action Bar */}
             {order.status !== 'CANCELLED' && (
-                <div className="fixed bottom-16 left-0 right-0 p-4 bg-background border-t z-40 shadow-lg">
+                <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 p-4 bg-background border-t z-40 shadow-lg">
                     <div className="flex flex-wrap gap-2">
                         {/* Edit Item — sales field bisa tambah item / ubah qty
                             tanpa menelepon admin. Rute di bawah /field supaya
@@ -644,7 +644,7 @@ export function OrderDetailClient({
                             </p>
                         )}
                         {openDeliveryOrders.length > 1 && (
-                            <p className="w-full text-center text-[11px] text-amber-700 dark:text-amber-400">
+                            <p className="w-full text-center text-xs text-amber-700 dark:text-amber-400">
                                 {salesLabels.selectDoToShip}
                             </p>
                         )}
@@ -898,7 +898,7 @@ export function OrderDetailClient({
                                                         <p className="font-semibold text-xs text-foreground truncate">
                                                             {item.productName}
                                                         </p>
-                                                        <p className="text-[10px] text-muted-foreground">
+                                                        <p className="text-xs text-muted-foreground">
                                                             {item.variantName} •
                                                             Qty Order:{' '}
                                                             {formatQuantity(
@@ -912,7 +912,7 @@ export function OrderDetailClient({
                                                     <div className="pl-7 grid grid-cols-2 gap-2.5 animate-in slide-in-from-top-2 duration-150">
                                                         {/* Quantity Input */}
                                                         <div className="space-y-0.5">
-                                                            <span className="text-[9px] text-muted-foreground font-bold uppercase">
+                                                            <span className="text-xs text-muted-foreground font-bold uppercase">
                                                                 Jumlah Retur
                                                             </span>
                                                             <div className="flex items-center gap-1">
@@ -950,7 +950,7 @@ export function OrderDetailClient({
                                                                             item.quantity,
                                                                         )
                                                                     }
-                                                                    className="h-8 w-12 border rounded-lg bg-background text-center text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
+                                                                    className="h-8 pointer-coarse:h-11 w-12 border rounded-lg bg-background text-center text-xs font-semibold focus:ring-1 focus:ring-primary outline-none"
                                                                 />
                                                                 <Button
                                                                     size="sm"
@@ -972,7 +972,7 @@ export function OrderDetailClient({
 
                                                         {/* Condition Pick */}
                                                         <div className="space-y-0.5">
-                                                            <span className="text-[9px] text-muted-foreground font-bold uppercase">
+                                                            <span className="text-xs text-muted-foreground font-bold uppercase">
                                                                 Kondisi Barang
                                                             </span>
                                                             <select
@@ -987,7 +987,7 @@ export function OrderDetailClient({
                                                                             .value,
                                                                     )
                                                                 }
-                                                                className="w-full h-8 px-2 border rounded-lg bg-background text-xs outline-none focus:ring-1 focus:ring-primary"
+                                                                className="w-full h-8 pointer-coarse:h-11 px-2 border rounded-lg bg-background text-xs outline-none focus:ring-1 focus:ring-primary"
                                                             >
                                                                 {ITEM_CONDITIONS.map(
                                                                     (c) => (

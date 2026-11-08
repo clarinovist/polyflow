@@ -286,7 +286,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                     {isDelivered ? (
                                         <Badge
                                             variant="secondary"
-                                            className="shrink-0 text-[11px]"
+                                            className="shrink-0 text-xs"
                                         >
                                             Terkirim:{' '}
                                             {formatQuantity(item.deliveredQty)} {meta.primaryUnit}
@@ -307,7 +307,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                 <UnitEntryControl meta={meta} quantity={item.quantity} price={item.unitPrice} index={index} onChange={unit => changeUnit(index, unit)} disabled={priceLocked || isDelivered || isSaving} />
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <label htmlFor={`edit-qty-${index}`} className="text-[11px] text-muted-foreground">
+                                        <label htmlFor={`edit-qty-${index}`} className="text-xs text-muted-foreground">
                                             Jumlah ({meta.displayUnit})
                                         </label>
                                         <Input
@@ -324,7 +324,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                                         />
                                     </div>
                                     <div>
-                                        <label htmlFor={`edit-price-${index}`} className="text-[11px] text-muted-foreground">
+                                        <label htmlFor={`edit-price-${index}`} className="text-xs text-muted-foreground">
                                             Harga per {meta.displayUnit}
                                         </label>
                                         <Input
@@ -374,7 +374,7 @@ export function EditOrderClient({ order, products }: EditOrderClientProps) {
                 </div>
             </div>
 
-            <div className="fixed bottom-16 left-0 right-0 bg-background border-t p-4 space-y-2 z-40 shadow-lg">
+            <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] left-0 right-0 bg-background border-t p-4 space-y-2 z-40 shadow-lg">
                 <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Subtotal</span>
                     <span>{formatRupiah(totals.subtotal)}</span>

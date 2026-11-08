@@ -73,7 +73,7 @@ export default async function MyAbsensiPage({
             <div className="grid grid-cols-4 gap-2">
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Hadir
                         </div>
                         <div className="font-black text-emerald-600">
@@ -83,7 +83,7 @@ export default async function MyAbsensiPage({
                 </Card>
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Alfa
                         </div>
                         <div className="font-black text-rose-600">{absent}</div>
@@ -91,7 +91,7 @@ export default async function MyAbsensiPage({
                 </Card>
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Izin/Cuti
                         </div>
                         <div className="font-black text-amber-600">{leave}</div>
@@ -99,7 +99,7 @@ export default async function MyAbsensiPage({
                 </Card>
                 <Card className="py-0">
                     <CardContent className="p-3">
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Jam
                         </div>
                         <div className="font-black">{hours.toFixed(1)}</div>
@@ -134,7 +134,7 @@ export default async function MyAbsensiPage({
                                             })}{' '}
                                             • {r.shiftName}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {r.clockInAt
                                                 ? new Date(
                                                       r.clockInAt,
@@ -164,11 +164,11 @@ export default async function MyAbsensiPage({
                                     </div>
                                     <div className="text-right">
                                         <div
-                                            className={`text-[10px] px-2 py-0.5 rounded-full inline-block ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}
+                                            className={`text-xs px-2 py-0.5 rounded-full inline-block ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}
                                         >
                                             {r.status}
                                         </div>
-                                        <div className="text-[11px] mt-1">
+                                        <div className="text-xs mt-1">
                                             {r.actualHours != null
                                                 ? `${Number(r.actualHours).toFixed(1)}j`
                                                 : '-'}

@@ -243,28 +243,28 @@ export default function SalesMobileVisitsHistoryClient({
                                         <h3 className="font-bold text-sm text-foreground truncate">
                                             {log.customerName}
                                         </h3>
-                                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5">
+                                        <span className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                                             <Calendar className="h-3 w-3" />
                                             {format(date, 'dd MMM yyyy, HH:mm')}
                                         </span>
                                     </div>
                                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
                                         {isEC && (
-                                            <Badge className="font-bold border shrink-0 text-[10px] bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
+                                            <Badge className="font-bold border shrink-0 text-xs bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400 border-orange-100">
                                                 <AlertTriangle className="inline h-2.5 w-2.5 mr-0.5" />
                                                 EC
                                             </Badge>
                                         )}
                                         {isEC && log.reviewStatus && (
                                             <Badge
-                                                className={`font-bold border shrink-0 text-[10px] ${REVIEW_BADGE[log.reviewStatus]?.className ?? 'bg-gray-100 text-gray-600'}`}
+                                                className={`font-bold border shrink-0 text-xs ${REVIEW_BADGE[log.reviewStatus]?.className ?? 'bg-gray-100 text-gray-600'}`}
                                             >
                                                 {REVIEW_BADGE[log.reviewStatus]
                                                     ?.label ?? log.reviewStatus}
                                             </Badge>
                                         )}
                                         <Badge
-                                            className={`font-bold border shrink-0 text-[10px] ${
+                                            className={`font-bold border shrink-0 text-xs ${
                                                 isSynced
                                                     ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 border-emerald-100'
                                                     : 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 border-amber-100'
@@ -277,7 +277,7 @@ export default function SalesMobileVisitsHistoryClient({
 
                                 {/* EC Reason */}
                                 {isEC && log.extraReason && (
-                                    <div className="pl-1.5 flex items-center gap-1.5 text-[10px] text-orange-700 dark:text-orange-400">
+                                    <div className="pl-1.5 flex items-center gap-1.5 text-xs text-orange-700 dark:text-orange-400">
                                         <AlertTriangle className="h-3 w-3" />
                                         <span className="font-semibold">
                                             Alasan:
@@ -292,7 +292,7 @@ export default function SalesMobileVisitsHistoryClient({
 
                                 <div className="pl-1.5 grid grid-cols-2 gap-3 pt-2.5 border-t text-xs">
                                     <div className="space-y-1">
-                                        <span className="flex items-center gap-1 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
+                                        <span className="flex items-center gap-1 text-muted-foreground text-xs uppercase font-bold tracking-wider">
                                             <Clock className="h-3.5 w-3.5" />{' '}
                                             Durasi
                                         </span>
@@ -303,7 +303,7 @@ export default function SalesMobileVisitsHistoryClient({
                                         </p>
                                     </div>
                                     <div className="space-y-1">
-                                        <span className="flex items-center gap-1 text-muted-foreground text-[10px] uppercase font-bold tracking-wider">
+                                        <span className="flex items-center gap-1 text-muted-foreground text-xs uppercase font-bold tracking-wider">
                                             <Navigation className="h-3.5 w-3.5" />{' '}
                                             Jarak
                                         </span>
@@ -314,7 +314,7 @@ export default function SalesMobileVisitsHistoryClient({
                                 </div>
 
                                 <div className="pl-1.5 p-3 bg-muted/40 rounded-xl space-y-1 text-xs">
-                                    <span className="flex items-center gap-1 text-muted-foreground font-semibold text-[10px]">
+                                    <span className="flex items-center gap-1 text-muted-foreground font-semibold text-xs">
                                         <FileText className="h-3.5 w-3.5 text-muted-foreground/60" />{' '}
                                         Catatan:
                                     </span>
@@ -325,7 +325,7 @@ export default function SalesMobileVisitsHistoryClient({
 
                                 {log.photoUrl && (
                                     <div className="pl-1.5">
-                                        <span className="text-[10px] font-semibold text-muted-foreground block mb-1">
+                                        <span className="text-xs font-semibold text-muted-foreground block mb-1">
                                             Foto Bukti:
                                         </span>
                                         <div className="relative border rounded-xl overflow-hidden h-32 w-44 bg-muted/20 shadow-xs">

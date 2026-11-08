@@ -38,7 +38,7 @@ export default async function MyLayout({
                         <div className="font-bold text-sm tracking-tight">
                             MY • {tenantLabel}
                         </div>
-                        <div className="text-[10px] text-muted-foreground -mt-0.5">
+                        <div className="text-xs text-muted-foreground -mt-0.5">
                             {company?.name ?? 'Employee Portal'}
                         </div>
                     </div>
@@ -49,7 +49,7 @@ export default async function MyLayout({
                             <div className="text-xs font-semibold">
                                 {session.name}
                             </div>
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                                 {session.code}
                             </div>
                         </div>

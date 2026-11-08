@@ -399,7 +399,7 @@ export function CollectionListClient({
                         {formatRupiah(totalOutstanding)}
                     </p>
                 </div>
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                     {filtered.length} invoice
                 </Badge>
             </div>
@@ -481,7 +481,7 @@ export function CollectionListClient({
                                 <div className="p-4 space-y-3">
                                     <div className="flex justify-between items-start gap-2">
                                         <div className="min-w-0">
-                                            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                                            <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
                                                 {inv.invoiceNumber}
                                             </span>
                                             <h3 className="font-bold text-sm text-foreground truncate mt-0.5">
@@ -496,7 +496,7 @@ export function CollectionListClient({
                                         </div>
                                         <Badge
                                             variant="outline"
-                                            className={`text-[9px] uppercase font-bold shrink-0 ${getOverdueBadgeStyle(inv.daysOverdue)}`}
+                                            className={`text-xs uppercase font-bold shrink-0 ${getOverdueBadgeStyle(inv.daysOverdue)}`}
                                         >
                                             {formatOverdueLabel(
                                                 inv.daysOverdue,
@@ -506,7 +506,7 @@ export function CollectionListClient({
 
                                     <div className="grid grid-cols-2 gap-2 pt-2.5 border-t text-xs">
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 Jatuh Tempo
                                             </p>
                                             <p
@@ -522,7 +522,7 @@ export function CollectionListClient({
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 Sisa Piutang
                                             </p>
                                             <p className="font-bold text-sm text-rose-600 dark:text-rose-400">
@@ -592,7 +592,7 @@ export function CollectionListClient({
                                 {/* Expandable history */}
                                 {expanded && (
                                     <div className="border-t bg-muted/30 p-3 space-y-2">
-                                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                                             Riwayat Aktivitas
                                         </p>
                                         {isLoadingHist ? (
@@ -617,7 +617,7 @@ export function CollectionListClient({
                                                                     a.type
                                                                 ] ?? a.type}
                                                             </span>
-                                                            <span className="text-[10px] text-muted-foreground">
+                                                            <span className="text-xs text-muted-foreground">
                                                                 {format(
                                                                     new Date(
                                                                         a.activityDate,
@@ -628,7 +628,7 @@ export function CollectionListClient({
                                                         </div>
                                                         {a.type ===
                                                             'PROMISE_TO_PAY' && (
-                                                            <div className="flex gap-2 text-[11px]">
+                                                            <div className="flex gap-2 text-xs">
                                                                 <span>
                                                                     Janji:{' '}
                                                                     {a.promisedDate
@@ -664,7 +664,7 @@ export function CollectionListClient({
                                                             </p>
                                                         )}
                                                         {a.user?.name && (
-                                                            <p className="text-[10px] text-muted-foreground">
+                                                            <p className="text-xs text-muted-foreground">
                                                                 oleh{' '}
                                                                 {a.user.name}
                                                             </p>
@@ -792,7 +792,7 @@ export function CollectionListClient({
                                 placeholder="Catatan penagihan..."
                                 rows={3}
                             />
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 {/* ponytail: visitId auto-link skipped for now; field optional in model.
                                     Upgrade path: read active SalesVisit from workstream 02 check-in state (localStorage or action) and pass visitId here. */}
                                 Kaitan otomatis ke visit check-in aktif belum

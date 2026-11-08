@@ -152,7 +152,7 @@ export default async function MarketingMobilePage() {
                                             {task.subtitle}
                                         </p>
                                     </div>
-                                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                                         {task.priority}
                                     </span>
                                 </div>

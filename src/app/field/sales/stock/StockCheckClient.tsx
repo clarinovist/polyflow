@@ -133,7 +133,7 @@ export function StockCheckClient({
                                     {totalStock === 0 && (
                                         <Badge
                                             variant="destructive"
-                                            className="text-[10px] shrink-0"
+                                            className="text-xs shrink-0"
                                         >
                                             Habis
                                         </Badge>
@@ -141,7 +141,7 @@ export function StockCheckClient({
                                     {totalStock > 0 && totalStock <= 10 && (
                                         <Badge
                                             variant="secondary"
-                                            className="text-[10px] shrink-0 bg-amber-100 text-amber-800"
+                                            className="text-xs shrink-0 bg-amber-100 text-amber-800"
                                         >
                                             <AlertTriangle className="h-3 w-3 mr-1" />
                                             Sisa Sedikit

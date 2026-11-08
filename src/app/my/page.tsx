@@ -79,7 +79,7 @@ export default async function MyHomePage() {
                 {weekly && (
                     <div className="mt-4 grid grid-cols-2 gap-3">
                         <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-                            <div className="text-[10px] opacity-80 uppercase tracking-wider">
+                            <div className="text-xs opacity-80 uppercase tracking-wider">
                                 Estimasi Minggu Ini
                             </div>
                             <div className="text-lg font-black mt-1">
@@ -87,18 +87,18 @@ export default async function MyHomePage() {
                                     weekly.netPay ?? weekly.totalEarnings ?? 0,
                                 )}
                             </div>
-                            <div className="text-[10px] mt-1 opacity-80">
+                            <div className="text-xs mt-1 opacity-80">
                                 {weekly.daysWorked ?? 0} hari • {totalKgWeek} Kg
                             </div>
                         </div>
                         <div className="bg-white/15 backdrop-blur rounded-xl p-3">
-                            <div className="text-[10px] opacity-80 uppercase tracking-wider">
+                            <div className="text-xs opacity-80 uppercase tracking-wider">
                                 Kehadiran Bulan
                             </div>
                             <div className="text-lg font-black mt-1">
                                 {hadirBulanIni} hari
                             </div>
-                            <div className="text-[10px] mt-1 opacity-80">
+                            <div className="text-xs mt-1 opacity-80">
                                 {empFull?.payType ?? ''} • {empFull?.role ?? ''}
                             </div>
                         </div>
@@ -123,7 +123,7 @@ export default async function MyHomePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-[11px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                                 Estimasi, potongan BPJS, kasbon, slip.
                             </div>
                             {weekly && (
@@ -146,7 +146,7 @@ export default async function MyHomePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-[11px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                                 Output borongan & harian.
                             </div>
                             <div className="mt-2 text-sm font-bold">
@@ -163,7 +163,7 @@ export default async function MyHomePage() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="text-[11px] text-muted-foreground">
+                            <div className="text-xs text-muted-foreground">
                                 Hadir, izin, alfa bulan ini.
                             </div>
                             <div className="mt-2 text-sm font-bold">
@@ -194,7 +194,7 @@ export default async function MyHomePage() {
                                         <div className="text-xs font-semibold">
                                             {p.productName}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {p.orderNumber} • {p.machineName} •{' '}
                                             {new Date(
                                                 p.startTime,
@@ -206,7 +206,7 @@ export default async function MyHomePage() {
                                             {formatQuantity(p.quantity)} Kg
                                         </div>
                                         {p.pieceEarnings != null && (
-                                            <div className="text-[10px] text-emerald-600">
+                                            <div className="text-xs text-emerald-600">
                                                 {fmtIdr(p.pieceEarnings)}
                                             </div>
                                         )}
@@ -238,7 +238,7 @@ export default async function MyHomePage() {
                                     {finance.loans.slice(0, 2).map((l) => (
                                         <div
                                             key={l.id}
-                                            className="flex justify-between text-[11px]"
+                                            className="flex justify-between text-xs"
                                         >
                                             <span>{l.loanNumber}</span>
                                             <span className="font-bold">
@@ -248,7 +248,7 @@ export default async function MyHomePage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-[11px] text-muted-foreground">
+                                <div className="text-xs text-muted-foreground">
                                     Tidak ada kasbon aktif.
                                 </div>
                             )}
@@ -260,7 +260,7 @@ export default async function MyHomePage() {
                                 BPJS & Rekening
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="text-[11px] space-y-1">
+                        <CardContent className="text-xs space-y-1">
                             <div>
                                 Peserta:{' '}
                                 {finance.bpjs?.participant ? 'Ya' : 'Tidak'}

@@ -257,7 +257,7 @@ export function CustomerDetailClient({
                     {outstandingInvoices.length > 0 && (
                         <Badge
                             variant="destructive"
-                            className="text-[10px] font-bold"
+                            className="text-xs font-bold"
                         >
                             {outstandingInvoices.length} Faktur
                         </Badge>
@@ -289,7 +289,7 @@ export function CustomerDetailClient({
                                             <p className="font-semibold text-sm text-foreground">
                                                 {inv.invoiceNumber}
                                             </p>
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 Order: {inv.orderNumber}
                                             </p>
                                         </div>
@@ -299,7 +299,7 @@ export function CustomerDetailClient({
                                                     ? 'destructive'
                                                     : 'secondary'
                                             }
-                                            className="text-[10px] uppercase font-bold px-2 py-0.5"
+                                            className="text-xs uppercase font-bold px-2 py-0.5"
                                         >
                                             {isOverdue ? 'Overdue' : inv.status}
                                         </Badge>
@@ -307,7 +307,7 @@ export function CustomerDetailClient({
 
                                     <div className="grid grid-cols-2 gap-2 pt-1 border-t text-xs">
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 Jatuh Tempo
                                             </p>
                                             <p
@@ -322,7 +322,7 @@ export function CustomerDetailClient({
                                             </p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[10px] text-muted-foreground">
+                                            <p className="text-xs text-muted-foreground">
                                                 Sisa Piutang
                                             </p>
                                             <p className="font-bold text-rose-600 dark:text-rose-400">
@@ -379,7 +379,7 @@ export function CustomerDetailClient({
                                         </p>
                                         <Badge
                                             variant="outline"
-                                            className="text-[10px] mt-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
+                                            className="text-xs mt-0.5 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400"
                                         >
                                             Penawaran
                                         </Badge>
@@ -427,7 +427,7 @@ export function CustomerDetailClient({
                                         </p>
                                         <Badge
                                             variant="outline"
-                                            className="text-[10px] mt-0.5"
+                                            className="text-xs mt-0.5"
                                         >
                                             {order.status}
                                         </Badge>

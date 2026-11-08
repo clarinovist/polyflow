@@ -20,7 +20,7 @@ export default async function MyLoginPage() {
                         </p>
                     </div>
                     <LoginForm />
-                    <div className="text-[10px] text-muted-foreground leading-relaxed border-t pt-4">
+                    <div className="text-xs text-muted-foreground leading-relaxed border-t pt-4">
                         Lupa PIN? Hubungi HRD untuk reset. Data gaji hanya bisa
                         dilihat dengan PIN yang benar.
                     </div>

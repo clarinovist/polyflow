@@ -68,7 +68,7 @@ export default async function MyGajiPage({
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
                             <div className="bg-muted/40 rounded-lg p-2">
                                 <div className="text-muted-foreground">
                                     Hari Kerja
@@ -103,7 +103,7 @@ export default async function MyGajiPage({
                                 </div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                             <div className="rounded-lg p-2 border">
                                 <div>Harian</div>
                                 <div className="font-bold">
@@ -133,7 +133,7 @@ export default async function MyGajiPage({
                             )}
                         </div>
                         {weekly.bpjsDeduction > 0 && (
-                            <div className="text-[11px] text-rose-600">
+                            <div className="text-xs text-rose-600">
                                 Potongan BPJS minggu ini: -
                                 {fmtIdr(weekly.bpjsDeduction)}
                             </div>
@@ -148,7 +148,7 @@ export default async function MyGajiPage({
                                 )}
                             </div>
                         </div>
-                        <div className="text-[10px] text-muted-foreground">
+                        <div className="text-xs text-muted-foreground">
                             Estimasi real-time berdasarkan absensi & produksi
                             yang sudah diinput. Final sesuai payroll HRD.
                         </div>
@@ -167,7 +167,7 @@ export default async function MyGajiPage({
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs">Kasbon Aktif</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-[11px] space-y-1">
+                    <CardContent className="text-xs space-y-1">
                         {finance?.loans?.length ? (
                             finance.loans.map((l) => (
                                 <div
@@ -193,7 +193,7 @@ export default async function MyGajiPage({
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs">Potongan BPJS</CardTitle>
                     </CardHeader>
-                    <CardContent className="text-[11px] space-y-1">
+                    <CardContent className="text-xs space-y-1">
                         <div>
                             Peserta:{' '}
                             {finance?.bpjs?.participant ? 'Ya' : 'Tidak'}
@@ -231,7 +231,7 @@ export default async function MyGajiPage({
                                                 ? `${p.payrollPeriod.month}/${p.payrollPeriod.year}`
                                                 : p.id}
                                         </div>
-                                        <div className="text-[11px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             {p.status} • {fmtDate(p.createdAt)}
                                         </div>
                                     </div>
@@ -239,7 +239,7 @@ export default async function MyGajiPage({
                                         <div className="text-xs font-bold">
                                             {fmtIdr(Number(p.netPay ?? 0))}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">
+                                        <div className="text-xs text-muted-foreground">
                                             Bersih
                                         </div>
                                     </div>

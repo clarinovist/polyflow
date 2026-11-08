@@ -316,13 +316,13 @@ export function CustomerListClient({
                                             {!customer.isActive && (
                                                 <Badge
                                                     variant="secondary"
-                                                    className="text-[10px] shrink-0"
+                                                    className="text-xs shrink-0"
                                                 >
                                                     Non-aktif
                                                 </Badge>
                                             )}
                                             {inRoute && (
-                                                <Badge className="text-[10px] shrink-0 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100 dark:border-blue-900/30">
+                                                <Badge className="text-xs shrink-0 bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-400 border-blue-100 dark:border-blue-900/30">
                                                     <MapPin className="h-2.5 w-2.5 mr-0.5" />
                                                     Di Rute
                                                 </Badge>

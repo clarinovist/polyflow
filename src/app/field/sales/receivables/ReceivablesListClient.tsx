@@ -219,7 +219,7 @@ export function ReceivablesListClient({
                             >
                                 <div className="flex justify-between items-start gap-2">
                                     <div className="min-w-0">
-                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                                        <span className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
                                             {inv.invoiceNumber}
                                         </span>
                                         <h3 className="font-bold text-sm text-foreground truncate mt-0.5">
@@ -239,14 +239,14 @@ export function ReceivablesListClient({
                                                     ? 'destructive'
                                                     : 'secondary'
                                             }
-                                            className="text-[9px] uppercase font-bold px-2 py-0.5"
+                                            className="text-xs uppercase font-bold px-2 py-0.5"
                                         >
                                             {isOverdue ? 'Overdue' : inv.status}
                                         </Badge>
                                         {days != null && (
                                             <Badge
                                                 variant="outline"
-                                                className={`text-[9px] font-bold ${overdueBadgeStyle(days)}`}
+                                                className={`text-xs font-bold ${overdueBadgeStyle(days)}`}
                                             >
                                                 <Clock className="h-2.5 w-2.5 mr-0.5" />
                                                 {overdueLabel(days)}
@@ -257,7 +257,7 @@ export function ReceivablesListClient({
 
                                 <div className="grid grid-cols-2 gap-2 pt-2.5 border-t text-xs">
                                     <div>
-                                        <p className="text-[10px] text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground">
                                             Jatuh Tempo
                                         </p>
                                         <p
@@ -271,7 +271,7 @@ export function ReceivablesListClient({
                                                 : '-'}
                                         </p>
                                         {inv.lastPromise?.promisedDate && (
-                                            <p className="text-[10px] text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-1">
+                                            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-1">
                                                 <CalendarClock className="h-3 w-3" />
                                                 Janji:{' '}
                                                 {format(
@@ -289,7 +289,7 @@ export function ReceivablesListClient({
                                         )}
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-[10px] text-muted-foreground">
+                                        <p className="text-xs text-muted-foreground">
                                             Sisa Piutang
                                         </p>
                                         <p className="font-bold text-sm text-rose-600 dark:text-rose-400">
