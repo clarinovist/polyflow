@@ -40,6 +40,7 @@ import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { resolvePathToModule } from '@/lib/modules/module-registry';
 import { TenantSwitcher } from '@/components/layout/tenant-switcher';
+import { FindingsNavLink } from '@/components/layout/findings-nav-link';
 import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 
 interface SidebarNavProps {
@@ -322,6 +323,8 @@ export function SidebarNav({
                             effectiveCollapsed ? 'px-2 py-4' : 'p-4',
                         )}
                     >
+                        <FindingsNavLink collapsed={effectiveCollapsed} />
+
                         {effectiveCollapsed
                             ? filteredGroups
                                   .flatMap((group) => group.items)

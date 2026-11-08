@@ -617,6 +617,70 @@ describe('auth.config', () => {
             }
         });
 
+        it('should allow a logged-in mobile tenant user on /findings (allowlisted)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+
+            const mockRedirect = vi.fn();
+            const originalRedirect = Response.redirect;
+            Response.redirect = mockRedirect;
+
+            try {
+                const result = await authorizedCallback({
+                    auth: { user: { role: 'FINANCE' } },
+                    request: {
+                        nextUrl: new URL('https://tenant-a.polyflow.uk/findings'),
+                        headers: new Map([
+                            ['host', 'tenant-a.polyflow.uk'],
+                            ['user-agent', 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X)'],
+                        ]),
+                    },
+                } as any);
+
+                expect(mockRedirect).not.toHaveBeenCalled();
+                expect(result).toBe(true);
+            } finally {
+                Response.redirect = originalRedirect;
+            }
+        });
+
+        it('should allow a logged-in desktop tenant user on /findings (no workspace gate)', async () => {
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath, canAccessWorkspace } = await import('@/lib/auth/access-policy');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+            vi.mocked(getWorkspaceFromPath).mockReturnValue(null);
+
+            const result = await authorizedCallback({
+                auth: { user: { role: 'WAREHOUSE' } },
+                request: {
+                    nextUrl: new URL('https://tenant-a.polyflow.uk/findings'),
+                    headers: new Map([['host', 'tenant-a.polyflow.uk']]),
+                },
+            } as any);
+
+            expect(result).toBe(true);
+            expect(canAccessWorkspace).not.toHaveBeenCalled();
+        });
+
+        it('leaves /findings to the page guard when the request is unauthenticated', async () => {
+            // The edge does not block it (no workspace); the page itself must
+            // call auth() and redirect to /login.
+            const { authConfig } = await import('@/auth.config');
+            const { getWorkspaceFromPath } = await import('@/lib/auth/access-policy');
+            const authorizedCallback = authConfig.callbacks!.authorized!;
+            vi.mocked(getWorkspaceFromPath).mockReturnValue(null);
+
+            const result = await authorizedCallback({
+                auth: null,
+                request: {
+                    nextUrl: new URL('https://tenant-a.polyflow.uk/findings'),
+                    headers: new Map([['host', 'tenant-a.polyflow.uk']]),
+                },
+            } as any);
+
+            expect(result).toBe(true);
+        });
+
         it('should soft-land SALES on /sales/orders to /field/sales/orders (suffix preserved, F9)', async () => {
             const { authConfig } = await import('@/auth.config');
             const authorizedCallback = authConfig.callbacks!.authorized!;

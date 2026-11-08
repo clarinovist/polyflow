@@ -27,6 +27,9 @@ describe('Access Policy Helpers', () => {
       expect(getWorkspaceFromPath('/')).toBeNull();
       expect(getWorkspaceFromPath('/login')).toBeNull();
       expect(getWorkspaceFromPath('/about')).toBeNull();
+      // /findings is a top-level inbox, not a workspace: authorized() lets it fall
+      // through and the page/actions enforce auth and visibility themselves.
+      expect(getWorkspaceFromPath('/findings')).toBeNull();
       // /kiosk is now a valid PRODUCTION sub-workspace alias (GAP 3 refactor)
       expect(getWorkspaceFromPath('/kiosk/terminal')).toBe('production');
     });

@@ -35,6 +35,9 @@ vi.mock('@/components/layout/theme-provider', () => ({
 vi.mock('@/components/layout/sidebar-collapse-context', () => ({
     useSidebarCollapse: () => ({ isCollapsed: false, toggle: vi.fn() }),
 }));
+vi.mock('@/actions/findings/finding-count-actions', () => ({
+    countMyOpenFindings: vi.fn().mockResolvedValue(0),
+}));
 vi.mock('@/lib/modules/module-registry', () => ({
     resolvePathToModule: () => null,
 }));

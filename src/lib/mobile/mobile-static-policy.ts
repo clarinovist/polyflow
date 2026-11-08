@@ -5,7 +5,11 @@ import {
 
 // `/owner` is the owner-only HPP calculator; its pages and actions enforce the
 // real access check (owner allowlist), this only lets phones reach the route.
-const MOBILE_STATIC_PATHS = ['/mobile', '/my', '/owner'] as const;
+//
+// `/findings` is the findings inbox. The page and every action enforce auth and
+// per-finding visibility themselves (canSeeFinding), so the edge only needs to
+// stop sending phones to the desktop-required wall.
+const MOBILE_STATIC_PATHS = ['/mobile', '/my', '/owner', '/findings'] as const;
 
 /**
  * Static Proxy allowlist. Planned portals are intentionally excluded even

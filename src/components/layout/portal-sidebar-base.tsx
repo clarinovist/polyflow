@@ -24,6 +24,7 @@ import PolyFlowLogo from '@/components/auth/polyflow-logo';
 import { useTheme } from '@/components/layout/theme-provider';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { mainNavLabels } from '@/lib/labels';
+import { FindingsNavLink } from '@/components/layout/findings-nav-link';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
@@ -185,6 +186,8 @@ export function PortalSidebarBase({
                             effectiveCollapsed ? 'px-2 py-4' : 'p-4',
                         )}
                     >
+                        <FindingsNavLink collapsed={effectiveCollapsed} />
+
                         {children}
 
                         {/* Help Link - expandable with 3 children */}
