@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Truck, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Button } from '@/components/ui/button';
 import { CustomerCombobox } from '@/components/customers/CustomerCombobox';
 import {
@@ -246,7 +247,7 @@ export function MobileWalkInDispatchForm({
             {/* Source location */}
             <div className="space-y-1.5">
                 <label className="text-sm font-medium">Gudang Sumber</label>
-                <select
+                <NativeSelect
                     value={sourceLocationId}
                     onChange={(e) => setSourceLocationId(e.target.value)}
                     className="w-full h-11 px-3 rounded-lg border bg-background text-sm"
@@ -257,7 +258,7 @@ export function MobileWalkInDispatchForm({
                             {l.name}
                         </option>
                     ))}
-                </select>
+                </NativeSelect>
             </div>
 
             {/* Notes */}
@@ -300,7 +301,7 @@ export function MobileWalkInDispatchForm({
                             className="p-3 border rounded-xl space-y-2"
                         >
                             <div className="flex items-start justify-between gap-2">
-                                <select
+                                <NativeSelect
                                     value={item.productVariantId}
                                     onChange={(e) =>
                                         updateItem(
@@ -309,7 +310,7 @@ export function MobileWalkInDispatchForm({
                                             e.target.value,
                                         )
                                     }
-                                    className="flex-1 h-10 px-3 rounded-lg border bg-background text-sm"
+                                    className="flex-1"
                                 >
                                     <option value="">Pilih barang...</option>
                                     {productVariants.map((v) => (
@@ -317,7 +318,7 @@ export function MobileWalkInDispatchForm({
                                             {v.name} ({v.skuCode})
                                         </option>
                                     ))}
-                                </select>
+                                </NativeSelect>
                                 {items.length > 1 && (
                                     <Button
                                         variant="ghost"
@@ -332,7 +333,7 @@ export function MobileWalkInDispatchForm({
 
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] text-muted-foreground">
+                                    <label className="text-xs text-muted-foreground">
                                         Qty
                                     </label>
                                     <Input
@@ -351,7 +352,7 @@ export function MobileWalkInDispatchForm({
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] text-muted-foreground">
+                                    <label className="text-xs text-muted-foreground">
                                         Harga
                                     </label>
                                     <p
@@ -369,12 +370,12 @@ export function MobileWalkInDispatchForm({
                             {item.productVariantId &&
                                 (parseQuantityInput(item.quantity) === null ||
                                     parseQuantityInput(item.quantity)! <= 0) && (
-                                    <p className="text-[10px] text-destructive" role="alert">
+                                    <p className="text-xs text-destructive" role="alert">
                                         Qty harus berupa angka positif (maks. 4 desimal)
                                     </p>
                                 )}
                             {!priceOk && (
-                                <p className="text-[10px] text-destructive">
+                                <p className="text-xs text-destructive">
                                     Harga tidak ditemukan. Hubungi Sales atau
                                     tandai sebagai free item.
                                 </p>

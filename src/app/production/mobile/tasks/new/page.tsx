@@ -23,11 +23,11 @@ export default async function QuickCreateSpkPage() {
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Buat SPK Mendadak" level={1} />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
                 Pakai business logic existing. SPK yang dibuat akan langsung terlihat di Kiosk untuk eksekusi operator.
             </p>
             {!data ? (
-                <div className="rounded-lg border bg-white p-4 text-sm text-slate-500 dark:bg-slate-800 dark:border-slate-700">
+                <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
                     Gagal memuat data form. Cek koneksi dan coba lagi. Pastikan ada BOM aktif dan mesin aktif.
                 </div>
             ) : (

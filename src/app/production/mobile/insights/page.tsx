@@ -16,7 +16,7 @@ const PROCESS_LABEL: Record<string, string> = {
 
 function Withheld({ children }: { children: React.ReactNode }) {
     return (
-        <p className="rounded-lg bg-slate-100 px-3 py-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p className="rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
             {children}
         </p>
     );
@@ -59,7 +59,7 @@ export default async function ProductionInsightsPage() {
                             )}
                         </div>
                     ) : (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-muted-foreground">
                             Belum ada output non-voided dalam hari bisnis WIB
                             ini.
                         </p>
@@ -101,7 +101,7 @@ export default async function ProductionInsightsPage() {
                                 severity: 'INFO',
                             }}
                         />
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                             Total harian tidak diberi severity. Ambang tenant
                             hanya menilai insiden terbuka terlama.
                         </p>

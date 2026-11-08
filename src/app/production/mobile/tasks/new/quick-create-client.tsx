@@ -4,6 +4,10 @@
 import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
+import { Textarea } from '@/components/ui/textarea';
 import { quickCreateMobileProductionOrder } from '@/actions/production/mobile-quick-spk';
 import type { MobileQuickSpkFormData } from '@/actions/production/mobile-supervisor';
 
@@ -83,17 +87,17 @@ export function QuickCreateClient({
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="rounded-lg border bg-white p-4 space-y-4 dark:bg-slate-800 dark:border-slate-700">
+            <div className="rounded-lg border bg-card p-4 space-y-4">
                 {/* BOM */}
                 <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Produk / BOM *</label>
-                    <select
+                    <label className="text-xs font-semibold text-foreground">Produk / BOM *</label>
+                    <NativeSelect
                         value={bomId}
                         onChange={(e) => {
                             setBomId(e.target.value);
                             setMachineId('');
                         }}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full"
                     >
                         <option value="">Pilih produk...</option>
                         {initialData.boms.map((b) => (
@@ -101,12 +105,12 @@ export function QuickCreateClient({
                                 {b.productVariantName} — {b.category} {b.isDefault ? '(Default)' : ''}
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {initialData.boms.length === 0 && (
                         <p className="mt-1 text-xs text-red-500">Tidak ada BOM aktif. Buat BOM di desktop dulu.</p>
                     )}
                     {selectedBom && (
-                        <p className="mt-1 text-[11px] text-slate-500">
+                        <p className="mt-1 text-xs text-muted-foreground">
                             SKU: {selectedBom.skuCode || '-'} • Kategori: {selectedBom.category} • Produk: {selectedBom.productName}
                         </p>
                     )}
@@ -114,8 +118,8 @@ export function QuickCreateClient({
 
                 {/* Qty */}
                 <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Jumlah Target *</label>
-                    <input
+                    <label className="text-xs font-semibold text-foreground">Jumlah Target *</label>
+                    <Input
                         type="number"
                         inputMode="decimal"
                         min="0"
@@ -123,18 +127,18 @@ export function QuickCreateClient({
                         placeholder="500"
                         value={qty}
                         onChange={(e) => setQty(e.target.value)}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full"
                     />
                 </div>
 
                 {/* Machine */}
                 <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Mesin *</label>
-                    <select
+                    <label className="text-xs font-semibold text-foreground">Mesin *</label>
+                    <NativeSelect
                         value={machineId}
                         onChange={(e) => setMachineId(e.target.value)}
                         disabled={!bomId}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm disabled:opacity-50 dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full"
                     >
                         <option value="">
                             {bomId ? (compatibleMachines.length > 0 ? 'Pilih mesin...' : 'Tidak ada mesin cocok') : 'Pilih produk dulu'}
@@ -144,7 +148,7 @@ export function QuickCreateClient({
                                 {m.code} — {m.name} ({m.type})
                             </option>
                         ))}
-                    </select>
+                    </NativeSelect>
                     {selectedBom && compatibleMachines.length === 0 && (
                         <p className="mt-1 text-xs text-amber-600">Tidak ada mesin yang cocok untuk {selectedBom.category}, tapi daftar semua mesin tetap ditampilkan bila filter kosong.</p>
                     )}
@@ -152,52 +156,53 @@ export function QuickCreateClient({
 
                 {/* Priority */}
                 <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Prioritas</label>
-                    <select
+                    <label className="text-xs font-semibold text-foreground">Prioritas</label>
+                    <NativeSelect
                         value={priority}
                         onChange={(e) => setPriority(e.target.value as any)}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full"
                     >
                         <option value="NORMAL">Normal</option>
                         <option value="URGENT">Mendesak</option>
                         <option value="LOW">Rendah</option>
-                    </select>
+                    </NativeSelect>
                 </div>
 
                 {/* Notes */}
                 <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-200">Catatan (opsional)</label>
-                    <textarea
+                    <label className="text-xs font-semibold text-foreground">Catatan (opsional)</label>
+                    <Textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="Alasan mendadak, instruksi khusus..."
                         rows={3}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full"
                     />
                 </div>
 
                 {/* Audit hint */}
-                <div className="rounded-md bg-slate-50 px-3 py-2 text-[11px] text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
                     SPK ini dicatat dengan actor supervisor mobile dan langsung ter-revalidate ke <code>/kiosk/jobs</code>. Lokasi output otomatis dari mapping BOM → lokasi existing.
                 </div>
             </div>
 
-            <button
+            <Button
                 type="submit"
                 disabled={submitting || !bomId || !qty || !machineId}
-                className="w-full rounded-lg bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full"
             >
                 {submitting ? 'Membuat SPK...' : 'Buat SPK & Kirim ke Kiosk'}
-            </button>
+            </Button>
 
-            <button
+            <Button
                 type="button"
+                variant="outline"
                 onClick={() => router.back()}
                 disabled={submitting}
-                className="w-full rounded-lg border border-slate-200 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                className="w-full"
             >
                 Batal
-            </button>
+            </Button>
         </form>
     );
 }

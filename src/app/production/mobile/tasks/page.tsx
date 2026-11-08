@@ -25,15 +25,15 @@ const STATUS_COLOR: Record<string, string> = {
         'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
     IN_PROGRESS:
         'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    DRAFT: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+    DRAFT: 'bg-muted text-foreground',
     WAITING_MATERIAL:
         'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
     URGENT: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-    NORMAL: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
-    LOW: 'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+    NORMAL: 'bg-muted text-muted-foreground',
+    LOW: 'bg-muted/50 text-muted-foreground',
 };
 
 function TaskContent({ order }: { order: MobileSupervisorSpkItem }) {
@@ -42,20 +42,20 @@ function TaskContent({ order }: { order: MobileSupervisorSpkItem }) {
             <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        <span className="text-sm font-bold text-foreground">
                             {order.spkNumber}
                         </span>
                         <span
-                            className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_COLOR[order.priority] || PRIORITY_COLOR.NORMAL}`}
+                            className={`rounded px-1.5 py-0.5 text-xs font-semibold ${PRIORITY_COLOR[order.priority] || PRIORITY_COLOR.NORMAL}`}
                         >
                             {order.priority}
                         </span>
                     </div>
-                    <div className="mt-1 truncate text-xs text-slate-700 dark:text-slate-300">
+                    <div className="mt-1 truncate text-xs text-foreground">
                         {order.productName}
                         {order.productCode ? ` • ${order.productCode}` : ''}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                    <div className="mt-0.5 text-xs text-muted-foreground">
                         {order.machineName
                             ? `Mesin: ${order.machineName}`
                             : 'Mesin: -'}{' '}
@@ -63,26 +63,26 @@ function TaskContent({ order }: { order: MobileSupervisorSpkItem }) {
                     </div>
                 </div>
                 <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COLOR[order.status] || 'bg-slate-100 text-slate-600'}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLOR[order.status] || 'bg-muted text-muted-foreground'}`}
                 >
                     {STATUS_LABEL[order.status] || order.status}
                 </span>
             </div>
             <div className="mt-3">
-                <div className="mb-1 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
                     <span>
                         {order.actualQty} / {order.plannedQty}
                     </span>
                     <span>{order.progressPercent}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
                         className="h-full bg-indigo-600 transition-all"
                         style={{ width: `${order.progressPercent}%` }}
                     />
                 </div>
             </div>
-            <div className="mt-2 text-[11px] font-medium text-indigo-600 dark:text-indigo-400">
+            <div className="mt-2 text-xs font-medium text-indigo-600 dark:text-indigo-400">
                 {order.href
                     ? 'Buka eksekusi di Kiosk →'
                     : 'Informasi saja · tujuan Kiosk tidak diizinkan'}
@@ -122,7 +122,7 @@ export default async function ProductionTasksPage({
                 )}
             </div>
             <MobileDataFreshness generatedAt={generatedAt} />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
                 Menampilkan {returned} dari {total} SPK · batas cuplikan {limit}
             </p>
 
@@ -141,7 +141,7 @@ export default async function ProductionTasksPage({
                             className={`inline-flex min-h-11 shrink-0 items-center rounded-full border px-3 py-2 text-xs font-medium ${
                                 active
                                     ? 'border-indigo-600 bg-indigo-600 text-white'
-                                    : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                                    : 'border-border bg-card text-muted-foreground'
                             }`}
                         >
                             {option.label}
@@ -151,14 +151,14 @@ export default async function ProductionTasksPage({
             </div>
 
             {!items.length ? (
-                <p className="py-4 text-sm text-slate-500">
+                <p className="py-4 text-sm text-muted-foreground">
                     Tidak ada SPK untuk filter ini.
                 </p>
             ) : (
                 <div className="space-y-3">
                     {items.map((order) => {
                         const className =
-                            'block min-h-11 rounded-lg border bg-white p-3 transition-colors dark:border-slate-700 dark:bg-slate-800';
+                            'block min-h-11 rounded-lg border bg-card p-3 transition-colors';
                         return order.href ? (
                             <Link
                                 key={order.id}

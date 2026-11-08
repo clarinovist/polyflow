@@ -296,7 +296,7 @@ export function MaintenanceForm({
                                 )}
                             >
                                 <span className="block font-semibold">{item.label}</span>
-                                <span className="mt-0.5 hidden text-[10px] leading-tight sm:block">
+                                <span className="mt-0.5 hidden text-xs leading-tight sm:block">
                                     {item.help}
                                 </span>
                             </button>

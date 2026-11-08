@@ -34,7 +34,7 @@ function SectionUnavailable({ label }: { label: string }) {
 
 function NotConfigured({ children }: { children: React.ReactNode }) {
     return (
-        <p className="rounded-lg bg-slate-100 px-3 py-3 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p className="rounded-lg bg-muted px-3 py-3 text-sm text-muted-foreground">
             {children}
         </p>
     );
@@ -200,7 +200,7 @@ export default async function ProductionMobilePage() {
                 {overview.links.attendance && (
                     <Link
                         href={overview.links.attendance}
-                        className="flex min-h-11 flex-1 items-center justify-center rounded-lg border bg-white px-3 py-2.5 text-center text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                        className="flex min-h-11 flex-1 items-center justify-center rounded-lg border bg-card px-3 py-2.5 text-center text-sm font-semibold text-foreground"
                     >
                         Lihat Absensi Produksi
                     </Link>
@@ -240,7 +240,7 @@ export default async function ProductionMobilePage() {
                             )}
                         </div>
                     ) : (
-                        <p className="py-3 text-sm text-slate-500">
+                        <p className="py-3 text-sm text-muted-foreground">
                             Belum ada output non-voided pada hari bisnis WIB
                             ini.
                         </p>
@@ -277,7 +277,7 @@ export default async function ProductionMobilePage() {
                             />
                         </div>
                         {overview.health.downtime.data.longest ? (
-                            <div className="rounded-lg border bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                            <div className="rounded-lg border bg-card p-3">
                                 <p className="text-sm font-semibold">
                                     Terlama: Mesin{' '}
                                     {
@@ -285,7 +285,7 @@ export default async function ProductionMobilePage() {
                                             .machineCode
                                     }
                                 </p>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-muted-foreground">
                                     {
                                         overview.health.downtime.data.longest
                                             .reason
@@ -309,11 +309,11 @@ export default async function ProductionMobilePage() {
                                 </p>
                             </div>
                         ) : (
-                            <p className="py-3 text-sm text-slate-500">
+                            <p className="py-3 text-sm text-muted-foreground">
                                 Tidak ada insiden downtime yang masih terbuka.
                             </p>
                         )}
-                        <p className="text-xs text-slate-500">
+                        <p className="text-xs text-muted-foreground">
                             Total durasi harian adalah fakta operasional dan
                             tidak diklasifikasikan dengan ambang per-insiden.
                         </p>

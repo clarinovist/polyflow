@@ -160,14 +160,14 @@ export function WarehouseOutgoingDetailClient({
                         </h1>
                         <Badge
                             variant={isLoading ? 'default' : 'secondary'}
-                            className="text-[10px] shrink-0"
+                            className="text-xs shrink-0"
                         >
                             {order.status}
                         </Badge>
                         {isVerified && (
                             <Badge
                                 variant="secondary"
-                                className="text-[10px] bg-green-100 text-green-800 shrink-0"
+                                className="text-xs bg-green-100 text-green-800 shrink-0"
                             >
                                 <CheckCircle className="h-2.5 w-2.5 mr-0.5" />
                                 Terverifikasi

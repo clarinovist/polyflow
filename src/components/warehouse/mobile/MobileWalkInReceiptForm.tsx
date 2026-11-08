@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, Package, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { Button } from '@/components/ui/button';
 import {
     AlertDialog,
@@ -184,7 +185,7 @@ export function MobileWalkInReceiptForm({
             {/* Supplier */}
             <div className="space-y-1.5">
                 <label className="text-sm font-medium">Supplier</label>
-                <select
+                <NativeSelect
                     value={supplierId}
                     onChange={(e) => setSupplierId(e.target.value)}
                     className="w-full h-11 px-3 rounded-lg border bg-background text-sm"
@@ -196,7 +197,7 @@ export function MobileWalkInReceiptForm({
                             {s.code ? ` (${s.code})` : ''}
                         </option>
                     ))}
-                </select>
+                </NativeSelect>
             </div>
 
             {/* Nota number */}
@@ -215,7 +216,7 @@ export function MobileWalkInReceiptForm({
             {/* Location */}
             <div className="space-y-1.5">
                 <label className="text-sm font-medium">Lokasi Gudang</label>
-                <select
+                <NativeSelect
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
                     className="w-full h-11 px-3 rounded-lg border bg-background text-sm"
@@ -226,7 +227,7 @@ export function MobileWalkInReceiptForm({
                             {l.name}
                         </option>
                     ))}
-                </select>
+                </NativeSelect>
             </div>
 
             {/* Notes */}
@@ -267,7 +268,7 @@ export function MobileWalkInReceiptForm({
                             className="p-3 border rounded-xl space-y-2"
                         >
                             <div className="flex items-start justify-between gap-2">
-                                <select
+                                <NativeSelect
                                     value={item.productVariantId}
                                     onChange={(e) =>
                                         updateItem(
@@ -276,7 +277,7 @@ export function MobileWalkInReceiptForm({
                                             e.target.value,
                                         )
                                     }
-                                    className="flex-1 h-10 px-3 rounded-lg border bg-background text-sm"
+                                    className="flex-1"
                                 >
                                     <option value="">Pilih barang...</option>
                                     {productVariants.map((v) => (
@@ -284,7 +285,7 @@ export function MobileWalkInReceiptForm({
                                             {v.name} ({v.skuCode})
                                         </option>
                                     ))}
-                                </select>
+                                </NativeSelect>
                                 {items.length > 1 && (
                                     <Button
                                         variant="ghost"
@@ -299,7 +300,7 @@ export function MobileWalkInReceiptForm({
 
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] text-muted-foreground">
+                                    <label className="text-xs text-muted-foreground">
                                         Qty ({variant?.primaryUnit || 'unit'})
                                     </label>
                                     <Input
@@ -318,7 +319,7 @@ export function MobileWalkInReceiptForm({
                                     />
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-[10px] text-muted-foreground">
+                                    <label className="text-xs text-muted-foreground">
                                         Harga/Unit (Rp)
                                     </label>
                                     <Input
@@ -341,14 +342,14 @@ export function MobileWalkInReceiptForm({
                             {item.productVariantId &&
                                 (parseQuantityInput(item.receivedQty) === null ||
                                     parseQuantityInput(item.receivedQty)! <= 0) && (
-                                    <p className="text-[10px] text-destructive" role="alert">
+                                    <p className="text-xs text-destructive" role="alert">
                                         Qty harus berupa angka positif (maks. 4 desimal)
                                     </p>
                                 )}
                             {item.productVariantId &&
                                 (parseMoneyInput(item.unitCost) === null ||
                                     parseMoneyInput(item.unitCost)! <= 0) && (
-                                    <p className="text-[10px] text-destructive" role="alert">
+                                    <p className="text-xs text-destructive" role="alert">
                                         Harga harus berupa angka positif (maks. 2 desimal)
                                     </p>
                                 )}

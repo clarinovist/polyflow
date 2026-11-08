@@ -53,20 +53,20 @@ export function HrdAttendanceClient({
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
-                    <div className="text-[10px] text-slate-500">Hadir</div>
+                <div className="rounded-lg border bg-card p-2">
+                    <div className="text-xs text-muted-foreground">Hadir</div>
                     <div className="font-bold text-emerald-600">
                         {data.presentCount}
                     </div>
                 </div>
-                <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
-                    <div className="text-[10px] text-slate-500">Absen</div>
+                <div className="rounded-lg border bg-card p-2">
+                    <div className="text-xs text-muted-foreground">Absen</div>
                     <div className="font-bold text-red-600">
                         {data.absentCount}
                     </div>
                 </div>
-                <div className="rounded-lg border bg-white p-2 dark:bg-slate-800 dark:border-slate-700">
-                    <div className="text-[10px] text-slate-500">Cuti</div>
+                <div className="rounded-lg border bg-card p-2">
+                    <div className="text-xs text-muted-foreground">Cuti</div>
                     <div className="font-bold text-amber-600">
                         {data.onLeaveCount}
                     </div>
@@ -87,20 +87,20 @@ export function HrdAttendanceClient({
                 </div>
             </div>
 
-            <div className="rounded-lg border bg-white p-3 space-y-2 dark:bg-slate-800 dark:border-slate-700 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
+            <div className="rounded-lg border bg-card p-3 space-y-2 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
                 <div className="grid grid-cols-2 gap-2">
                     <input
                         type="date"
                         aria-label="Tanggal absensi"
                         value={date}
                         onChange={(e) => setDate(e.target.value)}
-                        className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="rounded-md border px-2 py-1.5 text-sm"
                     />
                     <select
                         aria-label="Shift"
                         value={shift}
                         onChange={(e) => setShift(e.target.value)}
-                        className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="rounded-md border px-2 py-1.5 text-sm"
                     >
                         <option value="">Semua Shift</option>
                         {data.shifts.map((s) => (
@@ -115,7 +115,7 @@ export function HrdAttendanceClient({
                         aria-label="Status absensi"
                         value={status}
                         onChange={(e) => setStatus(e.target.value)}
-                        className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="rounded-md border px-2 py-1.5 text-sm"
                     >
                         <option value="ALL">Semua Status</option>
                         <option value="PRESENT">Hadir</option>
@@ -130,7 +130,7 @@ export function HrdAttendanceClient({
                         placeholder="Cari nama/kode..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="rounded-md border px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="rounded-md border px-2 py-1.5 text-sm"
                     />
                 </div>
                 <button
@@ -156,30 +156,30 @@ export function HrdAttendanceClient({
                 {data.records.map((r) => (
                     <div
                         key={r.employeeId}
-                        className="rounded-lg border bg-white p-3 dark:bg-slate-800 dark:border-slate-700"
+                        className="rounded-lg border bg-card p-3"
                     >
                         <div className="flex justify-between gap-2">
                             <div>
                                 <div className="text-sm font-semibold">
                                     {r.employeeName}{' '}
                                     {r.isLate ? (
-                                        <span className="ml-1 rounded bg-red-100 px-1 text-[10px] text-red-700">
+                                        <span className="ml-1 rounded bg-red-100 px-1 text-xs text-red-700">
                                             Terlambat
                                         </span>
                                     ) : null}
                                 </div>
-                                <div className="text-[11px] text-slate-500">
+                                <div className="text-xs text-muted-foreground">
                                     {r.employeeCode} • {r.employeeRole}{' '}
                                     {r.shiftName ? `• ${r.shiftName}` : ''}
                                 </div>
                             </div>
                             <span
-                                className={`h-fit rounded-full px-2 py-0.5 text-[10px] font-semibold ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : r.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}
+                                className={`h-fit rounded-full px-2 py-0.5 text-xs font-semibold ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : r.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}
                             >
                                 {r.status}
                             </span>
                         </div>
-                        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
                             <div>Masuk: {fmtTime(r.clockInAt)}</div>
                             <div>Pulang: {fmtTime(r.clockOutAt)}</div>
                         </div>

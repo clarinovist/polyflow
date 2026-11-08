@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -180,7 +181,7 @@ export function MobileReceiptClient({
                     <Building2 className="h-3 w-3" />
                     Gudang Tujuan *
                 </label>
-                <select
+                <NativeSelect
                     value={locationId}
                     onChange={(e) => setLocationId(e.target.value)}
                     className="w-full h-11 px-3 border border-input rounded-lg bg-background text-sm"
@@ -191,7 +192,7 @@ export function MobileReceiptClient({
                             {l.name}
                         </option>
                     ))}
-                </select>
+                </NativeSelect>
             </div>
 
             {/* Items */}
@@ -226,7 +227,7 @@ export function MobileReceiptClient({
                                     <p className="text-sm font-medium truncate">
                                         {item.productVariant.name}
                                     </p>
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-xs text-muted-foreground">
                                         {item.productVariant.skuCode} •{' '}
                                         {item.productVariant.primaryUnit}
                                     </p>
@@ -236,7 +237,7 @@ export function MobileReceiptClient({
                                         Pesan: {formatQuantity(item.quantity)}
                                     </p>
                                     {item.receivedQty > 0 && (
-                                        <p className="text-[10px] text-emerald-600">
+                                        <p className="text-xs text-emerald-600">
                                             Sudah terima: {formatQuantity(item.receivedQty)}
                                         </p>
                                     )}
@@ -246,7 +247,7 @@ export function MobileReceiptClient({
                             {pending > 0 ? (
                                 <div className="space-y-1.5">
                                     <div className="flex items-center gap-2">
-                                        <label className="text-[10px] text-muted-foreground shrink-0">
+                                        <label className="text-xs text-muted-foreground shrink-0">
                                             Terima:
                                         </label>
                                         <Input
@@ -264,7 +265,7 @@ export function MobileReceiptClient({
                                             }
                                             className="h-9 text-sm"
                                         />
-                                        <span className="text-[10px] text-muted-foreground shrink-0">
+                                        <span className="text-xs text-muted-foreground shrink-0">
                                             {item.productVariant.primaryUnit}
                                         </span>
                                     </div>
@@ -273,7 +274,7 @@ export function MobileReceiptClient({
                                             type="button"
                                             variant="outline"
                                             size="sm"
-                                            className="h-6 text-[10px] px-2"
+                                            className="h-6 text-xs px-2"
                                             onClick={() =>
                                                 handleFillRemaining(
                                                     item.id,
@@ -352,14 +353,14 @@ export function MobileReceiptClient({
                                         <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                                         <div>
                                             <p className="font-bold">Peringatan Over-Receipt</p>
-                                            <p className="text-[11px] mt-0.5">
+                                            <p className="text-xs mt-0.5">
                                                 Ada item dengan jumlah terima melebihi sisa PO. Stok & akuntansi akan disesuaikan dengan fisik yang diterima.
                                             </p>
                                         </div>
                                     </div>
                                 )}
                                 <div className="border rounded-lg p-2.5 space-y-1 bg-muted/40 max-h-40 overflow-y-auto">
-                                    <p className="font-semibold text-[11px] text-muted-foreground uppercase">
+                                    <p className="font-semibold text-xs text-muted-foreground uppercase">
                                         Ringkasan Item ({selectedItemsPayload.length})
                                     </p>
                                     {selectedItemsPayload.map((i) => (

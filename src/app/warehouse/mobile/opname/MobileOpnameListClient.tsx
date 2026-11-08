@@ -161,8 +161,8 @@ export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClient
                                                 variant={isOpen ? 'secondary' : 'outline'}
                                                 className={
                                                     isOpen
-                                                        ? 'bg-primary/10 text-primary border-transparent text-[10px]'
-                                                        : 'border-emerald-500/30 text-emerald-600 text-[10px]'
+                                                        ? 'bg-primary/10 text-primary border-transparent text-xs'
+                                                        : 'border-emerald-500/30 text-emerald-600 text-xs'
                                                 }
                                             >
                                                 {isOpen ? 'OPEN' : 'COMPLETED'}
@@ -186,7 +186,7 @@ export function MobileOpnameListClient({ sessions = [] }: MobileOpnameListClient
                                     <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-2" />
                                 </div>
 
-                                <div className="flex items-center justify-between mt-2 pt-2 border-t text-[10px] text-muted-foreground">
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t text-xs text-muted-foreground">
                                     <span>
                                         {countedItems}/{totalItems} item dihitung
                                     </span>

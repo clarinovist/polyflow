@@ -83,14 +83,14 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
             {/* Summary chips */}
             {summary && (
                 <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg bg-white p-3 border dark:bg-slate-800 dark:border-slate-700">
-                        <div className="text-[11px] text-slate-500">
+                    <div className="rounded-lg bg-card p-3 border">
+                        <div className="text-xs text-muted-foreground">
                             Total Karyawan
                         </div>
                         <div className="text-lg font-bold">{summary.total}</div>
                     </div>
                     <div className="rounded-lg bg-emerald-50 p-3 border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800">
-                        <div className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                        <div className="text-xs text-emerald-700 dark:text-emerald-300">
                             Hadir
                         </div>
                         <div className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
@@ -98,7 +98,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                         </div>
                     </div>
                     <div className="rounded-lg bg-red-50 p-3 border border-red-200 dark:bg-red-950/30 dark:border-red-800">
-                        <div className="text-[11px] text-red-700 dark:text-red-300">
+                        <div className="text-xs text-red-700 dark:text-red-300">
                             Tidak Hadir
                         </div>
                         <div className="text-lg font-bold text-red-700 dark:text-red-300">
@@ -106,7 +106,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                         </div>
                     </div>
                     <div className="rounded-lg bg-amber-50 p-3 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800">
-                        <div className="text-[11px] text-amber-700 dark:text-amber-300">
+                        <div className="text-xs text-amber-700 dark:text-amber-300">
                             Cuti/Izin
                         </div>
                         <div className="text-lg font-bold text-amber-700 dark:text-amber-300">
@@ -119,10 +119,10 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
             <p className="text-sm text-muted-foreground">Belum tercatat: {data.noRecordCount}. Ini tidak berarti tidak hadir; shift mungkin belum dimulai. Ringkasan mengikuti filter.</p>
 
             {/* Filters */}
-            <div className="rounded-lg bg-white p-3 border space-y-3 dark:bg-slate-800 dark:border-slate-700 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
+            <div className="rounded-lg bg-card p-3 border space-y-3 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-medium text-muted-foreground">
                             Tanggal
                         </label>
                         <input
@@ -130,18 +130,18 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                             aria-label="Tanggal absensi"
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                         />
                     </div>
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-medium text-muted-foreground">
                             Shift
                         </label>
                         <select
                             aria-label="Shift"
                             value={shift}
                             onChange={(e) => setShift(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                         >
                             <option value="">Semua Shift</option>
                             {data.shifts.map((s) => (
@@ -155,14 +155,14 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
 
                 <div className="grid grid-cols-2 gap-2">
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-medium text-muted-foreground">
                             Status
                         </label>
                         <select
                             aria-label="Status absensi"
                             value={status}
                             onChange={(e) => setStatus(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                         >
                             {STATUS_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -172,14 +172,14 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                         </select>
                     </div>
                     <div>
-                        <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                        <label className="text-xs font-medium text-muted-foreground">
                             Role
                         </label>
                         <select
                             aria-label="Peran karyawan"
                             value={role}
                             onChange={(e) => setRole(e.target.value)}
-                            className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                         >
                             {ROLE_OPTIONS.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -191,7 +191,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                 </div>
 
                 <div>
-                    <label className="text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                    <label className="text-xs font-medium text-muted-foreground">
                         Cari Nama/Kode
                     </label>
                     <input
@@ -199,7 +199,7 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                         placeholder="Ketik nama atau kode..."
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
-                        className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-sm dark:bg-slate-900 dark:border-slate-700"
+                        className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                     />
                 </div>
 
@@ -214,28 +214,28 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
             {/* Records list */}
             <div className="space-y-2">
                 {data.records.length === 0 ? (
-                    <p className="py-6 text-center text-sm text-slate-500">
+                    <p className="py-6 text-center text-sm text-muted-foreground">
                         Tidak ada data untuk filter ini.
                     </p>
                 ) : (
                     data.records.map((rec) => (
                         <div
                             key={rec.employeeId}
-                            className="rounded-lg border bg-white p-3 dark:bg-slate-800 dark:border-slate-700"
+                            className="rounded-lg border bg-card p-3"
                         >
                             <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                        <span className="text-sm font-semibold text-foreground truncate">
                                             {rec.employeeName}
                                         </span>
                                         {rec.isLate && (
-                                            <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                            <span className="shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-xs font-bold text-red-700 dark:bg-red-900/40 dark:text-red-300">
                                                 Terlambat
                                             </span>
                                         )}
                                     </div>
-                                    <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                                    <div className="mt-0.5 text-xs text-muted-foreground">
                                         {rec.employeeCode} • {rec.employeeRole}{' '}
                                         {rec.shiftName
                                             ? `• ${rec.shiftName}`
@@ -243,14 +243,14 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                                     </div>
                                 </div>
                                 <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold ${
                                         rec.status === 'PRESENT'
                                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                                             : rec.status === 'ABSENT'
                                               ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
                                               : rec.status === 'ON_LEAVE'
                                                 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                                                : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                                : 'bg-muted text-muted-foreground'
                                     }`}
                                 >
                                     {rec.status === 'PRESENT'
@@ -262,21 +262,21 @@ export function AttendanceClient({ initialData, initialFilters }: Props) {
                                             : 'Belum Absen'}
                                 </span>
                             </div>
-                            <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                                 <div>
-                                    <div className="text-slate-500">Masuk</div>
+                                    <div className="text-muted-foreground">Masuk</div>
                                     <div className="font-semibold">
                                         {fmtTime(rec.clockInAt)}
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-slate-500">Pulang</div>
+                                    <div className="text-muted-foreground">Pulang</div>
                                     <div className="font-semibold">
                                         {fmtTime(rec.clockOutAt)}
                                     </div>
                                 </div>
                                 <div>
-                                    <div className="text-slate-500">
+                                    <div className="text-muted-foreground">
                                         Jam Kerja
                                     </div>
                                     <div className="font-semibold">

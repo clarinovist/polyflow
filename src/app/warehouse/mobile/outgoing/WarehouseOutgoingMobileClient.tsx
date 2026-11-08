@@ -160,7 +160,7 @@ export function WarehouseOutgoingMobileClient({ orders }: { orders: Order[] }) {
                                             {isVerified ? (
                                                 <Badge
                                                     variant="secondary"
-                                                    className="text-[10px] shrink-0 bg-green-100 text-green-800"
+                                                    className="text-xs shrink-0 bg-green-100 text-green-800"
                                                 >
                                                     <Lock className="h-2.5 w-2.5 mr-0.5" />
                                                     Terkunci
@@ -168,14 +168,14 @@ export function WarehouseOutgoingMobileClient({ orders }: { orders: Order[] }) {
                                             ) : order.status === 'LOADING' ? (
                                                 <Badge
                                                     variant="default"
-                                                    className="text-[10px] shrink-0"
+                                                    className="text-xs shrink-0"
                                                 >
                                                     Loading
                                                 </Badge>
                                             ) : (
                                                 <Badge
                                                     variant="secondary"
-                                                    className="text-[10px] shrink-0"
+                                                    className="text-xs shrink-0"
                                                 >
                                                     Pending
                                                 </Badge>
@@ -186,7 +186,7 @@ export function WarehouseOutgoingMobileClient({ orders }: { orders: Order[] }) {
                                                 '—'}
                                         </p>
                                         {order.sourceLocation && (
-                                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                                            <p className="text-xs text-muted-foreground mt-0.5">
                                                 Gudang:{' '}
                                                 {order.sourceLocation.name}
                                             </p>
@@ -196,7 +196,7 @@ export function WarehouseOutgoingMobileClient({ orders }: { orders: Order[] }) {
                                 </div>
 
                                 {/* Progress & delivery date */}
-                                <div className="flex items-center justify-between mt-2 pt-2 border-t text-[10px] text-muted-foreground">
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t text-xs text-muted-foreground">
                                     <div className="flex items-center gap-1">
                                         <Clock className="h-3 w-3" />
                                         {new Date(

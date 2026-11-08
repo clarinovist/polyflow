@@ -3,6 +3,9 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import { createMaterialOrder, submitMaterialOrder } from '@/actions/production/material-orders';
 
 interface BomItem { productVariantId: string; name: string; skuCode: string; quantity: number; unit: string }
@@ -87,47 +90,47 @@ export function MaterialOrderForm({ data }: { data: { boms: BomOption[]; materia
       <div className="rounded-xl border bg-card p-4 space-y-3">
         <div>
           <label className="text-xs font-semibold">Divisi / Tipe *</label>
-          <input value={orderType} onChange={(e) => setOrderType(e.target.value.toUpperCase())} list="mo-types" className="mt-1 w-full rounded-md border px-3 py-2 text-sm" placeholder="HD" />
+          <Input value={orderType} onChange={(e) => setOrderType(e.target.value.toUpperCase())} list="mo-types" className="mt-1 w-full" placeholder="HD" />
           <datalist id="mo-types">
             {data.orderTypes.map((t) => (<option key={t} value={t} />))}
           </datalist>
         </div>
         <div>
           <label className="text-xs font-semibold">Formula (isi otomatis)</label>
-          <select onChange={(e) => applyBom(e.target.value)} defaultValue="" className="mt-1 w-full rounded-md border px-3 py-2 text-sm">
+          <NativeSelect onChange={(e) => applyBom(e.target.value)} defaultValue="" className="mt-1 w-full">
             <option value="">Pilih formula / isi manual...</option>
             {data.boms.map((b) => (<option key={b.id} value={b.id}>{b.productName} — {b.name}</option>))}
-          </select>
+          </NativeSelect>
         </div>
         <div>
           <label className="text-xs font-semibold">Catatan</label>
-          <input value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 w-full rounded-md border px-3 py-2 text-sm" placeholder="cth: F-HD UNGU" />
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1 w-full" placeholder="cth: F-HD UNGU" />
         </div>
       </div>
       <div className="space-y-2">
         {rows.map((r, i) => (
           <div key={i} className="rounded-xl border bg-card p-3 space-y-2">
-            <select value={r.productVariantId} onChange={(e) => updateRow(i, { productVariantId: e.target.value })} className="w-full rounded-md border px-3 py-2 text-sm">
+            <NativeSelect value={r.productVariantId} onChange={(e) => updateRow(i, { productVariantId: e.target.value })} className="w-full">
               <option value="">Pilih bahan...</option>
               {data.materials.map((m) => (<option key={m.id} value={m.id}>{m.name} ({m.skuCode})</option>))}
-            </select>
+            </NativeSelect>
             <p className="text-xs text-muted-foreground">Jumlah dalam {data.materials.find((material) => material.id === r.productVariantId)?.unit ?? 'satuan dasar bahan yang dipilih'}. Zak dicatat terpisah.</p>
             <div className="flex gap-2">
-              <input aria-label={`Jumlah bahan ${i + 1}`} inputMode="decimal" value={r.quantity} onChange={(e) => updateRow(i, { quantity: e.target.value })} className="w-full rounded-md border px-3 py-2 text-sm" placeholder="Jumlah *" />
-              <input inputMode="decimal" value={r.zakQuantity} onChange={(e) => updateRow(i, { zakQuantity: e.target.value })} className="w-full rounded-md border px-3 py-2 text-sm" placeholder="Zak" />
+              <Input aria-label={`Jumlah bahan ${i + 1}`} inputMode="decimal" value={r.quantity} onChange={(e) => updateRow(i, { quantity: e.target.value })} className="w-full" placeholder="Jumlah *" />
+              <Input inputMode="decimal" value={r.zakQuantity} onChange={(e) => updateRow(i, { zakQuantity: e.target.value })} className="w-full" placeholder="Zak" />
             </div>
             <div className="flex gap-2">
-              <input value={r.note} onChange={(e) => updateRow(i, { note: e.target.value })} className="w-full rounded-md border px-3 py-2 text-sm" placeholder="Ket (cth: Ready / Kg)" />
-              <button type="button" aria-label={`Hapus bahan ${i + 1}`} onClick={() => removeRow(i)} className="rounded-md border px-3 text-sm">✕</button>
+              <Input value={r.note} onChange={(e) => updateRow(i, { note: e.target.value })} className="w-full" placeholder="Ket (cth: Ready / Kg)" />
+              <Button type="button" variant="outline" size="icon" aria-label={`Hapus bahan ${i + 1}`} onClick={() => removeRow(i)}>✕</Button>
             </div>
           </div>
         ))}
-        <button type="button" onClick={addRow} className="w-full rounded-xl border border-dashed p-3 text-sm font-medium">+ Tambah bahan</button>
+        <Button type="button" variant="outline" className="w-full border-dashed" onClick={addRow}>+ Tambah bahan</Button>
       </div>
       </fieldset>
-      <button disabled={busy} className="w-full rounded-full bg-indigo-600 py-3 text-sm font-semibold text-white disabled:opacity-50">
+      <Button disabled={busy} className="w-full rounded-full">
         {busy ? 'Mengirim...' : draft ? 'Kirim Ulang Permintaan' : 'Kirim ke Kepala Pabrik'}
-      </button>
+      </Button>
     </form>
   );
 }

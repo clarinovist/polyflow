@@ -65,7 +65,7 @@ export default async function MobileMaintenancePage({
                         <p className="text-xl font-bold tabular-nums text-amber-800 dark:text-amber-300">
                             {stats.pending}
                         </p>
-                        <p className="text-[11px] text-amber-700 dark:text-amber-400">
+                        <p className="text-xs text-amber-700 dark:text-amber-400">
                             Menunggu
                         </p>
                     </div>
@@ -73,7 +73,7 @@ export default async function MobileMaintenancePage({
                         <p className="text-xl font-bold tabular-nums text-blue-800 dark:text-blue-300">
                             {stats.approved}
                         </p>
-                        <p className="text-[11px] text-blue-700 dark:text-blue-400">
+                        <p className="text-xs text-blue-700 dark:text-blue-400">
                             Siap
                         </p>
                     </div>
@@ -81,7 +81,7 @@ export default async function MobileMaintenancePage({
                         <p className="text-xl font-bold tabular-nums text-indigo-800 dark:text-indigo-300">
                             {stats.inProgress}
                         </p>
-                        <p className="text-[11px] text-indigo-700 dark:text-indigo-400">
+                        <p className="text-xs text-indigo-700 dark:text-indigo-400">
                             Dikerjakan
                         </p>
                     </div>

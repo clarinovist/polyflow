@@ -983,7 +983,7 @@ export function MobileOpnameDetailClient({
                             <Label className="text-sm font-medium">
                                 Blind Mode
                             </Label>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Sembunyikan jumlah sistem
                             </p>
                         </div>
@@ -1073,7 +1073,7 @@ export function MobileOpnameDetailClient({
                                 <p className="text-lg font-bold text-emerald-600">
                                     {stats.matched}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     Matched
                                 </p>
                             </div>
@@ -1081,7 +1081,7 @@ export function MobileOpnameDetailClient({
                                 <p className="text-lg font-bold text-blue-600">
                                     {stats.surplus}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     Surplus
                                 </p>
                             </div>
@@ -1089,7 +1089,7 @@ export function MobileOpnameDetailClient({
                                 <p className="text-lg font-bold text-red-600">
                                     {stats.shortage}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                     Shortage
                                 </p>
                             </div>
@@ -1145,7 +1145,7 @@ export function MobileOpnameDetailClient({
                                         <p className="text-sm font-medium truncate">
                                             {item.productVariant.name}
                                         </p>
-                                        <p className="text-[10px] text-muted-foreground truncate">
+                                        <p className="text-xs text-muted-foreground truncate">
                                             {item.productVariant.product.name}{' '}
                                             &middot;{' '}
                                             {item.productVariant.skuCode}{' '}
@@ -1156,7 +1156,7 @@ export function MobileOpnameDetailClient({
                                     {isCounted && (
                                         <Badge
                                             variant="secondary"
-                                            className="bg-primary/10 text-primary border-transparent text-[10px] shrink-0"
+                                            className="bg-primary/10 text-primary border-transparent text-xs shrink-0"
                                         >
                                             Hitung
                                         </Badge>
@@ -1185,7 +1185,7 @@ export function MobileOpnameDetailClient({
                                                             entryTotal,
                                                         )}
                                                     </span>
-                                                    <span className="ml-2 text-[10px] text-muted-foreground">
+                                                    <span className="ml-2 text-xs text-muted-foreground">
                                                         dari rincian
                                                     </span>
                                                 </div>
@@ -1458,11 +1458,11 @@ export function MobileOpnameDetailClient({
                                     {unsyncedEntryCount} rincian belum tersinkron
                                 </span>
                             ) : autosaveStatus === 'saving' ? (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-xs text-muted-foreground">
                                     Menyimpan hitungan…
                                 </span>
                             ) : autosaveStatus === 'saved' && lastSavedAt ? (
-                                <span className="text-[10px] text-muted-foreground">
+                                <span className="text-xs text-muted-foreground">
                                     Hitungan tersimpan otomatis ·{' '}
                                     {lastSavedAt.toLocaleTimeString('id-ID', {
                                         hour: '2-digit',

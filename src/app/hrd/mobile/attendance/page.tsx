@@ -30,7 +30,7 @@ export default async function HrdAttendancePage({
         <div className="space-y-4">
             <MobileSectionHeader title="Rekap Absensi Karyawan" level={1} />
             {data && <MobileDataFreshness generatedAt={data.generatedAt} />}
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
                 View-only HRD — filter tanggal, shift, status. Koreksi tetap via
                 desktop HRD.
             </p>

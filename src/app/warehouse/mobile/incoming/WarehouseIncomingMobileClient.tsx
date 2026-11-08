@@ -220,7 +220,7 @@ export function WarehouseIncomingMobileClient({
                                                 {po.entrySource === 'WALK_IN_RECEIPT' && (
                                                     <Badge
                                                         variant="outline"
-                                                        className="text-[10px] shrink-0 border-amber-500/30 text-amber-700 bg-amber-500/10"
+                                                        className="text-xs shrink-0 border-amber-500/30 text-amber-700 bg-amber-500/10"
                                                     >
                                                         Dari Nota
                                                     </Badge>
@@ -236,7 +236,7 @@ export function WarehouseIncomingMobileClient({
                                         <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
                                     </div>
 
-                                    <div className="flex items-center gap-3 mt-2 pt-2 border-t text-[10px] text-muted-foreground">
+                                    <div className="flex items-center gap-3 mt-2 pt-2 border-t text-xs text-muted-foreground">
                                         <div className="flex items-center gap-1">
                                             <Package className="h-3 w-3" />
                                             {receivedItems}/{totalItems} item

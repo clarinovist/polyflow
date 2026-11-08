@@ -37,13 +37,16 @@ export function WarehouseBottomNav() {
                             href={tab.href}
                             aria-current={isActive ? 'page' : undefined}
                             className={cn(
-                                'relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-[11px] transition-colors min-[360px]:text-xs',
+                                'group relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 px-0.5 text-xs transition-colors',
                                 isActive
                                     ? 'text-primary font-medium'
                                     : 'text-muted-foreground active:text-primary',
                             )}
                         >
-                            <tab.icon aria-hidden="true" className="h-5 w-5" />
+                            <tab.icon
+                                aria-hidden="true"
+                                className="h-5 w-5 transition-transform duration-150 ease-out group-active:scale-90"
+                            />
                             <span className="max-w-full truncate">{tab.label}</span>
                         </Link>
                     );
