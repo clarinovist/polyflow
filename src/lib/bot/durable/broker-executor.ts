@@ -21,7 +21,7 @@ import {
     upsertDurableToolAuthorityDenial,
 } from './projection';
 
-export const DEFAULT_ASSISTANT_BROKER_TOOL_ALLOWLIST = [
+const DEFAULT_ASSISTANT_BROKER_TOOL_ALLOWLIST = [
     'get_daily_production_output',
 ] as const;
 

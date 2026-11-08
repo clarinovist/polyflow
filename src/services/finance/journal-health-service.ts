@@ -13,7 +13,7 @@ type Db = Prisma.TransactionClient | PrismaClient;
  * note in lib/findings/finding-sync.ts).
  */
 
-export type MissingInvoiceIssue = {
+type MissingInvoiceIssue = {
     id: string;
     invoiceNumber: string;
     status: string;
@@ -22,7 +22,7 @@ export type MissingInvoiceIssue = {
     customerName: string | null;
 };
 
-export type ShortfallIssue = {
+type ShortfallIssue = {
     id: string;
     invoiceNumber: string;
     invoiceDate: Date;
@@ -31,7 +31,7 @@ export type ShortfallIssue = {
     difference: number;
 };
 
-export type MissingPaymentIssue = {
+type MissingPaymentIssue = {
     id: string;
     paymentNumber: string | null;
     paymentDate: Date;
@@ -47,7 +47,7 @@ export type MissingPaymentIssue = {
  */
 export const PURCHASE_JOURNAL_CUTOFF_ISO = '2026-08-31T17:00:00.000Z'; // 2026-09-01 00:00 WIB
 
-export type PurchaseInvoiceMissingIssue = {
+type PurchaseInvoiceMissingIssue = {
     id: string;
     invoiceNumber: string;
     status: string;

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type HistoryMessage = {
+type HistoryMessage = {
     id: string;
     role: 'user' | 'assistant';
     text: string;

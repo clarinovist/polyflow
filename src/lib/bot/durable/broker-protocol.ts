@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { ToolEvidence } from '../assistant-types';
 import {
     ASSISTANT_PROTOCOL_VERSION,
     assistantAuthoritySchema,
@@ -8,7 +7,7 @@ import {
 
 export const ASSISTANT_BROKER_PROTOCOL_VERSION = ASSISTANT_PROTOCOL_VERSION;
 
-export const assistantBrokerExecutionKeySchema = z
+const assistantBrokerExecutionKeySchema = z
     .string()
     .min(1)
     .max(300)
@@ -118,7 +117,3 @@ export const assistantBrokerToolResponseSchema = z
         evidence: toolEvidenceSchema,
     })
     .strict();
-export type AssistantBrokerToolResponse = Omit<
-    z.infer<typeof assistantBrokerToolResponseSchema>,
-    'evidence'
-> & { evidence: ToolEvidence };

@@ -14,7 +14,7 @@ export type ExecutiveSectionKey =
     | 'production'
     | 'inventory'
     | 'finance';
-export type ExecutiveSectionState = 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN';
+type ExecutiveSectionState = 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN';
 
 type SalesSection = Awaited<ReturnType<typeof getExecutiveSalesMetrics>> & {
     mtdRevenue: number | null;

@@ -22,7 +22,7 @@ export interface TenantInvitationMainDb {
     ): Promise<T>;
 }
 
-export interface TenantInvitationTransaction {
+interface TenantInvitationTransaction {
     globalAccount: Pick<PrismaClient['globalAccount'], 'upsert'>;
     tenantInvitation: Pick<
         PrismaClient['tenantInvitation'],

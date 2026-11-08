@@ -19,7 +19,7 @@ export const DELIVERY_WORKFLOW_GROUPS = {
     exceptions: [DeliveryStatus.RETURNED, DeliveryStatus.CANCELLED],
 } as const;
 export type DeliveryWorkflowGroup = keyof typeof DELIVERY_WORKFLOW_GROUPS;
-export const DELIVERY_LIST_SORTS = [
+const DELIVERY_LIST_SORTS = [
     'priority',
     'deliveryDate',
     'orderNumber',

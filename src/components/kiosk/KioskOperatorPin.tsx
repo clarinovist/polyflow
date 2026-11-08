@@ -7,7 +7,7 @@ import { kioskButton } from './ui/kiosk-button';
 import { operatorInitials } from './ui/operator-initials';
 
 export const PIN_MIN_LENGTH = 4;
-export const PIN_MAX_LENGTH = 6;
+const PIN_MAX_LENGTH = 6;
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 const KEY = cn(kioskButton({ size: 'xl' }), 'text-2xl');
 

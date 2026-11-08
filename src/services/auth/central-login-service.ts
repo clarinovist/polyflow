@@ -3,14 +3,14 @@ import { CentralIdentityService } from '@/services/auth/central-identity-service
 import { AuthorizationError } from '@/lib/errors/errors';
 import { normalizeUserRoles } from '@/lib/auth/roles';
 
-export interface CentralLoginMainDb {
+interface CentralLoginMainDb {
     tenant: Pick<PrismaClient['tenant'], 'findUnique'>;
     globalAccount: Pick<PrismaClient['globalAccount'], 'findUnique' | 'update'>;
     tenantMembership: Pick<PrismaClient['tenantMembership'], 'findUnique'>;
     $transaction: PrismaClient['$transaction'];
 }
 
-export interface CentralLoginTenantDb {
+interface CentralLoginTenantDb {
     user: Pick<PrismaClient['user'], 'findUnique' | 'update' | 'updateMany'>;
     userRole: Pick<PrismaClient['userRole'], 'findMany'>;
     rolePermission: Pick<PrismaClient['rolePermission'], 'findMany'>;

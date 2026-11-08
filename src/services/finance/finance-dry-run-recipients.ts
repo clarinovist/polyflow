@@ -7,7 +7,7 @@ const LIMIT = 500;
 type Identity = Pick<TelegramIdentity, 'id' | 'userId' | 'status' | 'telegramChatId'>;
 type User = { id: string; role: Role; isActive: boolean; isSuperAdmin: boolean; roles: { role: Role }[] };
 type Pref = Pick<TelegramNotificationPreference, 'userId' | 'enabled' | 'dailyDigest' | 'quietHoursStart' | 'quietHoursEnd' | 'timezone'>;
-export type RecipientCandidate = {
+type RecipientCandidate = {
     identityId: string; userId: string; eligible: boolean; resources: string[]; reasons: string[]; dedupStatus: string | null;
 };
 

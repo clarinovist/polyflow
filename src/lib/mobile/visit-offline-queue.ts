@@ -1,4 +1,4 @@
-export const VISIT_QUEUE_PREFIX = 'polyflow:visit-queue:v1';
+const VISIT_QUEUE_PREFIX = 'polyflow:visit-queue:v1';
 
 export interface VisitQueuePartition {
     tenantId: string;

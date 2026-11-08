@@ -6,14 +6,14 @@ import { getFindingsMode, type FindingsMode } from './findings-mode';
 
 type ModeEnv = Record<string, string | undefined>;
 
-export type DetectorRunSummary = {
+type DetectorRunSummary = {
     detector: string;
     status: DetectionResult['status'];
     items: number;
     error?: string;
 };
 
-export type FindingSyncCounts = {
+type FindingSyncCounts = {
     created: number;
     reopened: number;
     updated: number;
@@ -23,7 +23,7 @@ export type FindingSyncCounts = {
     skippedDetectors: string[];
 };
 
-export type TenantFindingsSummary = {
+type TenantFindingsSummary = {
     tenant: string;
     mode: FindingsMode;
     detectors?: DetectorRunSummary[];

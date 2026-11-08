@@ -4,7 +4,7 @@ import { Prisma } from '@prisma/client';
  * Where an inventory movement journal took its unit cost from. Kept explicit so
  * callers/reports can tell a persisted cost from a by-product zero.
  */
-export type OutboundCostSource =
+type OutboundCostSource =
     | 'MOVEMENT'
     | 'STANDARD_COST'
     | 'BUY_PRICE'

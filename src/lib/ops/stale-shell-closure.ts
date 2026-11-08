@@ -18,7 +18,7 @@ import {
  * shells through the same helper the live "Selesai SPK" path uses.
  */
 
-export const STALE_SHELL_ACTION = 'CLOSE_STALE_SHELLS';
+const STALE_SHELL_ACTION = 'CLOSE_STALE_SHELLS';
 const MS_PER_HOUR = 3_600_000;
 const TRANSACTION_TIMEOUT_MS = 120_000;
 const TRANSACTION_MAX_WAIT_MS = 10_000;

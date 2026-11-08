@@ -1,4 +1,3 @@
-import type { Prisma } from '@prisma/client';
 import {
     type Harness,
     type EntryId,
@@ -36,10 +35,4 @@ export async function readDurablePresentation(
         return entry.data.response as unknown as AssistantResponse;
     }
     return undefined;
-}
-
-export function serializeAssistantResponse(
-    response: AssistantResponse,
-): Prisma.InputJsonValue {
-    return JSON.parse(JSON.stringify(response)) as Prisma.InputJsonValue;
 }

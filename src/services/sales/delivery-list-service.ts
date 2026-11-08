@@ -4,7 +4,7 @@ import {
     type DeliveryListQuery,
 } from '@/lib/sales/delivery-list';
 
-export const DELIVERY_LIST_SELECT = {
+const DELIVERY_LIST_SELECT = {
     id: true,
     orderNumber: true,
     deliveryDate: true,

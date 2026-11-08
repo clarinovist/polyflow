@@ -41,14 +41,14 @@ function formatWibDateTime(value: Date): string {
     }).format(value);
 }
 
-export type OpnameFinalizationBlockerCode =
+type OpnameFinalizationBlockerCode =
     | 'OPNAME_NOT_OPEN'
     | 'FISCAL_PERIOD_CLOSED'
     | 'OPNAME_BACKDATE_CONFLICT'
     | 'OPNAME_LEDGER_MISMATCH'
     | 'OPNAME_NEGATIVE_LIVE_STOCK';
 
-export type OpnameFinalizationWarningCode =
+type OpnameFinalizationWarningCode =
     | 'OPNAME_COUNT_BEFORE_MOVEMENT'
     | 'OPNAME_QUANTITY_OUTLIER'
     | 'OPNAME_HIGH_VALUE_IMPACT';
@@ -57,17 +57,17 @@ export type OpnameFinalizationWarningCode =
  * Absolute money threshold above which the operator must explicitly
  * acknowledge the adjustment before finalizing.
  */
-export const OPNAME_HIGH_VALUE_ACK_THRESHOLD = 1_000_000;
+const OPNAME_HIGH_VALUE_ACK_THRESHOLD = 1_000_000;
 /**
  * A count that is >=100x (or <=1/100 of) the cutoff or session snapshot is
  * almost always a unit or decimal entry mistake, so it needs acknowledgement.
  */
-export const OPNAME_QUANTITY_OUTLIER_RATIO = 100;
+const OPNAME_QUANTITY_OUTLIER_RATIO = 100;
 
 const MAX_LISTED_BLOCKER_ITEMS = 10;
 const MAX_LISTED_WARNING_ITEMS = 5;
 
-export interface OpnameFinalizationPreviewItem {
+interface OpnameFinalizationPreviewItem {
     opnameItemId: string;
     productVariantId: string;
     skuCode: string;
@@ -83,7 +83,7 @@ export interface OpnameFinalizationPreviewItem {
     valueImpact: string;
 }
 
-export interface OpnameFinalizationBlocker {
+interface OpnameFinalizationBlocker {
     code: OpnameFinalizationBlockerCode;
     message: string;
     items?: Array<{
@@ -94,7 +94,7 @@ export interface OpnameFinalizationBlocker {
     truncatedItems?: number;
 }
 
-export interface OpnameFinalizationWarning {
+interface OpnameFinalizationWarning {
     code: OpnameFinalizationWarningCode;
     message: string;
     items: Array<{

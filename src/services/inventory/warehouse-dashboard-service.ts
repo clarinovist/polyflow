@@ -40,7 +40,7 @@ export interface WarehouseLowStockDriver {
  * `threshold` is the variant reorder point; `shortage` is threshold minus the
  * eligible internal quantity (positive for every qualifier).
  */
-export interface WarehouseReorderDriver {
+interface WarehouseReorderDriver {
     id: string;
     name: string;
     skuCode: string;

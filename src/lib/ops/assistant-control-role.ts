@@ -14,10 +14,7 @@ const IDENTIFIER = /^[a-z_][a-z0-9_]{0,62}$/;
  * from turning into a credential oracle; the assistant only reads identity,
  * permission, tenant and domain tables.
  */
-export const ASSISTANT_CONTROL_DENIED_READ_TABLES = [
-    'ApiKey',
-    'Account',
-] as const;
+const ASSISTANT_CONTROL_DENIED_READ_TABLES = ['ApiKey', 'Account'] as const;
 
 /** Tables the worker is allowed to write. Everything else is SELECT-only. */
 export const ASSISTANT_CONTROL_WRITE_TABLES = [
@@ -42,10 +39,7 @@ export type AssistantControlRolePlan = {
     statements: readonly string[];
 };
 
-export function assertControlRoleIdentifier(
-    value: string,
-    label: string,
-): string {
+function assertControlRoleIdentifier(value: string, label: string): string {
     if (!IDENTIFIER.test(value)) {
         throw new Error(
             `ASSISTANT_CONTROL_ROLE_INVALID_${label.toUpperCase()}`,
@@ -54,7 +48,7 @@ export function assertControlRoleIdentifier(
     return value;
 }
 
-export function assertDedicatedControlRole(role: string): string {
+function assertDedicatedControlRole(role: string): string {
     if (role === 'postgres' || role === 'polyflow') {
         throw new Error('ASSISTANT_CONTROL_ROLE_MUST_BE_DEDICATED');
     }

@@ -1,7 +1,7 @@
 export const HPP_SIMULATOR_DEFAULT_MARGIN_PERCENT = 15;
 export const HPP_SIMULATOR_MAX_SCENARIOS = 3;
 
-export type HppSimulatorDefaultSource =
+type HppSimulatorDefaultSource =
     | 'bom'
     | 'inventory_average'
     | 'standard_cost'
@@ -9,18 +9,18 @@ export type HppSimulatorDefaultSource =
     | 'simulator_assumption'
     | 'missing';
 
-export type HppSimulatorCostSource = Extract<
+type HppSimulatorCostSource = Extract<
     HppSimulatorDefaultSource,
     'inventory_average' | 'standard_cost' | 'buy_price' | 'missing'
 >;
 
-export type HppSimulatorCostCandidateStatus =
+type HppSimulatorCostCandidateStatus =
     | 'selected'
     | 'available'
     | 'invalid'
     | 'missing';
 
-export type HppSimulatorCostCandidateReason =
+type HppSimulatorCostCandidateReason =
     | 'not_provided'
     | 'not_positive_finite'
     | 'no_positive_internal_inventory'
@@ -32,13 +32,13 @@ export type HppSimulatorCostWarning =
     | 'inventory_standard_cost_gap'
     | 'low_stock_cost_outlier';
 
-export interface HppSimulatorScalarCostCandidate {
+interface HppSimulatorScalarCostCandidate {
     status: HppSimulatorCostCandidateStatus;
     value: number | null;
     reason: HppSimulatorCostCandidateReason | null;
 }
 
-export interface HppSimulatorInventoryCostCandidate
+interface HppSimulatorInventoryCostCandidate
     extends HppSimulatorScalarCostCandidate {
     positiveInternalRowCount: number;
     excludedCustomerOwnedRowCount: number;
@@ -76,7 +76,7 @@ export type HppSimulatorNumberInput =
           defaultSnapshot: HppSimulatorNumberDefaultSnapshot | null;
       };
 
-export interface HppSimulatorInventoryBalance {
+interface HppSimulatorInventoryBalance {
     locationType: 'INTERNAL' | 'CUSTOMER_OWNED';
     quantity: number;
     averageCost: number | null;
@@ -108,7 +108,7 @@ export class HppSimulatorValidationError extends Error {
     }
 }
 
-export type HppSimulatorCostCategory = 'material' | 'conversion';
+type HppSimulatorCostCategory = 'material' | 'conversion';
 
 interface HppSimulatorComponentBase {
     id: string;
@@ -124,7 +124,7 @@ export interface HppSimulatorBomMaterialComponent
     primaryUnit: string;
 }
 
-export interface HppSimulatorQuantityUnitCostComponent
+interface HppSimulatorQuantityUnitCostComponent
     extends HppSimulatorComponentBase {
     formula: 'quantity-times-unit-cost';
     category: HppSimulatorCostCategory;
@@ -133,7 +133,7 @@ export interface HppSimulatorQuantityUnitCostComponent
     quantityUnit: string;
 }
 
-export interface HppSimulatorBatchCostComponent
+interface HppSimulatorBatchCostComponent
     extends HppSimulatorComponentBase {
     formula: 'batch-cost-per-good-output';
     category: HppSimulatorCostCategory;
@@ -143,14 +143,14 @@ export interface HppSimulatorBatchCostComponent
     batchUnit: string;
 }
 
-export interface HppSimulatorFixedCostComponent
+interface HppSimulatorFixedCostComponent
     extends HppSimulatorComponentBase {
     formula: 'fixed-per-output';
     category: HppSimulatorCostCategory;
     costPerOutput: HppSimulatorNumberInput;
 }
 
-export interface HppSimulatorPercentageOverheadComponent
+interface HppSimulatorPercentageOverheadComponent
     extends HppSimulatorComponentBase {
     formula: 'percentage-of-pre-overhead';
     percentage: HppSimulatorNumberInput;
@@ -177,7 +177,7 @@ export interface HppSimulatorScenarioInput {
     salePrice?: HppSimulatorNumberInput;
 }
 
-export interface HppSimulatorComponentResult {
+interface HppSimulatorComponentResult {
     id: string;
     name: string;
     formula:

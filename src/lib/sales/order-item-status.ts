@@ -42,7 +42,7 @@ export interface OrderItemStatus {
     returnedQty: number;
 }
 
-export const ORDER_ITEM_STATUS_LABELS: Record<OrderItemStatusKey, string> = {
+const ORDER_ITEM_STATUS_LABELS: Record<OrderItemStatusKey, string> = {
     draft: 'Draft',
     cancelled: 'Dibatalkan',
     in_production: 'Dalam produksi',

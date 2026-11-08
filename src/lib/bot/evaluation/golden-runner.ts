@@ -5,7 +5,7 @@ import {
     type GoldenHardGate,
 } from './golden-cases';
 
-export type GoldenSafetyResult = {
+type GoldenSafetyResult = {
     id: string;
     expectedCode: GoldenCase['expectedCode'];
     actualCode: ReturnType<typeof enforceGuardrails>['code'];

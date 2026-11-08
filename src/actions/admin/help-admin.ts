@@ -92,7 +92,7 @@ export async function listHelpConversations(
     return { items: enriched, total, page, limit };
 }
 
-export type HelpConversationDetail = {
+type HelpConversationDetail = {
     interaction: {
         id: string;
         question: string;

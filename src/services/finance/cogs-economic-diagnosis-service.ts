@@ -5,7 +5,7 @@ import { financeRange } from './finance-diagnostic-input';
 
 const SAMPLE_LIMIT = 20;
 
-export type CogsCoverageStatus = 'covered' | 'partial' | 'missing';
+type CogsCoverageStatus = 'covered' | 'partial' | 'missing';
 export type CogsConfidenceCap = 0.6 | 0.75 | 0.85 | 0.9;
 
 export type CogsCoverageDimension = {

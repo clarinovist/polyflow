@@ -42,6 +42,3 @@ export const internalUsageReadinessSchema = internalUsageSchema.pick({
     locationId: true,
     quantity: true,
 });
-export type InternalUsageReadinessInput = z.infer<
-    typeof internalUsageReadinessSchema
->;

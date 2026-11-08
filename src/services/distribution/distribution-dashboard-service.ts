@@ -11,14 +11,12 @@ import {
     buildSalesDashboardReadyWithoutOpenDeliveryWhere,
 } from '@/services/sales/sales-dashboard-service';
 
-export type DistributionDashboardState = 'AVAILABLE' | 'UNAVAILABLE' | 'HIDDEN';
-
-export type DistributionDashboardSection<T> =
+type DistributionDashboardSection<T> =
     | { state: 'AVAILABLE'; data: T; href: string | null }
     | { state: 'UNAVAILABLE'; data: null; href: string | null }
     | { state: 'HIDDEN'; data: null; href: null };
 
-export type DistributionDashboardNotConfigured = {
+type DistributionDashboardNotConfigured = {
     state: 'NOT_CONFIGURED';
     data: null;
 };

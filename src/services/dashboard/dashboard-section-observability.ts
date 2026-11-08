@@ -27,7 +27,7 @@ export type DashboardAgeBucket =
     | 'GTE_60M'
     | 'UNKNOWN';
 
-export interface DashboardSectionTiming {
+interface DashboardSectionTiming {
     route: DashboardObservabilityRoute;
     section: string;
     durationMs: number;

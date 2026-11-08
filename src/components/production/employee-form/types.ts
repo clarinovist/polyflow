@@ -34,7 +34,7 @@ export type PersonalData = {
     emergencyContactRelation: string;
 };
 
-export type EmployeeFormData = {
+type EmployeeFormData = {
     name: string;
     code: string;
     role: string;

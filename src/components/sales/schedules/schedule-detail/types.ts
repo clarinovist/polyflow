@@ -7,7 +7,7 @@ export interface Vehicle {
     status: string;
 }
 
-export interface StopItem {
+interface StopItem {
     id: string;
     quantity: number;
     deliveredQty: number;

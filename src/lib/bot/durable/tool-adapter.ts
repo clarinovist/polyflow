@@ -141,7 +141,7 @@ async function currentAuthority(
     return authority;
 }
 
-export function createDurableAssistantTool(
+function createDurableAssistantTool(
     tool: AssistantToolDefinition,
     options: DurableAssistantToolOptions = {},
 ) {

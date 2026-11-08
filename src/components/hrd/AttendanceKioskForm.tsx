@@ -28,7 +28,7 @@ import {
 import type { GeofenceMode } from '@/services/hrd/attendance-location';
 
 /** A success message stays this long, then the tablet is ready for the next person. */
-export const SUCCESS_DISMISS_MS = 5000;
+const SUCCESS_DISMISS_MS = 5000;
 const HISTORY_LIMIT = 20;
 
 interface Feedback {

@@ -37,7 +37,7 @@ export function parseLedgerAlignmentRequest(
     return input;
 }
 
-export interface LedgerAlignmentItem {
+interface LedgerAlignmentItem {
     productVariantId: string;
     skuCode: string;
     locationId: string;

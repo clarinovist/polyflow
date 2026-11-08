@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { ValidationError } from '@/lib/errors/errors';
 
-export const STOCK_QUANTITY_SCALE = 4;
+const STOCK_QUANTITY_SCALE = 4;
 
 /**
  * Normalize a stock quantity to Prisma.Decimal(15,4) using ROUND_HALF_UP

@@ -22,7 +22,7 @@ export interface StockLedgerHealth {
     findings: number;
 }
 
-export interface StockLedgerPairMovement {
+interface StockLedgerPairMovement {
     id: string;
     createdAt: string;
     type: string;

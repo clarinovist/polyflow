@@ -35,7 +35,7 @@ export class MobilePortalAccessError extends AuthorizationError {
     }
 }
 
-export interface MobilePortalAccess {
+interface MobilePortalAccess {
     portal: Extract<MobilePortalDecision, { allowed: true }>['portal'];
     capabilities: MobileActionCapability[];
 }

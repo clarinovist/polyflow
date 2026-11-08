@@ -42,14 +42,14 @@ type TeamTarget = {
     revenue?: RevenueProgress;
 };
 
-export type MarketingTeamMemberDto = {
+type MarketingTeamMemberDto = {
     id: string;
     name: string;
     orders: TargetProgress;
     visits: TargetProgress;
     revenue?: RevenueProgress;
 };
-export type MarketingComplianceDto = {
+type MarketingComplianceDto = {
     id: string;
     salesName: string;
     assigned: number;
@@ -57,7 +57,7 @@ export type MarketingComplianceDto = {
     extraCalls: number;
     compliancePercent: number;
 };
-export type MarketingPipelineExceptionDto = {
+type MarketingPipelineExceptionDto = {
     id: string;
     orderNumber: string;
     customerName: string;
@@ -66,14 +66,14 @@ export type MarketingPipelineExceptionDto = {
     dueAt: string | null;
     amount?: number;
 };
-export type MarketingReviewDto = {
+type MarketingReviewDto = {
     id: string;
     kind: 'PROSPECT' | 'VISIT';
     title: string;
     salesName: string;
     queuedAt: string;
 };
-export type MarketingFollowUpDto = {
+type MarketingFollowUpDto = {
     id: string;
     customerName: string;
     city: string | null;

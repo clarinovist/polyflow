@@ -22,7 +22,7 @@ interface MachineRecapFilterProps {
 export const MACHINE_RECAP_ALL = 'all';
 
 /** Label shown in the select trigger. */
-export function machineRecapValueLabel(value: string): string {
+function machineRecapValueLabel(value: string): string {
     return value === MACHINE_RECAP_ALL ? 'Semua waktu' : value;
 }
 

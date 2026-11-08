@@ -19,7 +19,7 @@ import {
     type LocationLike,
 } from '@/lib/locations/resolve-location';
 
-export interface MaterialFlowRow {
+interface MaterialFlowRow {
     productVariantId: string;
     name: string;
     quantity: number;

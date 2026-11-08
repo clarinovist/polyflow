@@ -4,7 +4,7 @@ import { BusinessRuleError } from '../errors/errors';
 /** Read-only calculation, NOT an authorization, posting vector or apply payload.
  * Caller must independently prove the opening snapshot and complete processing
  * chronology. Document dates are not stock processing timestamps. */
-export type HistoricalCostEvent = {
+type HistoricalCostEvent = {
     id: string;
     processedAt: string;
     quantity: string;

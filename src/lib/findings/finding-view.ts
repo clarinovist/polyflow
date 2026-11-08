@@ -4,7 +4,7 @@
  * Only the fields the inbox renders are kept (no requiredResources, no emails).
  */
 export type FindingViewSeverity = 'WARNING' | 'CRITICAL';
-export type FindingViewStatus = 'UNCLAIMED' | 'CLAIMED' | 'SNOOZED';
+type FindingViewStatus = 'UNCLAIMED' | 'CLAIMED' | 'SNOOZED';
 
 export type FindingView = {
     id: string;

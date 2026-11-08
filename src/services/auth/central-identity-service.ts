@@ -14,7 +14,7 @@ import {
 const ACTIVE = 'ACTIVE' as const;
 const CENTRAL = 'CENTRAL' as const;
 
-export interface CentralIdentityMainTx {
+interface CentralIdentityMainTx {
     tenantMembership: Pick<PrismaClient['tenantMembership'], 'update'>;
     centralIdentityEvent: Pick<PrismaClient['centralIdentityEvent'], 'create'>;
 }
@@ -25,7 +25,7 @@ export interface CentralIdentityMainDb {
     $transaction<T>(operation: (tx: unknown) => Promise<T>): Promise<T>;
 }
 
-export interface CentralIdentityTenantTx {
+interface CentralIdentityTenantTx {
     user: Pick<PrismaClient['user'], 'findUnique' | 'update' | 'updateMany'>;
 }
 

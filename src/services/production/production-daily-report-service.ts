@@ -19,7 +19,7 @@ export interface DailyProcessTotals {
     entries: number;
 }
 
-export interface DailyProductionRow {
+interface DailyProductionRow {
     /** WIB business date, YYYY-MM-DD */
     date: string;
     byProcess: Record<ProcessKey, DailyProcessTotals>;
@@ -55,7 +55,7 @@ export interface MachineTotals {
     entries: number;
 }
 
-export interface ProcessMachineDetail {
+interface ProcessMachineDetail {
     totals: DailyProcessTotals;
     /** Sorted: produced desc, then machine name (no-machine last) */
     machines: MachineTotals[];

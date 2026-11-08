@@ -140,7 +140,7 @@ const scenarioSchema = z
         if (error) ctx.addIssue({ code: 'custom', message: error });
     });
 
-export const ownerHppWorkspaceSchema = z
+const ownerHppWorkspaceSchema = z
     .object({
         version: z.literal(OWNER_HPP_WORKSPACE_VERSION),
         scenarios: z
@@ -159,7 +159,6 @@ export type OwnerHppScenario = z.infer<typeof scenarioSchema>;
 export type OwnerHppStage = z.infer<typeof stageSchema>;
 export type OwnerHppMaterial = z.infer<typeof materialSchema>;
 export type OwnerHppRawMaterial = z.infer<typeof rawMaterialSchema>;
-export type OwnerHppStageMaterial = z.infer<typeof stageMaterialSchema>;
 export type OwnerHppCost = z.infer<typeof costSchema>;
 
 export type ParseWorkspaceResult =

@@ -22,7 +22,7 @@ export interface ShiftWindowLike {
     endTime: Date | string;
 }
 
-export interface ExecutionTimeLike {
+interface ExecutionTimeLike {
     startTime: Date | string;
 }
 

@@ -46,7 +46,7 @@ export type InternalUsageHistory = {
     departments: string[];
 };
 
-export type InternalUsageAccountRef = { code: string; name: string };
+type InternalUsageAccountRef = { code: string; name: string };
 
 /** Read-only preflight result; `accounting` is only returned to Finance/Admin. */
 export type InternalUsageReadiness = {

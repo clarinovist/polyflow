@@ -9,9 +9,9 @@ const ADJUSTMENT_ACCOUNT_CODES = new Set([
     '91100',
 ]);
 
-export type InventoryAdjustmentDirection = 'GAIN' | 'LOSS';
+type InventoryAdjustmentDirection = 'GAIN' | 'LOSS';
 
-export interface InventoryAdjustmentReportEvent {
+interface InventoryAdjustmentReportEvent {
     journalId: string;
     journalNumber: string;
     movementId: string;

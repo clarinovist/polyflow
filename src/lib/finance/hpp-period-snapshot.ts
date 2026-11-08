@@ -2,9 +2,9 @@ import type { ProductionCost } from '@/services/accounting/costing-service';
 import type { EnrichedProductionCost } from '@/lib/utils/hpp-report';
 import { getWibMonthBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
-export const HPP_SNAPSHOT_TOLERANCE_RUPIAH = 1;
+const HPP_SNAPSHOT_TOLERANCE_RUPIAH = 1;
 
-export interface HppSnapshotOrder {
+interface HppSnapshotOrder {
     productionOrderId: string;
     orderNumber?: string;
     totalCost: number;
@@ -28,7 +28,7 @@ export interface HppPeriodLockInfo {
 
 export type HppOrderChangeKind = 'CHANGED' | 'ADDED' | 'REMOVED';
 
-export interface HppOrderDiff {
+interface HppOrderDiff {
     productionOrderId: string;
     orderNumber: string;
     kind: HppOrderChangeKind;
@@ -50,7 +50,7 @@ export interface HppLockComparison {
     orderChanges: HppOrderDiff[];
 }
 
-export type HppOrderCostInput =
+type HppOrderCostInput =
     | {
           productionOrderId: string;
           orderNumber?: string;
@@ -130,7 +130,7 @@ function normalizeOrderEntry(item: HppOrderCostInput): {
     };
 }
 
-export function summarizeHppPeriod(input: HppPeriodSummaryInput): {
+function summarizeHppPeriod(input: HppPeriodSummaryInput): {
     totalCogm: number;
     totalQuantity: number;
     orderCount: number;

@@ -34,7 +34,7 @@ type AdminModuleKey = AdminMobileModuleKey;
 type AdminModuleState = 'AVAILABLE' | 'UNAVAILABLE';
 type AdminSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
-export interface AdminMobileModuleStatus {
+interface AdminMobileModuleStatus {
     key: AdminModuleKey;
     label: string;
     state: AdminModuleState;
@@ -56,7 +56,7 @@ export type AdminMobileTaskType =
     | 'open-reconciliation'
     | 'pending-leave';
 
-export interface AdminMobileTask {
+interface AdminMobileTask {
     id: string;
     module: AdminModuleKey;
     type: AdminMobileTaskType;
@@ -66,14 +66,14 @@ export interface AdminMobileTask {
     href: string | null;
 }
 
-export interface AdminMobileHighlight {
+interface AdminMobileHighlight {
     key: string;
     label: string;
     value: number | string;
     severity: AdminSeverity;
 }
 
-export interface AdminMobileShortcut {
+interface AdminMobileShortcut {
     id: MobilePortalInfo['id'];
     label: string;
     href: string;

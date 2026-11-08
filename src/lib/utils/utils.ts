@@ -60,10 +60,10 @@ export function formatRupiahParts(value: number | null | undefined): {
     return { prefix: 'Rp', amount, isNegative };
 }
 
-export const QUANTITY_FRACTION_DIGITS = 4;
+const QUANTITY_FRACTION_DIGITS = 4;
 const QUANTITY_SCALE = 10 ** QUANTITY_FRACTION_DIGITS;
 
-export function toQuantityUnits(value: number | null | undefined): number {
+function toQuantityUnits(value: number | null | undefined): number {
     if (value === null || value === undefined || !Number.isFinite(value)) {
         return 0;
     }
@@ -73,7 +73,7 @@ export function toQuantityUnits(value: number | null | undefined): number {
     );
 }
 
-export function normalizeQuantity(value: number | null | undefined): number {
+function normalizeQuantity(value: number | null | undefined): number {
     return toQuantityUnits(value) / QUANTITY_SCALE;
 }
 

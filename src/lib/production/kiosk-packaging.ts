@@ -7,7 +7,7 @@ import { packagingUnitLabel } from '@/lib/production/packaging-material';
  * a stock warning only (decision 2026-10-26).
  */
 
-export interface KioskPackagingStock {
+interface KioskPackagingStock {
     id: string;
     productVariantId: string;
     name: string;

@@ -4,7 +4,7 @@ import {
     type OwnerHppStage,
 } from './workspace-schema';
 
-export interface ErpBomMaterial {
+interface ErpBomMaterial {
     variantId: string;
     name: string;
     unit: string;

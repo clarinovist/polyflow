@@ -9,8 +9,8 @@ const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 /** Within this many days of the due date the item turns SEGERA. */
 export const SERVICE_SOON_DAYS = 14;
 /** When the admin leaves the warning distance empty it is this share of the interval. */
-export const DEFAULT_WARN_RATIO = 0.1;
-export const MAX_INTERVAL_DAYS = 3650;
+const DEFAULT_WARN_RATIO = 0.1;
+const MAX_INTERVAL_DAYS = 3650;
 export const SERVICE_LABEL_SUGGESTIONS = ['Oli mesin', 'Oli gardan', 'Ban', 'Filter', 'Lainnya'] as const;
 /** The quick-pick that means "type your own label". */
 export const SERVICE_LABEL_OTHER = 'Lainnya';
@@ -87,8 +87,8 @@ export function assertServicedAtNotFuture(servicedAtInstant: Date, now: Date): v
     if (servicedAtInstant.getTime() > now.getTime()) throw new BusinessRuleError('Tanggal servis tidak boleh di masa depan.');
 }
 
-export interface ServiceItemTerms { intervalKm: number; intervalDays: number | null; warnKm: number }
-export interface LastService { servicedAt: Date; odometerKm: number }
+interface ServiceItemTerms { intervalKm: number; intervalDays: number | null; warnKm: number }
+interface LastService { servicedAt: Date; odometerKm: number }
 export interface ServiceStatusInput {
     item: ServiceItemTerms;
     lastService: LastService | null;
@@ -119,7 +119,7 @@ function statusByDays(remainingDays: number): ServiceStatus {
     return remainingDays <= SERVICE_SOON_DAYS ? 'SEGERA' : 'AMAN';
 }
 
-export const NO_SERVICE_DATA: ServiceStatusResult = {
+const NO_SERVICE_DATA: ServiceStatusResult = {
     status: 'BELUM_ADA_DATA', currentKm: null, dueKm: null, remainingKm: null, dueDate: null, remainingDays: null, dueBy: null,
 };
 

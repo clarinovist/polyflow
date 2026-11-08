@@ -42,13 +42,6 @@ export const IntentDoc = defineDoc<IntentDocument>({
     initial: () => ({ status: 'unavailable' }),
 });
 
-export type PresentationDocument = JsonObject & {
-    requestId: string;
-    response: AssistantResponse & JsonObject;
-    projected: boolean;
-    interactionId?: string;
-};
-
 export type ToolEvidenceDetail = JsonObject & {
     evidence: (ToolEvidence & JsonObject) | null;
     authorization: 'allowed' | 'denied';

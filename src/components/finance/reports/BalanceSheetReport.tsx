@@ -24,7 +24,7 @@ import {
 } from './balance-sheet-view';
 import { buildGeneralLedgerHref } from './general-ledger-query';
 
-export interface BalanceSheetReportData {
+interface BalanceSheetReportData {
     assets: BalanceSheetAccount[];
     liabilities: BalanceSheetAccount[];
     equity: BalanceSheetAccount[];

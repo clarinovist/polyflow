@@ -13,12 +13,12 @@ import {
 /** An entitled module with fewer current views than this counts as dead. */
 export const DEAD_MODULE_MAX_VIEWS = 10;
 /** (cur+1)/(prev+1) at or above this is growth. */
-export const GROWING_RATIO = 1.25;
+const GROWING_RATIO = 1.25;
 /** (cur+1)/(prev+1) at or below this is decline. */
-export const DECLINING_RATIO = 0.75;
+const DECLINING_RATIO = 0.75;
 /** A feature needs at least this many views in one period to be ranked. */
 export const FEATURE_MOVER_MIN_VOLUME = 50;
-export const FEATURE_MOVER_LIMIT = 5;
+const FEATURE_MOVER_LIMIT = 5;
 
 /**
  * Tracker workspace key (feature-registry moduleKey) -> entitlement module.
@@ -88,7 +88,7 @@ export interface ModuleAdoptionResult {
     unmappedWorkspaces: UnmappedWorkspaceRow[];
 }
 
-export function percentChange(current: number, previous: number): number {
+function percentChange(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
 }

@@ -51,4 +51,4 @@ export { getBomWithInventory } from './production-mrp';
 
 export { createChildProductionOrder } from './production-child';
 
-export { getFgDemandBoard, createSpkFromDemand } from './production-demand';
+export { getFgDemandBoard } from './production-demand';

@@ -3,8 +3,8 @@ import {
     toBusinessDateString,
 } from '@/lib/utils/timezone';
 
-export const DEFAULT_PURCHASING_PAGE_SIZE = 50;
-export const MAX_PURCHASING_PAGE_SIZE = 100;
+const DEFAULT_PURCHASING_PAGE_SIZE = 50;
+const MAX_PURCHASING_PAGE_SIZE = 100;
 
 export interface PurchasingPage<T> {
     items: T[];

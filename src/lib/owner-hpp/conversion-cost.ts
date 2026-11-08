@@ -12,7 +12,7 @@ import {
  * - multi:  anything else; the total is shown read-only and the cost lines
  *           stay untouched (they are edited under "Lanjutan").
  */
-export type ConversionMode = 'none' | 'single' | 'multi';
+type ConversionMode = 'none' | 'single' | 'multi';
 
 export interface ConversionCostState {
     mode: ConversionMode;

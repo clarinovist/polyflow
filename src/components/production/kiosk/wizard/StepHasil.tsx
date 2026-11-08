@@ -2,7 +2,7 @@ import { kioskLabels } from '@/lib/labels';
 import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
 import { KioskNumberPad } from './KioskNumberPad';
 
-export interface ConversionInfo {
+interface ConversionInfo {
     /** e.g. "2 KG / 1 BAL". */
     standard: string | null;
     /** e.g. "Perkiraan WIP terpakai: 10 KG". */

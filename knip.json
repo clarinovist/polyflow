@@ -11,5 +11,6 @@
         "src/**/__tests__/**/*.mjs"
     ],
     "ignore": ["vendor/**", "scripts/archive/**"],
+    "ignoreIssues": { "src/components/ui/**": ["exports", "types"] },
     "ignoreDependencies": ["node-domexception", "ts-morph"]
 }

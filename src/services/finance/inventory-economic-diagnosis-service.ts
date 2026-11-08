@@ -3,7 +3,7 @@ import { financeRange } from './finance-diagnostic-input';
 
 const SAMPLE_LIMIT = 20;
 
-export type InventoryCoverageStatus = 'covered' | 'partial' | 'missing';
+type InventoryCoverageStatus = 'covered' | 'partial' | 'missing';
 export type InventoryConfidenceCap = 0.6 | 0.75 | 0.85 | 0.9;
 
 export type InventoryCoverageDimension = {

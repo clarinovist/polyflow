@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { BusinessRuleError, ValidationError } from '@/lib/errors/errors';
 
 export const BARTER_PAYMENT_METHOD = 'Barter';
-export const MAX_BARTER_AMOUNT = new Prisma.Decimal('9999999999999.99');
+const MAX_BARTER_AMOUNT = new Prisma.Decimal('9999999999999.99');
 
 export type DecimalInput = string | number | Prisma.Decimal;
 

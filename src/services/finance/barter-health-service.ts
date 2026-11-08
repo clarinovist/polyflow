@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 
-export const BARTER_HEALTH_LIMIT = 200;
+const BARTER_HEALTH_LIMIT = 200;
 type Db = Prisma.TransactionClient | PrismaClient;
 export type BarterSettlementIssue = {
     id: string;

@@ -19,7 +19,7 @@ import {
     wibRangeBounds,
 } from '@/lib/utils/timezone';
 
-export const FINANCE_DASHBOARD_SAMPLE_LIMIT = 5;
+const FINANCE_DASHBOARD_SAMPLE_LIMIT = 5;
 
 export type FinanceDashboardPeriod = {
     start: Date;
@@ -32,7 +32,7 @@ export type FinanceDashboardAccess = {
     resources: string[] | 'ALL';
 };
 
-export type FinanceDashboardSample<T> = {
+type FinanceDashboardSample<T> = {
     total: number;
     amount?: number;
     returned: number;

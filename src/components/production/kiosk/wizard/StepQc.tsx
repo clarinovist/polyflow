@@ -12,7 +12,7 @@ export interface QcParameter {
     maxValue: unknown;
 }
 
-export function isQcValueOutOfRange(param: QcParameter, value: number) {
+function isQcValueOutOfRange(param: QcParameter, value: number) {
     const min = param.minValue !== null ? Number(param.minValue) : null;
     const max = param.maxValue !== null ? Number(param.maxValue) : null;
     return (min !== null && value < min) || (max !== null && value > max);

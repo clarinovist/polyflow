@@ -1,11 +1,11 @@
 import { ProductionStatus, type PrismaClient, type Unit } from '@prisma/client';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
-export type MaklonDashboardSection<T> =
+type MaklonDashboardSection<T> =
     | { state: 'AVAILABLE'; data: T }
     | { state: 'UNAVAILABLE'; data: null };
 
-export type MaklonDashboardNotConfigured = {
+type MaklonDashboardNotConfigured = {
     state: 'NOT_CONFIGURED';
     data: null;
 };

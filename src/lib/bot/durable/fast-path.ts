@@ -90,7 +90,7 @@ type FastPathInput = {
 };
 type FastPathState = { phase: 'commit' };
 
-export const FastPathTask = defineTask<
+const FastPathTask = defineTask<
     FastPathInput,
     FastPathState,
     { entryId: number }

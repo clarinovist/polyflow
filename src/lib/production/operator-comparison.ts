@@ -12,7 +12,7 @@ export interface OperatorProcessRow {
     scrapRate: number;
 }
 
-export interface OperatorProcessEntry extends OperatorProcessRow {
+interface OperatorProcessEntry extends OperatorProcessRow {
     /** Affal ÷ (hasil + affal) of this process only; null when not computable. */
     affalPercent: number | null;
 }

@@ -21,7 +21,7 @@ export class MigrationCommandError extends Error {
     }
 }
 
-export type TenantMigrationFailureCategory =
+type TenantMigrationFailureCategory =
     | MigrationCommandFailure
     | 'REGISTRY_INIT_FAILED'
     | 'REGISTRY_QUERY_FAILED'

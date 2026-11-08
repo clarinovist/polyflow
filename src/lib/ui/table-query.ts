@@ -1,5 +1,5 @@
-export const DEFAULT_TABLE_PAGE_SIZE = 50;
-export const MAX_TABLE_PAGE_SIZE = 100;
+const DEFAULT_TABLE_PAGE_SIZE = 50;
+const MAX_TABLE_PAGE_SIZE = 100;
 
 export type TableSortDirection = 'asc' | 'desc';
 

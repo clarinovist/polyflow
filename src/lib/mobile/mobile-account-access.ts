@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { getTenantDbFromContext } from '@/lib/core/prisma';
 import { withTenantPage } from '@/lib/core/tenant';
 
-export interface MobileAccountProfile {
+interface MobileAccountProfile {
     id: string;
     name: string | null;
     email: string;

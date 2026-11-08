@@ -14,7 +14,7 @@ import type {
     OwnerHppStage,
 } from './workspace-schema';
 
-export type StageStatus = 'complete' | 'incomplete' | 'blocked';
+type StageStatus = 'complete' | 'incomplete' | 'blocked';
 
 export interface StageResult {
     stageId: string;

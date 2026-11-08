@@ -90,7 +90,7 @@ const STATUS_LABELS: Record<string, string> = {
     DI_BAWAH_REORDER_POINT: 'Di bawah reorder point',
 };
 
-export function purchasingStatusLabel(status: string): string {
+function purchasingStatusLabel(status: string): string {
     return STATUS_LABELS[status] ?? status.replaceAll('_', ' ');
 }
 

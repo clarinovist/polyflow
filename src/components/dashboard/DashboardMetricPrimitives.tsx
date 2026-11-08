@@ -19,7 +19,7 @@ export interface DashboardMetricDefinition {
     source?: string;
 }
 
-export function DashboardMetricInfo({
+function DashboardMetricInfo({
     title,
     definition,
 }: {

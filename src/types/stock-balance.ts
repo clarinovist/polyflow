@@ -4,7 +4,7 @@ export interface StockBalanceFilters {
     locationId?: string;
 }
 
-export interface StockBalanceRow {
+interface StockBalanceRow {
     productVariantId: string;
     skuCode: string;
     name: string;

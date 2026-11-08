@@ -1,5 +1,5 @@
 /** 'all', 'manual' (SPKs without a machine) or one machine id. */
-export type KioskMachineFilter = string;
+type KioskMachineFilter = string;
 
 interface FilterableJob {
     orderNumber: string;

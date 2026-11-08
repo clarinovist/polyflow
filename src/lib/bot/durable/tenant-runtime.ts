@@ -19,7 +19,7 @@ export type ActiveTenantRuntime = {
 };
 
 /** Resolve worker authority from the main database, never from the envelope. */
-export async function resolveActiveTenantRuntime(
+async function resolveActiveTenantRuntime(
     tenantId: string,
 ): Promise<ActiveTenantRuntime | null> {
     const mainDb = getMainPrisma();

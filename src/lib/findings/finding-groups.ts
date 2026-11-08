@@ -1,7 +1,7 @@
 import { detectorLabel } from './finding-display';
 import type { FindingView, FindingViewSeverity } from './finding-view';
 
-export type FindingSectionKey = 'saya' | 'baru' | 'tunggakan' | 'ditunda';
+type FindingSectionKey = 'saya' | 'baru' | 'tunggakan' | 'ditunda';
 
 export type FindingGroup = {
     /** Stable React key: section + detector + normalized counterparty. */

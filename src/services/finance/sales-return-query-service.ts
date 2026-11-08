@@ -329,9 +329,6 @@ export async function getFinanceReturnDetail(input: unknown) {
 export type FinanceReturnSummary = Awaited<
     ReturnType<typeof getFinanceReturnSummary>
 >;
-export type FinanceReturnPage = Awaited<
-    ReturnType<typeof getFinanceReturnPage>
->;
 export type FinanceReturnDetail = NonNullable<
     Awaited<ReturnType<typeof getFinanceReturnDetail>>
 >;

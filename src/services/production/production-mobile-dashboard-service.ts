@@ -84,7 +84,7 @@ function minutesInsideDay(
     return Math.max(0, Math.round((end - start) / 60_000));
 }
 
-export function createProductionMobileOverviewReader(
+function createProductionMobileOverviewReader(
     db: PrismaClient,
 ): ProductionMobileOverviewReader {
     return {

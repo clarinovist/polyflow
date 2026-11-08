@@ -18,4 +18,4 @@ export * from './home';
 export * from './admin';
 export * from './products';
 
-export { getStatusLabel, getPriorityLabel } from './helpers';
+export { getStatusLabel } from './helpers';

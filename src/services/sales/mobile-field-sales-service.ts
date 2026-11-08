@@ -43,14 +43,14 @@ const QUOTATION_STATUSES: SalesOrderStatus[] = [
 
 type Sample<T> = { total: number; returned: number; items: T[] };
 
-export type FieldSalesCustomerDto = {
+type FieldSalesCustomerDto = {
     id: string;
     name: string;
     code: string | null;
     city: string | null;
 };
 
-export type FieldSalesRouteDto = {
+type FieldSalesRouteDto = {
     id: string;
     date: string;
     status: string;
@@ -63,7 +63,7 @@ export type FieldSalesRouteDto = {
     }>;
 };
 
-export type FieldSalesFollowUpDto = {
+type FieldSalesFollowUpDto = {
     id: string;
     orderNumber: string;
     customerName: string;
@@ -72,7 +72,7 @@ export type FieldSalesFollowUpDto = {
     isOverdue: boolean;
 };
 
-export type FieldSalesPipelineItemDto = {
+type FieldSalesPipelineItemDto = {
     id: string;
     orderNumber: string;
     customerName: string;
@@ -81,7 +81,7 @@ export type FieldSalesPipelineItemDto = {
     totalAmount?: number | null;
 };
 
-export type FieldSalesPipelineDto = Sample<FieldSalesPipelineItemDto> & {
+type FieldSalesPipelineDto = Sample<FieldSalesPipelineItemDto> & {
     activeCount: number;
     openQuotationCount: number;
     nominal: MobileSection<{
@@ -90,7 +90,7 @@ export type FieldSalesPipelineDto = Sample<FieldSalesPipelineItemDto> & {
     }>;
 };
 
-export type FieldSalesReceivableItemDto = {
+type FieldSalesReceivableItemDto = {
     id: string;
     invoiceNumber: string;
     orderNumber: string;
@@ -100,7 +100,7 @@ export type FieldSalesReceivableItemDto = {
     remainingAmount: number;
 };
 
-export type FieldSalesReceivablesDto = {
+type FieldSalesReceivablesDto = {
     total: number;
     overdueCount: number;
     href: '/field/sales/receivables' | null;
@@ -109,7 +109,7 @@ export type FieldSalesReceivablesDto = {
     >;
 };
 
-export type FieldSalesComplianceDto = {
+type FieldSalesComplianceDto = {
     assigned: number;
     completed: number;
     extraCalls: number;

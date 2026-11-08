@@ -9,7 +9,7 @@ export type BugReportStatus =
     | 'UNAVAILABLE'
     | 'FAILED'
     | 'UNKNOWN';
-export const BUG_REPORT_NOTICES: Record<BugReportStatus, string> = {
+const BUG_REPORT_NOTICES: Record<BugReportStatus, string> = {
     SENT: 'Notifikasi dugaan bug terkirim ke Telegram support. Tim support masih perlu memverifikasinya.',
     THROTTLED:
         'Notifikasi Telegram dibatasi satu percobaan per pengguna per jam kalender. Laporan ini tetap tercatat untuk review support; notifikasi baru tidak dikirim.',

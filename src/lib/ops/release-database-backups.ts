@@ -1,4 +1,4 @@
-export type ReleaseBackupFailureCategory =
+type ReleaseBackupFailureCategory =
     | 'MISSING_DATABASE_URL'
     | 'INVALID_DATABASE_URL'
     | 'REGISTRY_INIT_FAILED'
@@ -25,7 +25,7 @@ export class ReleaseBackupError extends Error {
     constructor(readonly category: 'BACKUP_FAILED' | 'BACKUP_VERIFY_FAILED') { super(category); }
 }
 
-export function validateReleaseDatabaseUrl(value: unknown):
+function validateReleaseDatabaseUrl(value: unknown):
     | 'MISSING_DATABASE_URL' | 'INVALID_DATABASE_URL' | undefined {
     if (value == null || (typeof value === 'string' && !value.trim())) return 'MISSING_DATABASE_URL';
     if (typeof value !== 'string' || value !== value.trim() ||

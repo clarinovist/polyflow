@@ -1,6 +1,6 @@
 import { BusinessRuleError } from '@/lib/errors/errors';
 
-export type CentralMembershipStatus = 'PENDING' | 'ACTIVE' | 'REVOKED' | null;
+type CentralMembershipStatus = 'PENDING' | 'ACTIVE' | 'REVOKED' | null;
 
 export interface CentralToLocalTarget {
     id: string;

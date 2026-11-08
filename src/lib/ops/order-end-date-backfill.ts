@@ -13,7 +13,7 @@ import { completionEndDate } from '@/services/production/order-end-date';
  * these SPKs today. Written with raw SQL so `updatedAt` itself is untouched.
  */
 
-export const END_DATE_BACKFILL_ACTION = 'BACKFILL_ORDER_END_DATES';
+const END_DATE_BACKFILL_ACTION = 'BACKFILL_ORDER_END_DATES';
 // ~1.3k aggregates plus as many single-row updates in one transaction.
 const TRANSACTION_TIMEOUT_MS = 300_000;
 const TRANSACTION_MAX_WAIT_MS = 10_000;
@@ -44,7 +44,7 @@ export function parseEndDateBackfillRequest(
     return input;
 }
 
-export interface PlannedEndDate {
+interface PlannedEndDate {
     id: string;
     orderNumber: string;
     updatedAt: string;

@@ -17,7 +17,7 @@ import {
     type MobileSectionStatus,
 } from '@/services/dashboard/mobile-section-state';
 
-export const FINANCE_MOBILE_PAGE_SIZE = 10;
+const FINANCE_MOBILE_PAGE_SIZE = 10;
 export const FINANCE_MOBILE_TYPES = ['ALL', 'AR', 'AP'] as const;
 export const FINANCE_MOBILE_DUE_FILTERS = [
     'ALL',
@@ -37,7 +37,7 @@ export type FinanceMobileDueFilter =
     (typeof FINANCE_MOBILE_DUE_FILTERS)[number];
 export type FinanceMobileBucket = (typeof FINANCE_MOBILE_BUCKETS)[number];
 
-export type FinanceMobileSectionKey =
+type FinanceMobileSectionKey =
     | 'ar'
     | 'ap'
     | 'journals'
@@ -60,7 +60,7 @@ export interface FinanceMobileQuery {
     now?: Date;
 }
 
-export interface FinanceMobileInvoice {
+interface FinanceMobileInvoice {
     id: string;
     type: 'AR' | 'AP';
     invoiceNumber: string;
@@ -78,7 +78,7 @@ export interface FinanceMobileInvoice {
     } | null;
 }
 
-export interface FinanceMobilePayrollReadiness {
+interface FinanceMobilePayrollReadiness {
     year: number;
     month: number;
     status: 'OPEN';

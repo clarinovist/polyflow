@@ -26,7 +26,7 @@ export type WarehouseSection<T> =
     | { status: 'AVAILABLE'; data: T }
     | { status: 'UNAVAILABLE'; data: null };
 
-export interface WarehouseAttentionSample<T> {
+interface WarehouseAttentionSample<T> {
     total: number;
     returned: number;
     items: T[];

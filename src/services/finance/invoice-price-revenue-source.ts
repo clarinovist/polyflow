@@ -1,11 +1,11 @@
 import { Prisma } from '@prisma/client';
 
-export type PriceAdjustmentSourceItemForJournal = {
+type PriceAdjustmentSourceItemForJournal = {
     sourceItemId: string;
     netAmount: string | number;
     revenueAccountId: string;
 };
-export type PriceAdjustmentSourceLineForJournal = {
+type PriceAdjustmentSourceLineForJournal = {
     accountId: string;
     debit: string | number | Prisma.Decimal;
     credit: string | number | Prisma.Decimal;

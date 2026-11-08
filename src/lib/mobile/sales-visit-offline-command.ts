@@ -7,7 +7,7 @@ import {
 import type { QueuedVisitLog } from '@/lib/mobile/visit-offline-queue';
 
 export const SALES_VISIT_SYNC_COMMAND = 'sales.visit.sync';
-export function isQueuedVisitLog(value: unknown): value is QueuedVisitLog {
+function isQueuedVisitLog(value: unknown): value is QueuedVisitLog {
     if (!value || typeof value !== 'object') return false;
     const row = value as Partial<QueuedVisitLog>;
     return (
@@ -37,7 +37,7 @@ function toPayload(log: QueuedVisitLog) {
         routePlanItemId: log.routePlanItemId || undefined,
     };
 }
-export function registerSalesVisitOfflineCommand() {
+function registerSalesVisitOfflineCommand() {
     registerCommand<QueuedVisitLog>({
         type: SALES_VISIT_SYNC_COMMAND,
         label: 'Sinkronisasi kunjungan Sales',

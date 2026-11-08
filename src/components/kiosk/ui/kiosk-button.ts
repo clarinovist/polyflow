@@ -1,4 +1,4 @@
-import { cva, type VariantProps } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
 
 /**
  * Kiosk control classes for a <button> or <Link>. Every size is at least 48px
@@ -24,5 +24,3 @@ export const kioskButton = cva(
         defaultVariants: { tone: 'neutral', size: 'md' },
     },
 );
-
-export type KioskButtonVariants = VariantProps<typeof kioskButton>;

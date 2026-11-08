@@ -24,7 +24,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
     CANCELLED: 'Dibatalkan',
     WAITING_MATERIAL: 'Menunggu bahan',
 };
-export type ReportMode = keyof typeof REPORT_MODES;
+type ReportMode = keyof typeof REPORT_MODES;
 export type ReportSearchParams = Record<string, string | string[] | undefined>;
 export interface OutputReportFilter {
     from: string;

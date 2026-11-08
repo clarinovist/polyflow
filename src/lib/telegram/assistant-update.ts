@@ -25,7 +25,7 @@ const callbackSchema = z
     })
     .strip();
 
-export const telegramAssistantUpdateSchema = z
+const telegramAssistantUpdateSchema = z
     .object({
         update_id: z.number().int().safe(),
         message: messageSchema.optional(),

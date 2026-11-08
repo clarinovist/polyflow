@@ -21,14 +21,14 @@ export type MobilePortalId =
     | 'admin'
     | 'maklon';
 
-export type MobilePortalMode =
+type MobilePortalMode =
     | 'EXECUTION'
     | 'SUPERVISION'
     | 'SELF_SERVICE'
     | 'EXECUTIVE';
 export type MobilePortalStatus = 'ACTIVE' | 'BETA' | 'PLANNED';
 export type MobileMatchMode = 'ANY' | 'ALL';
-export type MobileAdminAccess = 'NONE' | 'READ_ONLY' | 'EXISTING_GUARDS';
+type MobileAdminAccess = 'NONE' | 'READ_ONLY' | 'EXISTING_GUARDS';
 
 export const MOBILE_ACTION_CAPABILITIES = [
     'feature:mobile-maintenance-approval',
@@ -41,13 +41,13 @@ export const MOBILE_ACTION_CAPABILITIES = [
 export type MobileActionCapability =
     (typeof MOBILE_ACTION_CAPABILITIES)[number];
 
-export interface MobileNavigationDefinition {
+interface MobileNavigationDefinition {
     id: string;
     label: string;
     path: string;
 }
 
-export interface MobilePortalResourceRule {
+interface MobilePortalResourceRule {
     /** A rule applies when any of these roles is assigned to the user. */
     roles: Role[];
     excludedRoles?: Role[];

@@ -19,12 +19,6 @@ export const COLLECTION_FOLLOWUP_KIND = 'COLLECTION_FOLLOWUP';
 const MAX_NOTES_LENGTH = 2000;
 const MAX_OUTCOME_LENGTH = 200;
 
-export type ProposalStatus =
-    | 'PENDING'
-    | 'CONFIRMED'
-    | 'CANCELLED'
-    | 'EXPIRED';
-
 export type AssertInvoiceAccess = (invoiceId: string) => Promise<void>;
 
 const collectionFollowupSchema = z.object({

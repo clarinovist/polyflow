@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/core/prisma';
 import { getWibDayBounds } from '@/lib/utils/timezone';
 
-export interface RecapRow {
+interface RecapRow {
     id: string;
     name: string;
     openingBalance: number;
@@ -10,7 +10,7 @@ export interface RecapRow {
     closingBalance: number;
 }
 
-export interface RecapTotals {
+interface RecapTotals {
     openingBalance: number;
     totalIn: number;
     totalOut: number;

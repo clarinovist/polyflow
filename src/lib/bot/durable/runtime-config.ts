@@ -8,10 +8,9 @@ const optionalTelegramString = <T extends z.ZodTypeAny>(schema: T) =>
 
 const optionalUrl = optionalTelegramString(z.string().url());
 const optionalToken = optionalTelegramString(z.string().min(32));
-export const ASSISTANT_BROKER_CANARY_TOOL =
-    'get_daily_production_output' as const;
+const ASSISTANT_BROKER_CANARY_TOOL = 'get_daily_production_output' as const;
 /** Tools that may be brokered. Anything else is rejected at startup. */
-export const ASSISTANT_BROKERABLE_TOOLS = [
+const ASSISTANT_BROKERABLE_TOOLS = [
     ASSISTANT_BROKER_CANARY_TOOL,
     PROPOSE_COLLECTION_FOLLOWUP_TOOL,
 ] as const;

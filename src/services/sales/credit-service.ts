@@ -13,7 +13,7 @@ export type CreditExposure = {
     headroom: number;
 };
 
-export type CustomerCreditSummary = {
+type CustomerCreditSummary = {
     id: string;
     code: string | null;
     name: string;
@@ -486,7 +486,7 @@ export async function getTopCustomerCreditRiskSnapshot(
     return rankCustomerCreditRisks(summaries, limit);
 }
 
-export function rankCustomerCreditRisks(
+function rankCustomerCreditRisks(
     summaries: CustomerCreditSummary[],
     limit: number,
 ): CustomerCreditRiskSnapshot {

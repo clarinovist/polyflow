@@ -8,17 +8,14 @@ import {
 } from '@/lib/utils/timezone';
 import { nonClosingJournalFilter } from '@/services/accounting/closing-reference-filter';
 
-export const FINANCE_LEDGER_DATASETS = [
-    'ledger_lines',
-    'ledger_expenses',
-] as const;
-export type FinanceLedgerDataset = (typeof FINANCE_LEDGER_DATASETS)[number];
-export const FINANCE_DATE_PRESETS = [
+const FINANCE_LEDGER_DATASETS = ['ledger_lines', 'ledger_expenses'] as const;
+type FinanceLedgerDataset = (typeof FINANCE_LEDGER_DATASETS)[number];
+const FINANCE_DATE_PRESETS = [
     'CURRENT_MONTH',
     'LAST_90_DAYS',
     'CURRENT_YEAR',
 ] as const;
-export type FinanceDatePreset = (typeof FINANCE_DATE_PRESETS)[number];
+type FinanceDatePreset = (typeof FINANCE_DATE_PRESETS)[number];
 
 const keywordSchema = z.string().trim().min(2).max(240);
 const dateOnlySchema = z.string().refine((value) => {
@@ -82,9 +79,7 @@ export const financeLedgerQuerySchema = z
     });
 
 export type FinanceLedgerQueryInput = z.input<typeof financeLedgerQuerySchema>;
-export type ParsedFinanceLedgerQuery = z.output<
-    typeof financeLedgerQuerySchema
->;
+type ParsedFinanceLedgerQuery = z.output<typeof financeLedgerQuerySchema>;
 
 const QUERY_STOPWORDS = new Set([
     'ada',
@@ -121,7 +116,7 @@ export function extractFinanceKeywords(
     return (meaningful.length > 0 ? meaningful : unique).slice(0, 8);
 }
 
-export interface FinanceLedgerQueryRow {
+interface FinanceLedgerQueryRow {
     id: string;
     journalEntryId: string;
     accountId: string;

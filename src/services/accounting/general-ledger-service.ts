@@ -32,7 +32,7 @@ export interface GeneralLedgerData {
 }
 
 /** One row of the account-level summary (no transaction lines). */
-export interface GeneralLedgerSummaryAccount {
+interface GeneralLedgerSummaryAccount {
     id: string;
     code: string;
     name: string;

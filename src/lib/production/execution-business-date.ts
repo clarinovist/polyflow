@@ -36,10 +36,10 @@ import { ProductionRuleViolationError } from '@/lib/errors/errors';
  */
 
 /** Deviasi client time dari waktu submit yang masih dianggap otomatis (menit). */
-export const DELIBERATE_TOLERANCE_MS = 15 * 60 * 1000;
+const DELIBERATE_TOLERANCE_MS = 15 * 60 * 1000;
 
 /** Jarak maksimum shiftStart dari waktu submit yang masih boleh di-backdate. */
-export const MAX_SHIFT_GAP_MS = 24 * 60 * 60 * 1000;
+const MAX_SHIFT_GAP_MS = 24 * 60 * 60 * 1000;
 
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -49,10 +49,10 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * sebelumnya). Di kedua tenant produksi hanya "Shift Malam"/"Shift 3" yang
  * mulai pada jam tersebut; shift 1 selalu 08:00 dan shift 2 selalu 16:00.
  */
-export const NIGHT_SHIFT_START_WINDOW_MS = 60 * 60 * 1000;
+const NIGHT_SHIFT_START_WINDOW_MS = 60 * 60 * 1000;
 
 /** Kelonggaran entri yang dicatat sesaat setelah shift 3 berakhir (default 2 jam). */
-export const NIGHT_SHIFT_LOG_GRACE_MS = 2 * 60 * 60 * 1000;
+const NIGHT_SHIFT_LOG_GRACE_MS = 2 * 60 * 60 * 1000;
 
 /** true bila `shiftStart` berada di 00:00–00:59 WIB (shift 3). */
 export function isNightTailShiftStart(shiftStart: Date): boolean {

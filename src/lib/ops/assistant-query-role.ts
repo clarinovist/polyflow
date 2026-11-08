@@ -23,7 +23,7 @@ export type AssistantQueryRolePlan = {
     statements: readonly string[];
 };
 
-export function assertAssistantQueryRoleIdentifier(
+function assertAssistantQueryRoleIdentifier(
     value: string,
     label: string,
 ): string {
@@ -34,7 +34,7 @@ export function assertAssistantQueryRoleIdentifier(
 }
 
 /** `postgres` must never be the query role target. */
-export function assertNotSuperuserRole(role: string): string {
+function assertNotSuperuserRole(role: string): string {
     if (role === 'postgres' || role === 'polyflow') {
         throw new Error('ASSISTANT_QUERY_ROLE_MUST_BE_DEDICATED');
     }

@@ -5,7 +5,7 @@ import {
     recordDashboardSectionState,
 } from '@/services/dashboard/dashboard-section-observability';
 
-export type HrdDashboardSection<T> =
+type HrdDashboardSection<T> =
     | { status: 'AVAILABLE'; data: T }
     | { status: 'UNAVAILABLE'; data: null }
     | { status: 'NOT_CONFIGURED'; data: null };

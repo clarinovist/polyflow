@@ -12,7 +12,7 @@ export type AssistantWorkContextHint = z.infer<
 >;
 
 export type AssistantWorkProfile = 'general' | 'finance' | 'production';
-export type AssistantEntityContext =
+type AssistantEntityContext =
     | { type: 'invoice'; id: string }
     | { type: 'production-order'; id: string };
 

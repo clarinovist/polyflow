@@ -24,9 +24,6 @@ export const correctVehicleMileageSchema = z.object({
     reason,
 });
 
-export type StartVehicleMileageInput = z.infer<typeof startVehicleMileageSchema>;
-export type CorrectVehicleMileageInput = z.infer<typeof correctVehicleMileageSchema>;
-
 export interface CorrectionChain {
     odometerStart: number;
     odometerEnd: number | null;
@@ -59,7 +56,7 @@ export function validateCorrectionChain({ odometerStart, odometerEnd, previousEn
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** An open record older than this most likely means the return reading was forgotten. */
-export const STALE_OPEN_MILEAGE_MS = DAY_MS;
+const STALE_OPEN_MILEAGE_MS = DAY_MS;
 
 /** Asia/Jakarta calendar day containing `now`, as UTC instants (the database stores UTC). */
 export function wibDayRange(now: Date): { gte: Date; lt: Date } {

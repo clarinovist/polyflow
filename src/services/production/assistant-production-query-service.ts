@@ -12,14 +12,14 @@ export type ProductionReadClient = Prisma.TransactionClient;
 
 type DecimalLike = Prisma.Decimal | number | string;
 
-export type ProductionOrderCandidate = {
+type ProductionOrderCandidate = {
     id: string;
     orderNumber: string;
     status: string;
     product: string;
 };
 
-export type ProductionMaterialCheck = {
+type ProductionMaterialCheck = {
     productVariantId: string;
     material: string;
     required: number;
@@ -47,7 +47,7 @@ export type ProductionOrderDiagnosis = {
     };
 };
 
-export type ProductionBriefingItem = ProductionOrderCandidate & {
+type ProductionBriefingItem = ProductionOrderCandidate & {
     plannedQuantity: number;
     actualQuantity: number;
     plannedEndDate: Date | null;
@@ -62,7 +62,7 @@ export type ProductionBriefing = {
     truncated: boolean;
 };
 
-export type DailyProductionOutputGroup = {
+type DailyProductionOutputGroup = {
     process: ProcessKey;
     productVariantId: string;
     productName: string;
@@ -74,7 +74,7 @@ export type DailyProductionOutputGroup = {
     orders: number;
 };
 
-export type DailyProductionOutputTotal = {
+type DailyProductionOutputTotal = {
     process: ProcessKey;
     unit: string;
     produced: string;

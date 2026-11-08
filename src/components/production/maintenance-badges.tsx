@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/utils';
 
-export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
+const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
     DRAFT: 'Draft',
     PENDING: 'Menunggu persetujuan',
     APPROVED: 'Siap dikerjakan',
@@ -11,7 +11,7 @@ export const MAINTENANCE_STATUS_LABELS: Record<string, string> = {
     CANCELLED: 'Dibatalkan',
 };
 
-export const MAINTENANCE_URGENCY_LABELS: Record<string, string> = {
+const MAINTENANCE_URGENCY_LABELS: Record<string, string> = {
     LOW: 'Rendah',
     NORMAL: 'Normal',
     URGENT: 'Mendesak',

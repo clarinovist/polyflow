@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const materialOrderItemSchema = z.object({
+const materialOrderItemSchema = z.object({
   productVariantId: z.string().min(1, 'Material wajib diisi'),
   quantity: z.coerce.number().positive('Jumlah harus positif'),
   zakQuantity: z.coerce.number().positive().optional(),
@@ -18,4 +18,3 @@ export const createMaterialOrderSchema = z.object({
 });
 
 export type CreateMaterialOrderValues = z.infer<typeof createMaterialOrderSchema>;
-export type MaterialOrderItemValues = z.infer<typeof materialOrderItemSchema>;

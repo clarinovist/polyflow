@@ -9,7 +9,7 @@ import {
     type MobilePortalDefinition,
 } from '@/lib/mobile/mobile-portal-registry';
 
-export type MobilePortalDecisionReason =
+type MobilePortalDecisionReason =
     | 'NO_SESSION'
     | 'DESKTOP_ONLY'
     | 'ROLE'

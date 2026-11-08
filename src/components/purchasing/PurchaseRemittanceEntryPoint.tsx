@@ -82,7 +82,7 @@ function statusBadge(status: RemittanceRow['status']) {
     );
 }
 
-export interface PurchaseRemittanceAuxiliaryState {
+interface PurchaseRemittanceAuxiliaryState {
     outstanding: 'ready' | 'empty' | 'error';
     remittances: 'ready' | 'empty' | 'error';
     paymentBanks: 'ready' | 'missing' | 'error';

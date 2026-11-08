@@ -13,7 +13,7 @@
  * against the main DB (e.g. superadmin portal at admin.polyflow.uk), not a
  * tenant DB.
  */
-export const RESERVED_SUBDOMAINS = new Set([
+const RESERVED_SUBDOMAINS = new Set([
     'admin',
     'www',
     'app',

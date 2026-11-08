@@ -15,15 +15,10 @@ import { hasAnyRole, hasRole } from '@/lib/auth/roles';
 import { isPathAllowedByResources } from '@/lib/auth/access-policy';
 import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 import { canSeeNavHref } from '@/lib/auth/permission-match';
-import {
-    readProductionMobileOverview,
-    type ProductionMobileOverview,
-} from '@/services/production/production-mobile-dashboard-service';
+import { readProductionMobileOverview } from '@/services/production/production-mobile-dashboard-service';
 import { readWarehouseInventoryThresholdSnapshot } from '@/services/inventory/warehouse-dashboard-service';
 import { buildPurchasingDashboardWaitingReceiptWhere } from '@/services/purchasing/purchasing-dashboard-query';
 import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-service';
-
-export type MobileSupervisorOverview = ProductionMobileOverview;
 
 /** Actionable SPK list for mobile supervisor — extends recentOrders with machine/target. */
 export interface MobileSupervisorSpkItem {
@@ -44,7 +39,7 @@ export interface MobileSupervisorSpkItem {
     href: `/kiosk/jobs/${string}` | null;
 }
 
-export interface MobileSupervisorSpkList {
+interface MobileSupervisorSpkList {
     generatedAt: string;
     total: number;
     returned: number;

@@ -27,9 +27,9 @@ import { formatWIB } from '@/lib/utils/timezone';
 import type { ProductionAlertThresholds } from '@/lib/production/alert-thresholds';
 
 export const PRODUCTION_DASHBOARD_SAMPLE_LIMIT = 5;
-export const PRODUCTION_OUTPUT_SAMPLE_LIMIT = 6;
+const PRODUCTION_OUTPUT_SAMPLE_LIMIT = 6;
 export const PRODUCTION_ATTENTION_SAMPLE_LIMIT = 12;
-export const PRODUCTION_OUTPUT_ROW_LIMIT = 2_000;
+const PRODUCTION_OUTPUT_ROW_LIMIT = 2_000;
 export const PRODUCTION_SCRAP_ROW_LIMIT = 2_000;
 
 export type ProductionDashboardResources = string[] | 'ALL';

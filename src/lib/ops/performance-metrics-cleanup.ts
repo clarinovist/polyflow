@@ -1,4 +1,4 @@
-export const PERFORMANCE_METRIC_RETENTION_DAYS = 30;
+const PERFORMANCE_METRIC_RETENTION_DAYS = 30;
 
 export interface PerformanceMetricCleanupResult {
     tenantId: string;

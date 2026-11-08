@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils/utils';
 
-export type KioskTone = 'neutral' | 'go' | 'tag' | 'warn' | 'stop' | 'info';
+type KioskTone = 'neutral' | 'go' | 'tag' | 'warn' | 'stop' | 'info';
 
 const TONE_CLASS: Record<KioskTone, string> = {
     neutral: 'border-border bg-muted text-foreground',

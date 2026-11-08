@@ -25,13 +25,9 @@ export const PURCHASING_MOBILE_FILTERS = [
 export type PurchasingMobileTaskFilter =
     (typeof PURCHASING_MOBILE_FILTERS)[number];
 export type PurchasingMobileDetailKind = 'REQUEST' | 'ORDER' | 'RECEIPT';
-export type PurchasingMobileTaskKind =
-    | 'REQUEST'
-    | 'DRAFT_PO'
-    | 'RECEIPT'
-    | 'REORDER';
+type PurchasingMobileTaskKind = 'REQUEST' | 'DRAFT_PO' | 'RECEIPT' | 'REORDER';
 
-export type PurchasingMobileSectionKey =
+type PurchasingMobileSectionKey =
     | 'requests'
     | 'drafts'
     | 'receipts'
@@ -59,7 +55,7 @@ export interface PurchasingMobileTaskDto {
     sortAt: string;
 }
 
-export interface PurchasingMobileReorderDto {
+interface PurchasingMobileReorderDto {
     id: string;
     name: string;
     skuCode: string;

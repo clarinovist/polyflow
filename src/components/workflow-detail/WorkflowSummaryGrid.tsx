@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export interface WorkflowSummaryItem {
+interface WorkflowSummaryItem {
     label: string;
     value: ReactNode;
     detail?: ReactNode;

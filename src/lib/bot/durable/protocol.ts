@@ -1,16 +1,9 @@
 import { z } from 'zod';
-import type {
-    AssistantResponse,
-    AssistantStreamEvent,
-} from '../assistant-types';
+import type { AssistantResponse } from '../assistant-types';
 
 export const ASSISTANT_PROTOCOL_VERSION = 1 as const;
-export const assistantRequestIdSchema = z.string().uuid();
-export const assistantChannelSchema = z.enum([
-    'web',
-    'telegram',
-    'telegram_mini_app',
-]);
+const assistantRequestIdSchema = z.string().uuid();
+const assistantChannelSchema = z.enum(['web', 'telegram', 'telegram_mini_app']);
 const telegramAuthoritySchema = z.object({
     botKey: z.string().min(1).max(80),
     telegramUserId: z.string().regex(/^\d{1,20}$/),
@@ -126,7 +119,7 @@ function validateTelegramAuthority(
     }
 }
 
-export type DurableSubmissionStatus =
+type DurableSubmissionStatus =
     | 'queued'
     | 'running'
     | 'done'
@@ -141,11 +134,6 @@ export type DurableSubmissionSnapshot = {
     response?: AssistantResponse & { interactionId?: string | null };
     error?: AssistantWorkerError;
 };
-
-export type AssistantWorkerEvent =
-    | AssistantStreamEvent
-    | { type: 'snapshot'; data: DurableSubmissionSnapshot }
-    | { type: 'accepted'; data: DurableSubmissionSnapshot };
 
 export const assistantWorkerErrorCodeSchema = z.enum([
     'UNAUTHORIZED',

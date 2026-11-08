@@ -24,7 +24,7 @@ import { positiveSalesReceivableWhere } from '@/services/finance/sales-receivabl
 import { getInvoiceRemainingAmount } from '@/lib/finance/payment-terms';
 import type { DateRange } from '@/types/analytics';
 
-export type SalesDashboardScopeKind = 'COMPANY' | 'TEAM' | 'MY';
+type SalesDashboardScopeKind = 'COMPANY' | 'TEAM' | 'MY';
 
 export type FreshSalesDashboardAccess = {
     user: {
@@ -66,7 +66,7 @@ export type SalesPipelineDashboard = {
     } | null;
 };
 
-export type SalesDashboardSample<T> = {
+type SalesDashboardSample<T> = {
     total: number;
     returned: number;
     items: T[];
@@ -136,7 +136,7 @@ export type SalesAttentionData = {
 const ZERO = new Decimal(0);
 const SAMPLE_LIMIT = 5;
 
-export const SALES_DASHBOARD_ACTIVE_ORDER_STATUSES = [
+const SALES_DASHBOARD_ACTIVE_ORDER_STATUSES = [
     'CONFIRMED',
     'IN_PRODUCTION',
     'READY_TO_SHIP',
