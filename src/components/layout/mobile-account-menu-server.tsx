@@ -1,6 +1,7 @@
 import type { Session } from 'next-auth';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
+import { isMobileBypassAllowed } from '@/lib/mobile/mobile-access-policy';
 import { MobileAccountMenu } from './mobile-account-menu';
 
 /** Server component: identity inputs come only from the caller's auth() session. */
@@ -55,6 +56,7 @@ export async function MobileAccountMenuServer({
             centralLoginHint={!user.globalAccountId}
             hideAccountLink={hideAccountLink}
             hidePortalLink={hidePortalLink}
+            canUseDesktopView={isMobileBypassAllowed(user)}
         />
     );
 }

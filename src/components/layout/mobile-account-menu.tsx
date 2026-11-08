@@ -1,9 +1,20 @@
 'use client';
 
-import { ChevronDown, LayoutGrid, LogOut, UserRound } from 'lucide-react';
+import {
+    ChevronDown,
+    LayoutGrid,
+    LogOut,
+    Monitor,
+    UserRound,
+} from 'lucide-react';
 import Link from 'next/link';
 import { signOut } from 'next-auth/react';
 import { TenantSwitcher } from './tenant-switcher';
+import {
+    DESKTOP_VIEW_DEFAULT_PATH,
+    enableDesktopView,
+    getPreferredDesktopViewDays,
+} from '@/lib/mobile/desktop-view';
 import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -28,6 +39,7 @@ interface MobileAccountMenuProps {
     centralLoginHint?: boolean;
     hideAccountLink?: boolean;
     hidePortalLink?: boolean;
+    canUseDesktopView?: boolean;
 }
 
 export function MobileAccountMenu({
@@ -41,6 +53,7 @@ export function MobileAccountMenu({
     centralLoginHint = false,
     hideAccountLink = false,
     hidePortalLink = false,
+    canUseDesktopView = false,
 }: MobileAccountMenuProps) {
     const handleLogout = async () => {
         if (onLogout) {
@@ -111,7 +124,7 @@ export function MobileAccountMenu({
                         </p>
                     </div>
                 </div>
-                {(!hideAccountLink || !hidePortalLink) && (
+                {(!hideAccountLink || !hidePortalLink || canUseDesktopView) && (
                     <nav
                         aria-label="Navigasi akun"
                         className="mt-1 space-y-1 border-t border-border pt-1"
@@ -133,6 +146,21 @@ export function MobileAccountMenu({
                                 <LayoutGrid className="h-4 w-4" />
                                 Pilih Portal
                             </Link>
+                        )}
+                        {canUseDesktopView && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    enableDesktopView(
+                                        getPreferredDesktopViewDays(),
+                                        DESKTOP_VIEW_DEFAULT_PATH,
+                                    )
+                                }
+                                className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 py-2 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                                <Monitor className="h-4 w-4" />
+                                Buka versi desktop
+                            </button>
                         )}
                     </nav>
                 )}

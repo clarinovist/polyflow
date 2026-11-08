@@ -7,6 +7,7 @@ import {
     MobileReadError,
     MobileSectionHeader,
 } from '@/components/mobile';
+import { DesktopViewButton } from '@/components/mobile/DesktopViewButton';
 import { AdminMobileTaskLink } from './admin-mobile-task-link';
 
 const DESKTOP_AREAS = [
@@ -36,6 +37,7 @@ export default async function AdminMobilePage() {
                     </div>
                 </div>
                 <MobileDataFreshness generatedAt={overview.generatedAt} className="mt-3" />
+                <DesktopViewButton className="mt-3" />
             </section>
 
             {overview.unavailableModules.length > 0 && (

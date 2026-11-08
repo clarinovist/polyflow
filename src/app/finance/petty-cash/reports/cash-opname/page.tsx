@@ -683,7 +683,7 @@ export default function CashOpnamePage() {
                         </div>
 
                         {/* ===== SIGNATURES ===== */}
-                        <div className="grid grid-cols-4 gap-6 text-center text-sm">
+                        <div className="grid grid-cols-2 gap-6 text-center text-sm sm:grid-cols-4 print:grid-cols-4">
                             <div>
                                 <p className="font-semibold text-gray-900 dark:text-gray-100">
                                     Kasir

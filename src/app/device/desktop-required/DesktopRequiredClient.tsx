@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Monitor } from 'lucide-react';
@@ -8,6 +9,16 @@ import {
     isMobileBypassAllowed,
 } from '@/lib/mobile/mobile-access-policy';
 import { useSession } from 'next-auth/react';
+import {
+    DEFAULT_DESKTOP_VIEW_DAYS,
+    DESKTOP_VIEW_DURATIONS,
+    desktopViewLabel,
+    enableDesktopView,
+    getPreferredDesktopViewDays,
+    setPreferredDesktopViewDays,
+    type DesktopViewDays,
+} from '@/lib/mobile/desktop-view';
+import { cn } from '@/lib/utils/utils';
 
 export function DesktopRequiredClient() {
     const searchParams = useSearchParams();
@@ -22,19 +33,20 @@ export function DesktopRequiredClient() {
     const homePath = session?.user ? '/mobile' : null;
     const homeLabel = 'Periksa Portal Mobile';
 
+    const [days, setDays] = useState<DesktopViewDays>(
+        DEFAULT_DESKTOP_VIEW_DAYS,
+    );
+    useEffect(() => {
+        setDays(getPreferredDesktopViewDays());
+    }, []);
+
+    const chooseDays = (next: DesktopViewDays) => {
+        setDays(next);
+        setPreferredDesktopViewDays(next);
+    };
+
     const handleBypass = () => {
-        if (typeof document !== 'undefined') {
-            document.cookie = 'bypass_mobile=true; path=/; max-age=86400';
-            // Full reload forces a fresh request through middleware so the
-            // bypass cookie is re-evaluated; router.push() can serve from the
-            // Router Cache and skip that round-trip.
-            if (from) {
-                window.location.href = decodeURIComponent(from);
-            } else {
-                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-                window.location.href = '/dashboard';
-            }
-        }
+        enableDesktopView(days, from);
     };
 
     return (
@@ -79,13 +91,38 @@ export function DesktopRequiredClient() {
                     )}
 
                     {bypassAllowed && (
-                        <button
-                            type="button"
-                            onClick={handleBypass}
-                            className="block w-full py-3 px-4 rounded-lg border border-border bg-card text-foreground font-medium text-sm transition-colors hover:bg-accent/50 active:scale-[0.98]"
-                        >
-                            Buka versi desktop (24 jam)
-                        </button>
+                        <>
+                            <button
+                                type="button"
+                                onClick={handleBypass}
+                                className="block w-full py-3 px-4 rounded-lg border border-border bg-card text-foreground font-medium text-sm transition-colors hover:bg-accent/50 active:scale-[0.98]"
+                            >
+                                Buka versi desktop ({desktopViewLabel(days)})
+                            </button>
+                            <div
+                                role="radiogroup"
+                                aria-label="Lama versi desktop aktif"
+                                className="grid grid-cols-3 gap-2"
+                            >
+                                {DESKTOP_VIEW_DURATIONS.map((option) => (
+                                    <button
+                                        key={option.days}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={days === option.days}
+                                        onClick={() => chooseDays(option.days)}
+                                        className={cn(
+                                            'min-h-11 rounded-lg border px-2 text-xs font-medium transition-colors',
+                                            days === option.days
+                                                ? 'border-primary bg-primary/10 text-foreground'
+                                                : 'border-border bg-card text-muted-foreground hover:bg-accent/50',
+                                        )}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </div>
             </div>

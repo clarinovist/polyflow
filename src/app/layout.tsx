@@ -68,6 +68,7 @@ export const viewport: Viewport = {
 import { SessionProvider } from '@/components/auth/SessionProvider';
 import SessionTimeoutHandler from '@/components/auth/SessionTimeoutHandler';
 import { PwaRegister } from '@/components/layout/pwa-register';
+import { DesktopViewBanner } from '@/components/layout/desktop-view-banner';
 import { AutoChangelogBanner } from '@/components/layout/auto-changelog-banner';
 import { PolyflowChatWidget } from '@/components/support/polyflow-chat-widget';
 import { FeatureUsageTracker } from '@/components/analytics/feature-usage-tracker';
@@ -92,6 +93,7 @@ export default function RootLayout({
                             <OwnerLearningNotice />
                             {children}
                             <AutoChangelogBanner />
+                            <DesktopViewBanner />
                             <PolyflowChatWidget
                                 contextualProfilesEnabled={
                                     process.env

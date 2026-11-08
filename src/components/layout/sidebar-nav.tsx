@@ -222,10 +222,10 @@ export function SidebarNav({
 
     return (
         <>
-            <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-16 border-b border-sidebar-border bg-sidebar px-4 flex items-center">
+            <header className="lg:hidden fixed top-0 left-0 right-0 z-50 h-[calc(4rem+env(safe-area-inset-top))] border-b border-sidebar-border bg-sidebar px-4 pt-[env(safe-area-inset-top)] flex items-center">
                 <button
                     onClick={() => setIsMobileOpen(true)}
-                    className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-primary transition-colors"
+                    className="flex min-h-11 min-w-11 items-center justify-center -ml-2 mr-2 text-muted-foreground hover:text-primary transition-colors"
                     aria-label="Open sidebar"
                 >
                     <Menu className="h-6 w-6" />
@@ -244,7 +244,7 @@ export function SidebarNav({
 
             <aside
                 className={cn(
-                    'fixed left-0 top-0 z-50 h-screen border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:translate-x-0',
+                    'fixed left-0 top-0 z-50 h-dvh border-r border-sidebar-border bg-sidebar transition-all duration-300 lg:translate-x-0',
                     effectiveCollapsed ? 'w-16' : 'w-64',
                     isMobileOpen ? 'translate-x-0' : '-translate-x-full',
                 )}
@@ -265,7 +265,7 @@ export function SidebarNav({
                         </Link>
                         <button
                             onClick={() => setIsMobileOpen(false)}
-                            className="lg:hidden p-1 text-muted-foreground hover:text-primary transition-colors"
+                            className="lg:hidden flex min-h-11 min-w-11 items-center justify-center text-muted-foreground hover:text-primary transition-colors"
                             aria-label="Close sidebar"
                         >
                             <X className="h-5 w-5" />
@@ -529,7 +529,7 @@ export function SidebarNav({
                 </div>
             </aside>
 
-            <div className="h-16 lg:hidden" />
+            <div className="h-[calc(4rem+env(safe-area-inset-top))] lg:hidden" />
         </>
     );
 }
