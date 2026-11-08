@@ -2,6 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StoredOwnerHppWorkspace } from '@/actions/owner-hpp/owner-hpp-query';
 import { chainScenario } from '@/lib/owner-hpp/__tests__/fixtures';
 import { OWNER_HPP_WORKSPACE_VERSION } from '@/lib/owner-hpp/workspace-schema';
 import { formatRupiah } from '@/lib/utils/utils';
@@ -26,7 +27,7 @@ import { OwnerHppClient } from '../OwnerHppClient';
 const UPDATED_AT = '2026-01-01T00:00:00.000Z';
 
 function renderClient() {
-    const initial = {
+    const initial: StoredOwnerHppWorkspace = {
         workspace: {
             version: OWNER_HPP_WORKSPACE_VERSION,
             scenarios: [chainScenario()],
