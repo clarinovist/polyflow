@@ -1,0 +1,15 @@
+{
+    "$schema": "https://unpkg.com/knip@6/schema.json",
+    "entry": [
+        "scripts/**/*.{ts,js,mjs,cjs}",
+        "!scripts/archive/**",
+        "src/scripts/**/*.ts",
+        "prisma/*.ts",
+        "workers/**/index.ts",
+        "public/sw.js",
+        "src/app/my/manifest.ts",
+        "src/**/__tests__/**/*.mjs"
+    ],
+    "ignore": ["vendor/**", "scripts/archive/**"],
+    "ignoreDependencies": ["node-domexception", "ts-morph"]
+}
