@@ -4,6 +4,7 @@
  * Read-only w.r.t. business data; proposals are documents, never auto-builds.
  */
 import { suggestModule } from './help-clustering';
+import { logger } from '@/lib/config/logger';
 
 // Explicit feature-request cues, Indonesian + English.
 const REQUEST_PATTERNS = [
@@ -125,7 +126,11 @@ export async function upsertFeatureSignal(input: FeatureSignalInput) {
         });
         await maybePropose(mainDb, created);
         return created;
-    } catch {
+    } catch (error) {
+        logger.error('Failed to upsert feature signal cluster', {
+            module: 'FeatureSignals',
+            error,
+        });
         return null;
     }
 }
@@ -171,7 +176,12 @@ async function maybePropose(mainDb: ProposalStore, cluster: SignalClusterRow) {
             data: { status: "PROPOSED" },
         });
         return proposal;
-    } catch {
+    } catch (error) {
+        logger.error('Failed to create feature proposal from signal cluster', {
+            module: 'FeatureSignals',
+            clusterId: cluster?.id,
+            error,
+        });
         return null;
     }
 }

@@ -184,7 +184,12 @@ export async function logVirtualCsEvent(
                 userId: input.userId,
                 tenantId: input.tenantId,
                 signalKind: "explicit_request",
-            }).catch(() => {});
+            }).catch((error) => {
+                logger.error('Feature signal upsert rejected', {
+                    module: 'FeatureSignals',
+                    error,
+                });
+            });
         }
     } catch {
         /* best effort */
