@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { OwnerHppScenario } from '@/lib/owner-hpp/workspace-schema';
-import { Copy, Download, Plus, Save, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { SELECT_CLASS } from './ui-classes';
 
@@ -11,22 +11,17 @@ interface ScenarioBarProps {
     scenarios: readonly OwnerHppScenario[];
     activeId: string;
     canAdd: boolean;
-    isDirty: boolean;
-    isSaving: boolean;
-    statusText: string;
     onSelect: (id: string) => void;
     onRename: (name: string) => void;
     onAdd: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
-    onSave: () => void;
     onExport: () => void;
     onImport: (file: File) => void;
 }
 
 export function ScenarioBar(props: ScenarioBarProps) {
-    const { scenarios, activeId, canAdd, isDirty, isSaving, statusText } =
-        props;
+    const { scenarios, activeId, canAdd } = props;
     const active =
         scenarios.find((scenario) => scenario.id === activeId) ?? scenarios[0];
     const fileInput = useRef<HTMLInputElement>(null);
@@ -110,21 +105,7 @@ export function ScenarioBar(props: ScenarioBarProps) {
                 )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-                <Button
-                    type="button"
-                    onClick={props.onSave}
-                    disabled={isSaving || !isDirty}
-                >
-                    <Save /> {isSaving ? 'Menyimpan…' : 'Simpan'}
-                </Button>
-                <span
-                    className="text-sm text-muted-foreground"
-                    aria-live="polite"
-                    suppressHydrationWarning
-                >
-                    {statusText}
-                </span>
-                <div className="ml-auto flex gap-2">
+                <div className="flex gap-2">
                     <Button
                         type="button"
                         variant="ghost"

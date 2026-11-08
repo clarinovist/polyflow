@@ -23,10 +23,13 @@ import {
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { useMemo, useState, useTransition } from 'react';
 import { toast } from 'sonner';
+import { AdvancedSection } from './AdvancedSection';
 import { ErpPicker } from './ErpPicker';
 import { downloadJson, readJsonFile } from './file-io';
-import { ResultBar, ResultPanel } from './ResultPanel';
+import { ResultPanel } from './ResultPanel';
+import { SaveDock } from './SaveDock';
 import { ScenarioBar } from './ScenarioBar';
+import { StageAdvanced } from './StageAdvanced';
 import { StageEditor } from './StageEditor';
 import { StageStrip } from './StageStrip';
 
@@ -102,6 +105,12 @@ export function OwnerHppClient({
         setActiveStageId(next.stages[next.stages.length - 1].id);
     }
 
+    function handleStageChange(next: OwnerHppStage) {
+        patchScenario((current) =>
+            updateStage(current, activeStage.id, () => next),
+        );
+    }
+
     function handleDeleteScenario() {
         const remaining = workspace.scenarios.filter(
             (entry) => entry.id !== scenario.id,
@@ -161,7 +170,7 @@ export function OwnerHppClient({
     }
 
     return (
-        <main className="mx-auto w-full max-w-6xl space-y-4 px-3 pt-4 pb-28 md:px-6 lg:pb-8">
+        <main className="mx-auto w-full max-w-6xl space-y-4 px-3 pt-4 md:px-6 lg:pb-8">
             <header className="flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-semibold">Kalkulator HPP</h1>
                 <ErpPicker onApply={handleApplyChain} />
@@ -174,46 +183,6 @@ export function OwnerHppClient({
                     {initial.notice}
                 </p>
             ) : null}
-
-            <ScenarioBar
-                scenarios={workspace.scenarios}
-                activeId={scenario.id}
-                canAdd={
-                    workspace.scenarios.length < OWNER_HPP_LIMITS.maxScenarios
-                }
-                isDirty={isDirty}
-                isSaving={isSaving}
-                statusText={statusText()}
-                onSelect={(id) =>
-                    selectScenario(
-                        workspace.scenarios.find((entry) => entry.id === id) ??
-                            scenario,
-                    )
-                }
-                onRename={(name) =>
-                    patchScenario((current) => ({ ...current, name }))
-                }
-                onAdd={() =>
-                    appendScenario(
-                        createDefaultScenario(
-                            randomId,
-                            `Skenario ${workspace.scenarios.length + 1}`,
-                        ),
-                    )
-                }
-                onDuplicate={() =>
-                    appendScenario(duplicateScenario(scenario, randomId))
-                }
-                onDelete={handleDeleteScenario}
-                onSave={handleSave}
-                onExport={() =>
-                    downloadJson(
-                        `kalkulator-hpp-${toBusinessDateString(new Date())}.json`,
-                        workspace,
-                    )
-                }
-                onImport={handleImport}
-            />
 
             <StageStrip
                 scenario={scenario}
@@ -229,12 +198,65 @@ export function OwnerHppClient({
                     stage={activeStage}
                     result={stageResults.get(activeStage.id)}
                     stageResults={stageResults}
-                    canDelete={scenario.stages.length > 1}
-                    onChange={(next: OwnerHppStage) =>
-                        patchScenario((current) =>
-                            updateStage(current, activeStage.id, () => next),
+                    onChange={handleStageChange}
+                />
+                <ResultPanel
+                    scenario={scenario}
+                    result={result}
+                    isDirty={isDirty}
+                    isSaving={isSaving}
+                    statusText={statusText()}
+                    onSave={handleSave}
+                    onSellPriceChange={(sellPrice) =>
+                        patchScenario((current) => ({ ...current, sellPrice }))
+                    }
+                    onSelectStage={setActiveStageId}
+                />
+            </div>
+            <AdvancedSection>
+                <ScenarioBar
+                    scenarios={workspace.scenarios}
+                    activeId={scenario.id}
+                    canAdd={
+                        workspace.scenarios.length <
+                        OWNER_HPP_LIMITS.maxScenarios
+                    }
+                    onSelect={(id) =>
+                        selectScenario(
+                            workspace.scenarios.find(
+                                (entry) => entry.id === id,
+                            ) ?? scenario,
                         )
                     }
+                    onRename={(name) =>
+                        patchScenario((current) => ({ ...current, name }))
+                    }
+                    onAdd={() =>
+                        appendScenario(
+                            createDefaultScenario(
+                                randomId,
+                                `Skenario ${workspace.scenarios.length + 1}`,
+                            ),
+                        )
+                    }
+                    onDuplicate={() =>
+                        appendScenario(duplicateScenario(scenario, randomId))
+                    }
+                    onDelete={handleDeleteScenario}
+                    onExport={() =>
+                        downloadJson(
+                            `kalkulator-hpp-${toBusinessDateString(new Date())}.json`,
+                            workspace,
+                        )
+                    }
+                    onImport={handleImport}
+                />
+                <StageAdvanced
+                    scenario={scenario}
+                    stage={activeStage}
+                    result={stageResults.get(activeStage.id)}
+                    canDelete={scenario.stages.length > 1}
+                    onChange={handleStageChange}
                     onSetFinal={() =>
                         patchScenario((current) => ({
                             ...current,
@@ -247,16 +269,13 @@ export function OwnerHppClient({
                         )
                     }
                 />
-                <ResultPanel
-                    scenario={scenario}
-                    result={result}
-                    onSellPriceChange={(sellPrice) =>
-                        patchScenario((current) => ({ ...current, sellPrice }))
-                    }
-                    onSelectStage={setActiveStageId}
-                />
-            </div>
-            <ResultBar result={result} />
+            </AdvancedSection>
+            <SaveDock
+                result={result}
+                isDirty={isDirty}
+                isSaving={isSaving}
+                onSave={handleSave}
+            />
         </main>
     );
 }

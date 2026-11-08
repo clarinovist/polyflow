@@ -2,26 +2,31 @@
 
 import type { ScenarioResult } from '@/lib/owner-hpp/calculate-chain';
 import type { OwnerHppScenario } from '@/lib/owner-hpp/workspace-schema';
-import { formatDecimal } from '@/lib/owner-hpp/number-input';
 import { cn, formatRupiah } from '@/lib/utils/utils';
 import { AlertTriangle } from 'lucide-react';
+import { formatPercent } from './format-result';
 import { NumberField } from './NumberField';
+import { SaveButton } from './SaveDock';
 import { STAGE_BAR_COLORS } from './ui-classes';
 
 interface ResultPanelProps {
     scenario: OwnerHppScenario;
     result: ScenarioResult;
+    isDirty: boolean;
+    isSaving: boolean;
+    statusText: string;
+    onSave: () => void;
     onSellPriceChange: (price: number | null) => void;
     onSelectStage: (stageId: string) => void;
-}
-
-function pct(value: number | null): string {
-    return value === null ? '-' : `${formatDecimal(value, 1)} %`;
 }
 
 export function ResultPanel({
     scenario,
     result,
+    isDirty,
+    isSaving,
+    statusText,
+    onSave,
     onSellPriceChange,
     onSelectStage,
 }: ResultPanelProps) {
@@ -32,12 +37,12 @@ export function ResultPanel({
 
     return (
         <aside
-            className="space-y-4 rounded-lg border bg-card p-4 lg:sticky lg:top-4"
+            className="space-y-4 rounded-lg border bg-card p-3 lg:sticky lg:top-4 lg:p-4"
             aria-label="Hasil"
         >
-            <div>
+            <div className="hidden lg:block">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    HPP akhir per {result.finalUnit || 'satuan'}
+                    HPP akhir per {result.finalUnit.toLowerCase() || 'satuan'}
                 </p>
                 <p className="font-mono text-3xl font-semibold tabular-nums">
                     {result.finalHpp === null
@@ -52,9 +57,9 @@ export function ResultPanel({
                 </p>
             ) : null}
 
-            <div className="space-y-2 border-t pt-3">
+            <div className="space-y-2 lg:border-t lg:pt-3">
                 <NumberField
-                    label={`Harga jual per ${result.finalUnit || 'satuan'}`}
+                    label={`Harga jual per ${result.finalUnit.toLowerCase() || 'satuan'}`}
                     showLabel
                     kind="money"
                     value={scenario.sellPrice ?? 0}
@@ -63,14 +68,14 @@ export function ResultPanel({
                     }
                 />
                 <dl className="grid grid-cols-2 gap-x-3 text-sm">
-                    <dt className="text-muted-foreground">
+                    <dt className="hidden text-muted-foreground lg:block">
                         Margin atas harga jual
                     </dt>
-                    <dd className="text-right font-mono font-semibold tabular-nums">
-                        {pct(result.marginPercent)}
+                    <dd className="hidden text-right font-mono font-semibold tabular-nums lg:block">
+                        {formatPercent(result.marginPercent)}
                     </dd>
                     <dt className="text-muted-foreground">
-                        Laba per {result.finalUnit || 'satuan'}
+                        Laba per {result.finalUnit.toLowerCase() || 'satuan'}
                     </dt>
                     <dd className="text-right font-mono tabular-nums">
                         {result.profitPerOutput === null
@@ -123,7 +128,7 @@ export function ResultPanel({
                                         {stage.name}
                                     </span>
                                     <span className="font-mono tabular-nums">
-                                        {pct(stage.contributionPct)}
+                                        {formatPercent(stage.contributionPct)}
                                     </span>
                                 </button>
                             </li>
@@ -145,30 +150,21 @@ export function ResultPanel({
                     ))}
                 </ul>
             ) : null}
-        </aside>
-    );
-}
 
-/** Always-visible summary on phones, where the panel is below the fold. */
-export function ResultBar({ result }: { result: ScenarioResult }) {
-    return (
-        <div className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t bg-background px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden">
-            <div>
-                <p className="text-xs text-muted-foreground">
-                    HPP akhir per {result.finalUnit || 'satuan'}
-                </p>
-                <p className="font-mono text-xl font-semibold tabular-nums">
-                    {result.finalHpp === null
-                        ? '-'
-                        : formatRupiah(result.finalHpp)}
-                </p>
+            <div className="hidden flex-col gap-2 border-t pt-3 lg:flex">
+                <SaveButton
+                    isDirty={isDirty}
+                    isSaving={isSaving}
+                    onSave={onSave}
+                />
+                <span
+                    className="text-sm text-muted-foreground"
+                    aria-live="polite"
+                    suppressHydrationWarning
+                >
+                    {statusText}
+                </span>
             </div>
-            <div className="text-right">
-                <p className="text-xs text-muted-foreground">Margin</p>
-                <p className="font-mono text-lg font-semibold tabular-nums">
-                    {pct(result.marginPercent)}
-                </p>
-            </div>
-        </div>
+        </aside>
     );
 }

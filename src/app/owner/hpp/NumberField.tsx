@@ -59,7 +59,7 @@ export function NumberField({
             <span
                 className={cn(
                     'text-xs text-muted-foreground',
-                    !showLabel && 'md:sr-only',
+                    !showLabel && 'lg:sr-only',
                 )}
             >
                 {label}
@@ -68,7 +68,7 @@ export function NumberField({
                 inputMode="decimal"
                 aria-label={label}
                 aria-invalid={isInvalid}
-                className="text-right font-mono tabular-nums"
+                className="h-11 text-right font-mono tabular-nums lg:h-9"
                 value={draft ?? formatDecimal(value, maxFractionDigits)}
                 onFocus={(event) => {
                     setDraft(draftFromNumber(value));
