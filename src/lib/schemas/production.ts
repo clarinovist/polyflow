@@ -46,6 +46,9 @@ export const createProductionOrderSchema = z
             )
             .optional(),
 
+        /** Planning opts into the kiosk packaging step (plastic / label / sack). */
+        actualPackagingEnabled: z.boolean().optional(),
+
         isMaklon: z.boolean().default(false),
         maklonCustomerId: z.string().optional(),
         estimatedConversionCost: z.coerce
@@ -100,6 +103,11 @@ export const updateProductionOrderSchema = z.object({
     /** Material consumption / transfer destination (Lokasi Pemakaian Bahan) */
     materialConsumptionLocationId: z.string().min(1).optional(),
     plannedStartDate: z.date().optional(),
+});
+
+export const setProductionOrderPackagingModeSchema = z.object({
+    id: z.string().trim().min(1, 'ID Order wajib diisi'),
+    enabled: z.boolean({ message: 'Nilai kemasan aktual harus ya atau tidak' }),
 });
 
 export const materialIssueSchema = z.object({
@@ -199,6 +207,9 @@ export type CreateProductionOrderValues = z.infer<
 >;
 export type UpdateProductionOrderValues = z.infer<
     typeof updateProductionOrderSchema
+>;
+export type SetProductionOrderPackagingModeValues = z.infer<
+    typeof setProductionOrderPackagingModeSchema
 >;
 export type MaterialIssueValues = z.infer<typeof materialIssueSchema>;
 export type BatchMaterialIssueValues = z.infer<typeof batchMaterialIssueSchema>;

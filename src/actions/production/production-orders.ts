@@ -19,6 +19,8 @@ import {
     CreateProductionOrderValues,
     updateProductionOrderSchema,
     UpdateProductionOrderValues,
+    setProductionOrderPackagingModeSchema,
+    SetProductionOrderPackagingModeValues,
     } from '@/lib/schemas/production';
 import { serializeData } from '@/lib/utils/utils';
 import {
@@ -815,6 +817,41 @@ export const updateProductionOrder = withTenant(
                 revalidatePath('/production');
                 revalidatePath('/production/schedule');
                 revalidatePath('/production/machines');
+                return null;
+            } catch (error) {
+                if (isNextControlFlowError(error)) throw error;
+                if (error instanceof BusinessRuleError) throw error;
+                throw new BusinessRuleError(
+                    error instanceof Error
+                        ? error.message
+                        : 'An unknown error occurred',
+                );
+            }
+        });
+    },
+);
+
+export const setProductionOrderPackagingMode = withTenant(
+    async function setProductionOrderPackagingMode(
+        data: SetProductionOrderPackagingModeValues,
+    ) {
+        return safeAction(async () => {
+            const result = setProductionOrderPackagingModeSchema.safeParse(data);
+            if (!result.success) {
+                throw new BusinessRuleError(result.error.issues[0].message);
+            }
+
+            try {
+                const session = await requirePlanningRole();
+
+                await ProductionService.setPackagingMode({
+                    ...result.data,
+                    userId: session.user.id,
+                });
+
+                revalidatePath(`/production/orders/${result.data.id}`);
+                revalidatePath('/production');
+                revalidatePath('/kiosk/jobs');
                 return null;
             } catch (error) {
                 if (isNextControlFlowError(error)) throw error;

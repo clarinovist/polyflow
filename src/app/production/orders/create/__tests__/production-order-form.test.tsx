@@ -581,6 +581,86 @@ describe('ProductionOrderForm — redesigned target and review', () => {
     });
 });
 
+describe('ProductionOrderForm — actual packaging toggle', () => {
+    async function submitWithPackaging(tick: boolean) {
+        vi.mocked(createProductionOrder).mockReset();
+        vi.mocked(createProductionOrder).mockResolvedValue({
+            success: true,
+            data: { id: 'po', orderNumber: 'WO-TEST', plannedQuantity: 300 },
+        } as never);
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut: Bahan/ }));
+        if (tick) {
+            fireEvent.click(
+                screen.getByRole('checkbox', {
+                    name: /Catat kemasan aktual/,
+                }),
+            );
+        }
+        fireEvent.click(
+            screen.getByRole('button', { name: /Lanjut: Periksa/ }),
+        );
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: 'Buat SPK' }));
+        });
+    }
+
+    it('shows the checkbox unticked with its helper text', async () => {
+        render(
+            <ProductionOrderForm
+                locations={locations}
+                machines={[]}
+                boms={[makeBom('bom-1', 'Resep A')]}
+            />,
+        );
+        fireEvent.change(screen.getByLabelText('Target produksi (KG)'), {
+            target: { value: '300' },
+        });
+        await act(async () => {
+            vi.advanceTimersByTime(500);
+        });
+        fireEvent.click(screen.getByRole('button', { name: /Lanjut: Bahan/ }));
+
+        const checkbox = screen.getByRole('checkbox', {
+            name: /Catat kemasan aktual \(plastik \/ etiket \/ karung\)/,
+        });
+        expect(checkbox.getAttribute('aria-checked')).toBe('false');
+        expect(
+            screen.getByText(
+                'Operator kiosk wajib mengisi kemasan tiap catat hasil. Tidak bisa diubah setelah ada hasil.',
+            ),
+        ).toBeTruthy();
+    });
+
+    it('submits actualPackagingEnabled false by default', async () => {
+        await submitWithPackaging(false);
+
+        expect(createProductionOrder).toHaveBeenCalledWith(
+            expect.objectContaining({ actualPackagingEnabled: false }),
+        );
+    });
+
+    it('submits actualPackagingEnabled true when ticked', async () => {
+        await submitWithPackaging(true);
+
+        expect(createProductionOrder).toHaveBeenCalledWith(
+            expect.objectContaining({ actualPackagingEnabled: true }),
+        );
+    });
+});
+
 describe('ProductionOrderForm — editable material list (step 3)', () => {
     it('keeps a removed material line removed after the debounce window passes again', async () => {
         await reachStep3();

@@ -119,6 +119,7 @@ export class ProductionOrderService {
             materialSourceLocationId,
             materialConsumptionLocationId,
             clientRequestId,
+            actualPackagingEnabled,
             } = data;
 
         const execute = async (transaction: Prisma.TransactionClient) => {
@@ -470,6 +471,7 @@ export class ProductionOrderService {
                     : undefined,
                 estimatedConversionCost: isMaklon ? estimatedConversionCost : 0,
                 clientRequestId: clientRequestId,
+                ...(actualPackagingEnabled !== undefined ? { actualPackagingEnabled } : {}),
                 ...(data.materialConsumptionMode ? { materialConsumptionMode: data.materialConsumptionMode } : {}),
                 ...(materialSourceLocationId
                     ? {

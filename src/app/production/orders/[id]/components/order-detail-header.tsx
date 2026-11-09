@@ -12,6 +12,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
 import { formatQuantity } from '@/lib/utils/utils';
 import { OrderStatusActions } from './order-status-actions';
+import { PackagingModeToggle } from './PackagingModeToggle';
 import { ReassignMachineButton } from '@/components/production/ReassignMachineButton';
 import {
     ReassignConsumptionLocationButton,
@@ -269,6 +270,7 @@ export function OrderDetailHeader({
                             </div>
                         )}
                     </div>
+                    <PackagingModeToggle order={order} />
                     <OrderStatusActions
                         order={order}
                         formData={formData as never}

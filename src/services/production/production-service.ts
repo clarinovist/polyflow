@@ -1,4 +1,5 @@
 import { ProductionOrderService } from './order-service';
+import { setOrderPackagingMode } from './order-packaging-mode-service';
 import { ProductionExecutionService } from './execution-service';
 import { ProductionMaterialService } from './material-service';
 import { ProductionCostService } from './cost-service';
@@ -17,6 +18,7 @@ export class ProductionService {
     static splitOrdersFromSales = ProductionOrderService.splitOrdersFromSales;
     static quickCreateOrder = ProductionOrderService.quickCreateOrder;
     static updateOrder = ProductionOrderService.updateOrder;
+    static setPackagingMode = setOrderPackagingMode;
     static deleteOrder = ProductionOrderService.deleteOrder;
     static addShift = ProductionOrderService.addShift;
     static deleteShift = ProductionOrderService.deleteShift;

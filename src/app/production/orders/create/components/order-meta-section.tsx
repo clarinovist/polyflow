@@ -4,9 +4,11 @@ import {
     FormField,
     FormItem,
     FormControl,
+    FormDescription,
     FormLabel,
     FormMessage,
 } from '@/components/ui/form';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Select,
     SelectContent,
@@ -82,6 +84,34 @@ export function OrderMetaSection({
                             </SelectContent>
                         </Select>
                         <FormMessage />
+                    </FormItem>
+                )}
+            />
+
+            {/* Actual packaging (kiosk step) */}
+            <FormField
+                control={form.control}
+                name="actualPackagingEnabled"
+                render={({ field }) => (
+                    <FormItem className="flex min-h-11 flex-row items-start gap-3 rounded-lg border p-3">
+                        <FormControl>
+                            <Checkbox
+                                checked={field.value === true}
+                                onCheckedChange={(checked) =>
+                                    field.onChange(checked === true)
+                                }
+                                className="mt-0.5"
+                            />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                            <FormLabel className="cursor-pointer">
+                                Catat kemasan aktual (plastik / etiket / karung)
+                            </FormLabel>
+                            <FormDescription>
+                                Operator kiosk wajib mengisi kemasan tiap catat
+                                hasil. Tidak bisa diubah setelah ada hasil.
+                            </FormDescription>
+                        </div>
                     </FormItem>
                 )}
             />

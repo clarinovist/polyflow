@@ -240,6 +240,7 @@ export function ProductionOrderForm({
             salesOrderId: salesOrderId || '',
             notes: '',
             isMaklon: false,
+            actualPackagingEnabled: false,
             estimatedConversionCost: 0,
             priority: 'NORMAL',
         },

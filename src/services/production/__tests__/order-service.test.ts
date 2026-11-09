@@ -997,6 +997,36 @@ describe("ProductionOrderService", () => {
       });
     });
 
+    it("should pass actualPackagingEnabled through when planning opts in", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", ...a.data }) as any,
+      );
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+        actualPackagingEnabled: true,
+      });
+      expect(prisma.productionOrder.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ actualPackagingEnabled: true }),
+      });
+    });
+
+    it("should leave actualPackagingEnabled to the column default when not provided", async () => {
+      vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
+      vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.productionOrder.create).mockImplementation(
+        async (a: any) => ({ id: "po-1", ...a.data }) as any,
+      );
+      await ProductionOrderService.createOrder({
+        ...base,
+        orderNumber: "WO-1",
+      });
+      const data = vi.mocked(prisma.productionOrder.create).mock.calls[0][0].data;
+      expect(data).not.toHaveProperty("actualPackagingEnabled");
+    });
+
     it("should connect maklonCustomer when isMaklon", async () => {
       vi.mocked(prisma.bom.findUnique).mockResolvedValue(activeBom());
       vi.mocked(prisma.inventory.findMany).mockResolvedValue([]);

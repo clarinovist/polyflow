@@ -7,6 +7,7 @@ import {
     getProductionOrdersList,
     getProductionOrder,
     updateProductionOrder,
+    setProductionOrderPackagingMode,
     deleteProductionOrder,
     getProductionOrderStats,
 } from '../production-orders';
@@ -18,6 +19,7 @@ import {
 } from '@/lib/tools/auth-checks';
 import { auth } from '@/auth';
 import { Prisma } from '@prisma/client';
+import { BusinessRuleError } from '@/lib/errors/errors';
 import { revalidatePath } from 'next/cache';
 
 // ── Mocks ──────────────────────────────────────────────────────────────
@@ -56,6 +58,7 @@ vi.mock('@/services/production/production-service', () => ({
         createOrder: vi.fn(),
         quickCreateOrder: vi.fn(),
         updateOrder: vi.fn(),
+        setPackagingMode: vi.fn(),
         deleteOrder: vi.fn(),
     },
 }));
@@ -613,6 +616,57 @@ describe('production order actions', () => {
             // Assert
             expect(res.success).toBe(false);
             if (!res.success) expect(res.error).toBe('Order sudah berjalan');
+        });
+    });
+
+    describe('setProductionOrderPackagingMode', () => {
+        it('saves the mode with the planner id and refreshes order, list and kiosk pages', async () => {
+            vi.mocked(ProductionService.setPackagingMode).mockResolvedValue(undefined as never);
+
+            const res = await setProductionOrderPackagingMode({ id: 'po-1', enabled: true });
+
+            expect(res.success).toBe(true);
+            expect(ProductionService.setPackagingMode).toHaveBeenCalledWith({
+                id: 'po-1',
+                enabled: true,
+                userId: 'user-1',
+            });
+            expect(revalidatePath).toHaveBeenCalledWith('/production/orders/po-1');
+            expect(revalidatePath).toHaveBeenCalledWith('/production');
+            expect(revalidatePath).toHaveBeenCalledWith('/kiosk/jobs');
+        });
+
+        it('rejects a user without the planning role before touching the service', async () => {
+            vi.mocked(requirePlanningRole).mockRejectedValue(new BusinessRuleError('Unauthorized'));
+
+            const res = await setProductionOrderPackagingMode({ id: 'po-1', enabled: true });
+
+            expect(res.success).toBe(false);
+            expect(ProductionService.setPackagingMode).not.toHaveBeenCalled();
+            expect(revalidatePath).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['missing id', { enabled: true }],
+            ['blank id', { id: '', enabled: true }],
+            ['non-boolean flag', { id: 'po-1', enabled: 'yes' }],
+        ])('rejects invalid input: %s', async (_label, payload) => {
+            const res = await setProductionOrderPackagingMode(payload as never);
+
+            expect(res.success).toBe(false);
+            expect(ProductionService.setPackagingMode).not.toHaveBeenCalled();
+        });
+
+        it('passes the service error message through', async () => {
+            vi.mocked(ProductionService.setPackagingMode).mockRejectedValue(
+                new BusinessRuleError('SPK sudah punya hasil'),
+            );
+
+            const res = await setProductionOrderPackagingMode({ id: 'po-1', enabled: true });
+
+            expect(res.success).toBe(false);
+            if (!res.success) expect(res.error).toBe('SPK sudah punya hasil');
+            expect(revalidatePath).not.toHaveBeenCalled();
         });
     });
 
