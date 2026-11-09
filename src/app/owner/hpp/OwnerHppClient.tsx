@@ -4,6 +4,7 @@ import { saveOwnerHppWorkspace } from '@/actions/owner-hpp/owner-hpp';
 import type { StoredOwnerHppWorkspace } from '@/actions/owner-hpp/owner-hpp-query';
 import { calculateScenario } from '@/lib/owner-hpp/calculate-chain';
 import type { ErpChainResult } from '@/lib/owner-hpp/erp-chain';
+import { createExtrusionTemplateScenario } from '@/lib/owner-hpp/templates';
 import {
     addStage,
     applyErpChain,
@@ -237,6 +238,11 @@ export function OwnerHppClient({
                                 randomId,
                                 `Skenario ${workspace.scenarios.length + 1}`,
                             ),
+                        )
+                    }
+                    onAddFromTemplate={() =>
+                        appendScenario(
+                            createExtrusionTemplateScenario(randomId),
                         )
                     }
                     onDuplicate={() =>

@@ -22,6 +22,8 @@ interface NumberFieldProps {
     kind?: NumberInputKind;
     /** Show the label on wide screens too (default: phones only). */
     showLabel?: boolean;
+    /** Small dimmed unit shown inside the input's right edge (e.g. "kg"). */
+    suffix?: string;
 }
 
 function isAccepted(value: number, positive: boolean): boolean {
@@ -37,6 +39,7 @@ export function NumberField({
     kind = 'quantity',
     className,
     showLabel = false,
+    suffix,
 }: NumberFieldProps) {
     // While focused the field shows what was typed; otherwise the formatted value.
     const [draft, setDraft] = useState<string | null>(null);
@@ -64,19 +67,32 @@ export function NumberField({
             >
                 {label}
             </span>
-            <Input
-                inputMode="decimal"
-                aria-label={label}
-                aria-invalid={isInvalid}
-                className="h-11 text-right font-mono tabular-nums lg:h-9"
-                value={draft ?? formatDecimal(value, maxFractionDigits)}
-                onFocus={(event) => {
-                    setDraft(draftFromNumber(value));
-                    event.currentTarget.select();
-                }}
-                onBlur={() => setDraft(null)}
-                onChange={(event) => handleChange(event.target.value)}
-            />
+            <span className="relative block">
+                <Input
+                    inputMode="decimal"
+                    aria-label={label}
+                    aria-invalid={isInvalid}
+                    className={cn(
+                        'h-11 text-right font-mono tabular-nums lg:h-9',
+                        suffix && 'pr-11',
+                    )}
+                    value={draft ?? formatDecimal(value, maxFractionDigits)}
+                    onFocus={(event) => {
+                        setDraft(draftFromNumber(value));
+                        event.currentTarget.select();
+                    }}
+                    onBlur={() => setDraft(null)}
+                    onChange={(event) => handleChange(event.target.value)}
+                />
+                {suffix ? (
+                    <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute right-3 top-1/2 max-w-8 -translate-y-1/2 truncate text-xs text-muted-foreground/70"
+                    >
+                        {suffix}
+                    </span>
+                ) : null}
+            </span>
         </label>
     );
 }

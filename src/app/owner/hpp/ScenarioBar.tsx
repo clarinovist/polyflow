@@ -3,7 +3,14 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { OwnerHppScenario } from '@/lib/owner-hpp/workspace-schema';
-import { Copy, Download, Plus, Trash2, Upload } from 'lucide-react';
+import {
+    Copy,
+    Download,
+    LayoutTemplate,
+    Plus,
+    Trash2,
+    Upload,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { SELECT_CLASS } from './ui-classes';
 
@@ -14,6 +21,7 @@ interface ScenarioBarProps {
     onSelect: (id: string) => void;
     onRename: (name: string) => void;
     onAdd: () => void;
+    onAddFromTemplate: () => void;
     onDuplicate: () => void;
     onDelete: () => void;
     onExport: () => void;
@@ -69,6 +77,14 @@ export function ScenarioBar(props: ScenarioBarProps) {
                     onClick={props.onAdd}
                 >
                     <Plus />
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!canAdd}
+                    onClick={props.onAddFromTemplate}
+                >
+                    <LayoutTemplate /> Dari template
                 </Button>
                 <Button
                     type="button"

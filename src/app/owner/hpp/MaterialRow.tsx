@@ -15,9 +15,12 @@ import { Trash2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NumberField } from './NumberField';
 
-/** Phone: a card of three lines. lg: one row (Bahan, Jumlah, Harga, Subtotal). */
+/**
+ * Phone: a card (name, then quantity + scrap, price, subtotal).
+ * lg: one row (Bahan, Jumlah, Susut %, Harga, Subtotal, remove).
+ */
 export const MATERIAL_ROW_GRID =
-    'lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_36px]';
+    'lg:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,0.8fr)_minmax(0,1.2fr)_minmax(0,1.1fr)_36px]';
 
 const ROW_CLASS = `grid grid-cols-2 gap-2 rounded-md border p-3 lg:items-end lg:rounded-none lg:border-0 lg:p-0 ${MATERIAL_ROW_GRID}`;
 
@@ -40,6 +43,7 @@ interface MaterialRowProps {
 function Tag({ tag }: { tag: MaterialSourceTag | 'stage' }) {
     return (
         <Badge
+            className="px-1.5 py-0 text-[10px]"
             variant={
                 tag === 'edited' || tag === 'empty' ? 'outline' : 'secondary'
             }
@@ -51,17 +55,27 @@ function Tag({ tag }: { tag: MaterialSourceTag | 'stage' }) {
 
 function ReadOnlyPrice({ value }: { value: number | null | undefined }) {
     return (
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="col-span-2 flex min-w-0 flex-col gap-1 lg:col-span-1">
             <span className="text-xs text-muted-foreground lg:sr-only">
                 Harga per unit
             </span>
-            <p className="flex h-11 items-center justify-end px-1 font-mono text-sm tabular-nums lg:h-9">
+            <p className="flex h-11 items-center justify-end px-3 font-mono text-sm tabular-nums lg:h-9">
                 {value === null || value === undefined
                     ? '-'
                     : formatRupiah(value)}
             </p>
         </div>
     );
+}
+
+function ScrapField({
+    value,
+    onChange,
+}: {
+    value: number;
+    onChange: (value: number) => void;
+}) {
+    return <NumberField label="Susut %" value={value} onChange={onChange} />;
 }
 
 function Subtotal({ value }: { value: number | null | undefined }) {
@@ -92,7 +106,10 @@ function RemoveButton({ onRemove }: { onRemove: () => void }) {
     );
 }
 
-/** First line: name + source tag on the left, remove on the right. */
+/**
+ * First line: name with the source tag inside its right edge, remove button
+ * on the right. The ERP hint lives in the tooltip so every row stays one line.
+ */
 function NameLine({
     name,
     tag,
@@ -106,16 +123,14 @@ function NameLine({
 }) {
     return (
         <div className="col-span-2 flex items-center gap-2 lg:contents">
-            <div className="flex min-w-0 flex-1 items-center gap-2 lg:flex-col lg:items-start lg:gap-1">
+            <div
+                className="relative flex h-11 min-w-0 flex-1 items-center lg:h-9"
+                title={hint}
+            >
                 {name}
-                <div className="flex shrink-0 items-center gap-2">
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2">
                     <Tag tag={tag} />
-                    {hint ? (
-                        <span className="text-[11px] text-muted-foreground">
-                            {hint}
-                        </span>
-                    ) : null}
-                </div>
+                </span>
             </div>
             <RemoveButton onRemove={onRemove} />
         </div>
@@ -134,7 +149,7 @@ export function MaterialRow({
             <div className={ROW_CLASS}>
                 <NameLine
                     name={
-                        <p className="min-w-0 flex-1 truncate text-sm font-medium lg:w-full lg:flex-none">
+                        <p className="min-w-0 flex-1 truncate pr-14 text-sm font-medium">
                             {upstreamResult?.name ?? '-'}
                         </p>
                     }
@@ -143,8 +158,13 @@ export function MaterialRow({
                 />
                 <NumberField
                     label="Jumlah"
+                    suffix={upstreamResult?.outputUnit.toLowerCase()}
                     value={material.qty}
                     onChange={(qty) => onChange({ qty })}
+                />
+                <ScrapField
+                    value={material.scrapPercent}
+                    onChange={(scrapPercent) => onChange({ scrapPercent })}
                 />
                 <ReadOnlyPrice value={upstreamResult?.hppPerOutput} />
                 <Subtotal value={costPerOutput} />
@@ -164,7 +184,7 @@ export function MaterialRow({
                     <Input
                         aria-label="Nama bahan"
                         maxLength={80}
-                        className="h-11 min-w-0 flex-1 lg:h-9 lg:w-full lg:flex-none"
+                        className="h-11 min-w-0 flex-1 pr-14 lg:h-9"
                         value={material.name}
                         onChange={(event) =>
                             onChange({ name: event.target.value })
@@ -177,11 +197,17 @@ export function MaterialRow({
             />
             <NumberField
                 label="Jumlah"
+                suffix={material.unit.toLowerCase()}
                 value={material.qty}
                 onChange={(qty) => onChange({ qty })}
             />
+            <ScrapField
+                value={material.scrapPercent}
+                onChange={(scrapPercent) => onChange({ scrapPercent })}
+            />
             <NumberField
                 label="Harga per unit"
+                className="col-span-2 lg:col-span-1"
                 kind="money"
                 value={material.price}
                 onChange={(price) => onChange({ price })}

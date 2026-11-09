@@ -5,7 +5,6 @@ import type {
     OwnerHppMaterial,
     OwnerHppStage,
 } from '@/lib/owner-hpp/workspace-schema';
-import { NumberField } from './NumberField';
 import { SELECT_CLASS } from './ui-classes';
 
 interface MaterialAdvancedRowProps {
@@ -15,14 +14,14 @@ interface MaterialAdvancedRowProps {
     onChange: (patch: Record<string, string | number | null>) => void;
 }
 
-/** The per-material fields the simple card hides: unit/source and scrap. */
+/** The per-material fields the simple card hides: unit and source stage. */
 export function MaterialAdvancedRow({
     material,
     upstreamOptions,
     onChange,
 }: MaterialAdvancedRowProps) {
     return (
-        <div className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] sm:items-end">
+        <div className="grid grid-cols-1 gap-2 rounded-md border p-2">
             {material.kind === 'stage' ? (
                 <label className="flex min-w-0 flex-col gap-1">
                     <span className="text-xs text-muted-foreground">
@@ -58,12 +57,6 @@ export function MaterialAdvancedRow({
                     />
                 </label>
             )}
-            <NumberField
-                label="Susut %"
-                showLabel
-                value={material.scrapPercent}
-                onChange={(scrapPercent) => onChange({ scrapPercent })}
-            />
         </div>
     );
 }

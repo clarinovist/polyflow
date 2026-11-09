@@ -130,19 +130,31 @@ function costMap(
     return Object.fromEntries(rows.map((row) => [row.id, row.costPerOutput]));
 }
 
+/**
+ * One warning per empty-priced raw material; with several of them a single
+ * count, so a fresh scenario does not repeat the same line.
+ */
+function emptyPriceWarnings(stage: OwnerHppStage): string[] {
+    const names = stage.materials.flatMap((material) =>
+        material.kind === 'raw' && materialSourceTag(material) === 'empty'
+            ? [material.name]
+            : [],
+    );
+    if (names.length === 0) return [];
+    if (names.length === 1) return [`Harga "${names[0]}" masih kosong.`];
+    return [`${names.length} bahan masih belum berharga.`];
+}
+
 function calculateStage(
     stage: OwnerHppStage,
     done: ReadonlyMap<string, StageResult>,
 ): StageResult {
-    const warnings: string[] = [];
+    const warnings = emptyPriceWarnings(stage);
     const materials: HppSimulatorBomMaterialComponent[] = [];
     let carriedPerOutput = 0;
 
     for (const material of stage.materials) {
         if (material.kind === 'raw') {
-            if (materialSourceTag(material) === 'empty') {
-                warnings.push(`Harga "${material.name}" masih kosong.`);
-            }
             materials.push({
                 id: material.id,
                 name: material.name,

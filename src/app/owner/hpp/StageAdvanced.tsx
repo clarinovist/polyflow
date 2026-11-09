@@ -85,7 +85,7 @@ function MaterialAdvancedList({
     const upstream = availableUpstreamStages(scenario, stage.id);
     return (
         <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Bahan: satuan dan susut</h4>
+            <h4 className="text-sm font-semibold">Bahan: satuan dan sumber</h4>
             {stage.materials.map((material) => {
                 const from = material.kind === 'stage' ? material.from : null;
                 const options = scenario.stages.filter(

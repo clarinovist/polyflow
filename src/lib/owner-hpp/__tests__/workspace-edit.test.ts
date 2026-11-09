@@ -20,11 +20,15 @@ function counter() {
 }
 
 describe('createDefaultWorkspace', () => {
-    it('is a valid workspace with one empty stage', () => {
+    it('is a valid workspace with one stage holding four blank material rows', () => {
         const workspace = createDefaultWorkspace(counter());
 
         expect(parseOwnerHppWorkspace(workspace).success).toBe(true);
         expect(workspace.scenarios[0].stages).toHaveLength(1);
+        const { materials } = workspace.scenarios[0].stages[0];
+        expect(materials).toHaveLength(4);
+        expect(new Set(materials.map((material) => material.id)).size).toBe(4);
+        expect(materials.every((material) => material.kind === 'raw' && material.price === 0)).toBe(true);
         expect(workspace.scenarios[0].finalStageId).toBe(
             workspace.scenarios[0].stages[0].id,
         );

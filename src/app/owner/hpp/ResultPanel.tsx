@@ -30,7 +30,12 @@ export function ResultPanel({
     onSellPriceChange,
     onSelectStage,
 }: ResultPanelProps) {
-    const warnings = result.stages.flatMap((stage) => stage.warnings);
+    const warnings = result.stages.flatMap((stage) =>
+        stage.warnings.map((text) => ({
+            key: `${stage.stageId}:${text}`,
+            text,
+        })),
+    );
     const counted = result.stages.filter(
         (stage) => stage.contributionPct !== null,
     );
@@ -140,12 +145,12 @@ export function ResultPanel({
             {warnings.length > 0 ? (
                 <ul className="space-y-1 border-t pt-3 text-sm text-muted-foreground">
                     {warnings.map((warning) => (
-                        <li key={warning} className="flex gap-2">
+                        <li key={warning.key} className="flex gap-2">
                             <AlertTriangle
                                 className="mt-0.5 size-4 shrink-0"
                                 aria-hidden="true"
                             />
-                            {warning}
+                            {warning.text}
                         </li>
                     ))}
                 </ul>

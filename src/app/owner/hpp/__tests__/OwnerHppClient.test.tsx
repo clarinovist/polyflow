@@ -48,6 +48,12 @@ function stageHppText(): string {
     return screen.getByText('HPP tahap ini').parentElement?.textContent ?? '';
 }
 
+function overheadInput(): HTMLInputElement {
+    return screen.getByRole('textbox', { name: 'Overhead %' }) as HTMLInputElement;
+}
+
+const EXTRUSION_PRE_OVERHEAD = 0.92 * 14500 + 0.03 * 38000 + 0.05 * 2400 + 650 + 420;
+
 describe('/owner/hpp simple screen', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -71,8 +77,10 @@ describe('/owner/hpp simple screen', () => {
         expect(within(strip).getAllByRole('button').map((b) => b.textContent)).toEqual(
             expect.arrayContaining([expect.stringContaining('Extrusion'), expect.stringContaining('Potong'), expect.stringContaining('Packing')]),
         );
-        expect(screen.getByRole('textbox', { name: 'Biaya konversi per kg' })).toBeTruthy();
-        expect(screen.getByText('tenaga kerja, listrik, mesin, overhead jadi satu angka')).toBeTruthy();
+        expect(screen.getByRole('textbox', { name: 'Tenaga / biaya konversi per kg' })).toBeTruthy();
+        expect(screen.getByText('tenaga kerja, listrik, mesin jadi satu angka')).toBeTruthy();
+        expect(screen.getByRole('textbox', { name: 'Overhead %' })).toBeTruthy();
+        expect(screen.getByText('dari bahan + susut + tenaga')).toBeTruthy();
         expect(screen.getByText('Packing · per 1 kg keluaran')).toBeTruthy();
     });
 
@@ -99,14 +107,13 @@ describe('/owner/hpp simple screen', () => {
         expect(inside.getByRole('button', { name: 'Hapus tahap' })).toBeTruthy();
     });
 
-    it('shows a read-only total with a note when a stage has several cost lines', () => {
+    it('shows a read-only total of the non-percentage costs when a stage has several of them', () => {
         renderClient();
 
-        expect(screen.queryByRole('textbox', { name: 'Biaya konversi per kg' })).toBeNull();
-        expect(screen.getByText('3 komponen biaya, ubah di Lanjutan')).toBeTruthy();
-        expect(screen.getByTestId('conversion-total').textContent).toBe(
-            formatRupiah(650 + 420 + (0.92 * 14500 + 0.03 * 38000 + 0.05 * 2400 + 650 + 420) * 0.05),
-        );
+        expect(screen.queryByRole('textbox', { name: 'Tenaga / biaya konversi per kg' })).toBeNull();
+        expect(screen.getByText('2 komponen biaya, ubah di Lanjutan')).toBeTruthy();
+        expect(screen.getByTestId('conversion-total').textContent).toBe(formatRupiah(650 + 420));
+        expect(overheadInput().value).toBe('5');
     });
 
     it('updates the stage HPP and enables Simpan when the conversion cost is edited', () => {
@@ -116,7 +123,7 @@ describe('/owner/hpp simple screen', () => {
         const [dockSave] = screen.getAllByRole('button', { name: /Simpan/ });
         expect((dockSave as HTMLButtonElement).disabled).toBe(true);
 
-        fireEvent.change(screen.getByRole('textbox', { name: 'Biaya konversi per kg' }), {
+        fireEvent.change(screen.getByRole('textbox', { name: 'Tenaga / biaya konversi per kg' }), {
             target: { value: '300' },
         });
 
@@ -130,7 +137,7 @@ describe('/owner/hpp simple screen', () => {
         renderClient();
         fireEvent.click(screen.getByRole('button', { name: /Tahap$/ }));
 
-        fireEvent.change(screen.getByRole('textbox', { name: 'Biaya konversi per kg' }), {
+        fireEvent.change(screen.getByRole('textbox', { name: 'Tenaga / biaya konversi per kg' }), {
             target: { value: '500' },
         });
 
@@ -144,13 +151,13 @@ describe('/owner/hpp simple screen', () => {
             target: { value: 'fixed-per-output' },
         });
 
-        expect(screen.getByText('4 komponen biaya, ubah di Lanjutan')).toBeTruthy();
+        expect(screen.getByText('3 komponen biaya, ubah di Lanjutan')).toBeTruthy();
     });
 
     it('saves the workspace and reports the result', async () => {
         renderClient();
         openStage('Packing');
-        fireEvent.change(screen.getByRole('textbox', { name: 'Biaya konversi per kg' }), {
+        fireEvent.change(screen.getByRole('textbox', { name: 'Tenaga / biaya konversi per kg' }), {
             target: { value: '300' },
         });
 
@@ -159,5 +166,107 @@ describe('/owner/hpp simple screen', () => {
         await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalledWith('Tersimpan.'));
         expect(mocks.save).toHaveBeenCalledTimes(1);
         expect(mocks.save.mock.calls[0][1]).toBe(UPDATED_AT);
+    });
+
+    it('right-aligns the number column headers and left-aligns the material header', () => {
+        renderClient();
+
+        const headers = within(screen.getByTestId('material-headers'));
+
+        expect(headers.getByText('Bahan').className).toContain('text-left');
+        ['Jumlah', 'Susut %', 'Harga per unit', 'Subtotal'].forEach((label) => {
+            expect(headers.getByText(label).className).toContain('text-right');
+        });
+    });
+
+    it('shows a Susut % field on every material row and not again under Lanjutan', () => {
+        renderClient();
+
+        expect(screen.getAllByRole('textbox', { name: 'Susut %' })).toHaveLength(3);
+
+        openStage('Potong');
+        const [scrap] = screen.getAllByRole('textbox', { name: 'Susut %' });
+        expect(screen.getAllByRole('textbox', { name: 'Susut %' })).toHaveLength(1);
+        expect((scrap as HTMLInputElement).value).toBe('5');
+    });
+
+    it('changes the stage HPP when the scrap percent is edited in the row', () => {
+        renderClient();
+        const [resinScrap] = screen.getAllByRole('textbox', { name: 'Susut %' });
+
+        fireEvent.change(resinScrap, { target: { value: '10' } });
+
+        const pre = 0.92 * 14500 * 1.1 + 0.03 * 38000 + 0.05 * 2400 + 650 + 420;
+        expect(stageHppText()).toContain(formatRupiah(pre * 1.05));
+    });
+
+    it('explains scrap under the material list', () => {
+        renderClient();
+
+        expect(
+            screen.getByText('Susut % = tambahan di atas jumlah (afval 20% dari input ≈ susut 25%)'),
+        ).toBeTruthy();
+    });
+
+    it('shows each material unit dimmed beside its quantity', () => {
+        renderClient();
+
+        const [quantity] = screen.getAllByRole('textbox', { name: 'Jumlah' });
+
+        expect(quantity.parentElement?.textContent).toBe('kg');
+    });
+
+    it('uses the unit of the source stage for a stage material', () => {
+        renderClient();
+        openStage('Potong');
+
+        const [quantity] = screen.getAllByRole('textbox', { name: 'Jumlah' });
+
+        expect(quantity.parentElement?.textContent).toBe('kg');
+    });
+
+    it('keeps the source tag on the name line and moves the ERP hint into a tooltip', () => {
+        renderClient();
+
+        const names = screen.getAllByLabelText('Nama bahan');
+        const edited = names[1].parentElement as HTMLElement;
+
+        expect(edited.textContent).toContain('diubah');
+        expect(edited.textContent).not.toContain('ERP');
+        expect(edited.getAttribute('title')).toBe('ERP 36.500');
+        expect((names[0].parentElement as HTMLElement).textContent).toContain('ERP');
+    });
+
+    it('recomputes the stage HPP when Overhead % is edited and drops the line at 0', () => {
+        renderClient();
+        expect(stageHppText()).toContain(formatRupiah(EXTRUSION_PRE_OVERHEAD * 1.05));
+
+        fireEvent.change(overheadInput(), { target: { value: '10' } });
+        expect(stageHppText()).toContain(formatRupiah(EXTRUSION_PRE_OVERHEAD * 1.1));
+
+        fireEvent.change(overheadInput(), { target: { value: '0' } });
+        expect(stageHppText()).toContain(formatRupiah(EXTRUSION_PRE_OVERHEAD));
+        expect(screen.getByText('2 komponen biaya, ubah di Lanjutan')).toBeTruthy();
+    });
+
+    it('adds a stage-level overhead on a stage that has none', () => {
+        renderClient();
+        openStage('Packing');
+
+        fireEvent.change(overheadInput(), { target: { value: '10' } });
+
+        expect(stageHppText()).toContain(formatRupiah((17696.175 + 216) * 1.1));
+    });
+
+    it('adds a ready-made extrusion scenario from the template action', () => {
+        renderClient();
+        const details = within(screen.getByText('Lanjutan').closest('details') as HTMLElement);
+
+        fireEvent.click(details.getByRole('button', { name: /Dari template/ }));
+
+        expect(screen.getByText('Ekstrusi HDPE · per 1 kg keluaran')).toBeTruthy();
+        expect(screen.getAllByLabelText('Nama bahan')).toHaveLength(4);
+        expect(overheadInput().value).toBe('10');
+        expect(screen.getByText('4 bahan masih belum berharga.')).toBeTruthy();
     });
 });

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { chainScenario } from './fixtures';
 import { calculateScenario } from '../calculate-chain';
+import { createDefaultScenario } from '../workspace-edit';
+
+let idCounter = 0;
 
 describe('calculateScenario', () => {
     it('chains stage HPP into the next stage with scrap and conversion costs', () => {
@@ -223,5 +226,29 @@ describe('calculateScenario', () => {
         );
 
         expect(ext?.warnings.join(' ')).toMatch(/Kalsium/);
+    });
+
+    it('merges several empty-priced materials into one count warning', () => {
+        const scenario = createDefaultScenario(() => `id${++idCounter}`);
+
+        const [stage] = calculateScenario(scenario).stages;
+
+        expect(stage.warnings).toEqual(['4 bahan masih belum berharga.']);
+    });
+
+    it('keeps the per-name warning when exactly one material is empty', () => {
+        const base = createDefaultScenario(() => `id${++idCounter}`);
+        const [first, ...rest] = base.stages[0].materials;
+        const priced = rest.map((material) =>
+            material.kind === 'raw' ? { ...material, price: 100 } : material,
+        );
+        const scenario = {
+            ...base,
+            stages: [{ ...base.stages[0], materials: [first, ...priced] }],
+        };
+
+        const [stage] = calculateScenario(scenario).stages;
+
+        expect(stage.warnings).toEqual(['Harga "Bahan baru" masih kosong.']);
     });
 });

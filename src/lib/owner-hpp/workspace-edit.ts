@@ -28,11 +28,33 @@ function emptyStage(id: string, name: string): OwnerHppStage {
     };
 }
 
+/** Blank material rows a fresh scenario starts with, so typing can begin at once. */
+const DEFAULT_MATERIAL_ROWS = 4;
+
+function newRawMaterial(makeId: IdFactory): OwnerHppRawMaterial {
+    return {
+        id: makeId(),
+        kind: 'raw',
+        name: 'Bahan baru',
+        unit: 'KG',
+        qty: 0,
+        scrapPercent: 0,
+        price: 0,
+        erpPrice: null,
+    };
+}
+
 export function createDefaultScenario(
     makeId: IdFactory,
     name = 'Skenario 1',
 ): OwnerHppScenario {
-    const stage = emptyStage(makeId(), 'Tahap 1');
+    const blank = emptyStage(makeId(), 'Tahap 1');
+    const stage = {
+        ...blank,
+        materials: Array.from({ length: DEFAULT_MATERIAL_ROWS }, () =>
+            newRawMaterial(makeId),
+        ),
+    };
     return {
         id: makeId(),
         name,
@@ -98,17 +120,10 @@ export function addRawMaterial(
     makeId: IdFactory,
 ): OwnerHppStage {
     if (stage.materials.length >= OWNER_HPP_LIMITS.maxMaterials) return stage;
-    const material: OwnerHppRawMaterial = {
-        id: makeId(),
-        kind: 'raw',
-        name: 'Bahan baru',
-        unit: 'KG',
-        qty: 0,
-        scrapPercent: 0,
-        price: 0,
-        erpPrice: null,
+    return {
+        ...stage,
+        materials: [...stage.materials, newRawMaterial(makeId)],
     };
-    return { ...stage, materials: [...stage.materials, material] };
 }
 
 export function addStageLink(

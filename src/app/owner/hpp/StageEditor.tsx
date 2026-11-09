@@ -27,7 +27,17 @@ interface StageEditorProps {
     onChange: (next: OwnerHppStage) => void;
 }
 
-const MATERIAL_HEADERS = ['Bahan', 'Jumlah', 'Harga per unit', 'Subtotal'];
+/** Text columns sit left; number columns sit right, like their values. */
+const MATERIAL_HEADERS = [
+    { label: 'Bahan', className: 'text-left' },
+    { label: 'Jumlah', className: 'pr-3 text-right' },
+    { label: 'Susut %', className: 'pr-3 text-right' },
+    { label: 'Harga per unit', className: 'pr-3 text-right' },
+    { label: 'Subtotal', className: 'text-right' },
+];
+
+const SCRAP_HELP =
+    'Susut % = tambahan di atas jumlah (afval 20% dari input ≈ susut 25%)';
 
 function Money({ value }: { value: number | null | undefined }) {
     return (
@@ -67,10 +77,11 @@ export function StageEditor({
                 <div
                     className={`hidden gap-2 text-xs text-muted-foreground lg:grid ${MATERIAL_ROW_GRID}`}
                     aria-hidden="true"
+                    data-testid="material-headers"
                 >
-                    {MATERIAL_HEADERS.map((header) => (
-                        <span key={header} className="truncate">
-                            {header}
+                    {MATERIAL_HEADERS.map(({ label, className }) => (
+                        <span key={label} className={`truncate ${className}`}>
+                            {label}
                         </span>
                     ))}
                     <span />
@@ -118,6 +129,7 @@ export function StageEditor({
                         <Plus /> Dari tahap lain
                     </Button>
                 </div>
+                <p className="text-xs text-muted-foreground">{SCRAP_HELP}</p>
                 <p className="flex justify-between text-sm font-medium">
                     <span>Subtotal bahan</span>
                     <Money value={result?.materialSubtotalPerOutput} />
