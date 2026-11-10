@@ -1,5 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('next/navigation', () => ({
+    redirect: vi.fn(),
+    notFound: vi.fn(),
+    unstable_rethrow: vi.fn(),
+}));
+
 vi.mock('next/server', () => {
     class MockNextResponse {
         status: number;

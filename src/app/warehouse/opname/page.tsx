@@ -1,7 +1,7 @@
 import { getOpnameSessions } from '@/actions/inventory/opname';
 import { requireRole } from '@/lib/tools/auth-checks';
 import { Role } from '@prisma/client';
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Calendar, CheckCircle2, Clock, History } from 'lucide-react';
@@ -16,7 +16,9 @@ import { SearchParamsToast } from '@/components/shared/SearchParamsToast';
 export default async function WarehouseOpnameListPage() {
     try {
         await requireRole([Role.WAREHOUSE, Role.PRODUCTION, Role.PLANNING]);
-    } catch (_) {
+    } catch (error) {
+        // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+        unstable_rethrow(error);
         redirect('/dashboard');
     }
 

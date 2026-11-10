@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { unstable_rethrow } from 'next/navigation';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import {
     getTenantPrefix,
@@ -93,6 +94,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, url: publicUrl, key });
     } catch (error) {
+        // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+        unstable_rethrow(error);
         console.error('Delivery photo upload error:', error);
         return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }

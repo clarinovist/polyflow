@@ -5,7 +5,11 @@ import { prisma } from '@/lib/core/prisma';
 import { EmployeeStatus } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
-import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
+import {
+    safeAction,
+    BusinessRuleError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
 import {
@@ -201,6 +205,8 @@ export const createEmployee = withTenant(async function createEmployee(data: {
             revalidatePath('/production/resources');
             return employee;
         } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Failed to create employee', {
                 error,
                 module: 'EmployeeActions',
@@ -347,6 +353,8 @@ export const updateEmployee = withTenant(async function updateEmployee(
             revalidatePath('/production/resources');
             return employee;
         } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Failed to update employee', {
                 error,
                 employeeId: id,
@@ -389,6 +397,8 @@ export const deleteEmployee = withTenant(async function deleteEmployee(
             revalidatePath('/production/resources');
             return null;
         } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Failed to delete employee', {
                 error,
                 employeeId: id,

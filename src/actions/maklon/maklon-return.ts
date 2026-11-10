@@ -3,7 +3,11 @@
 import { MaklonReturnService } from '@/services/maklon/maklon-return-service';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { AuthenticationError, NotFoundError } from '@/lib/errors/errors';
+import {
+    AuthenticationError,
+    NotFoundError,
+    isNextControlFlowError,
+} from '@/lib/errors/errors';
 import { serializeData } from '@/lib/utils/utils';
 import { withTenant } from '@/lib/core/tenant';
 
@@ -35,7 +39,9 @@ export const createMaklonReturnAction = withTenant(
             revalidatePath('/warehouse/maklon/returns');
             revalidatePath('/dashboard/inventory');
             return { success: true, data: serializeData(ret) };
-        } catch {
+        } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             return { success: false, error: 'Gagal memproses retur Maklon' };
         }
     },
@@ -54,7 +60,9 @@ export const getMaklonReturnsAction = withTenant(
 
             const returns = await MaklonReturnService.getReturns(params);
             return { success: true, data: serializeData(returns) };
-        } catch {
+        } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             return { success: false, error: 'Gagal memproses retur Maklon' };
         }
     },
@@ -69,7 +77,9 @@ export const getMaklonReturnByIdAction = withTenant(
             const ret = await MaklonReturnService.getReturnById(id);
             if (!ret) throw new NotFoundError('Maklon Return', id);
             return { success: true, data: serializeData(ret) };
-        } catch {
+        } catch (error) {
+            // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
+            if (isNextControlFlowError(error)) throw error;
             return { success: false, error: 'Gagal memproses retur Maklon' };
         }
     },
