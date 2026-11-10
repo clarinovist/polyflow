@@ -38,7 +38,9 @@ describe('production cost recovery UI', () => {
         render(<ProductionCostRecovery orderId="wo" />); await inspect(); await confirm();
         fireEvent.click(screen.getByRole('button', { name: 'Setujui & terapkan koreksi' }));
         await screen.findByRole('alert');
-        fireEvent.click(screen.getByRole('button', { name: 'Ulangi permintaan yang sama' }));
+        const retry = await screen.findByRole('button', { name: 'Ulangi permintaan yang sama' });
+        await waitFor(() => expect((retry as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(retry);
         await screen.findByRole('status'); expect(m.apply.mock.calls[1]).toEqual(m.apply.mock.calls[0]);
         expect(screen.getByText(/tidak diterapkan dua kali/)).toBeTruthy();
     });
