@@ -45,6 +45,10 @@ export const createProductionPackagingOption = withTenant(async function createP
     return safeAction(async () => {
         const session = await requirePlanningRole();
         const data = packagingOptionSchema.parse(input);
+        // Cegah CHECK ProductionPackagingOption_distinct_label_check di DB: etiket tidak boleh sama dengan produk dasar atau SKU hasil.
+        if (data.labelVariantId && (data.labelVariantId === data.baseVariantId || data.labelVariantId === data.outputVariantId)) {
+            throw new BusinessRuleError('Etiket tidak boleh sama dengan produk dasar atau SKU hasil.');
+        }
         const id = await prisma.$transaction(async (tx) => {
             const [base, output, label] = await Promise.all([
                 tx.productVariant.findUniqueOrThrow({ where: { id: data.baseVariantId } }),

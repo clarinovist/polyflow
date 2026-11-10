@@ -16,6 +16,7 @@ import {
 } from '@/services/hrd/kiosk-location-evidence';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
+import { isNextControlFlowError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { rateLimit } from '@/lib/api/rate-limit';
 import { logActivity } from '@/lib/tools/audit';
@@ -101,6 +102,8 @@ export const setAbsent = withTenant(async function setAbsent(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
+        // requireAuth() redirect ke /login bukan kegagalan: lempar ulang.
+        if (isNextControlFlowError(error)) throw error;
         logger.error('Set absent failed', {
             error,
             employeeId,
@@ -171,6 +174,8 @@ export const correctAttendance = withTenant(async function correctAttendance(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
+        // requireAuth() redirect ke /login bukan kegagalan: lempar ulang.
+        if (isNextControlFlowError(error)) throw error;
         logger.error('Correct attendance failed', {
             error,
             recordId,

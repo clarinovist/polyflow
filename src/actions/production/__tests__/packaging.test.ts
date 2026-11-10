@@ -47,6 +47,14 @@ describe('packaging configuration authorization and mapping', () => {
         mock.variant.mockResolvedValueOnce(variant).mockResolvedValueOnce(variant).mockResolvedValueOnce({ ...label, primaryUnit: 'KG' });
         expect((await createProductionPackagingOption({ baseVariantId: 'base', outputVariantId: 'brand', labelVariantId: 'label' })).success).toBe(false);
     });
+    it('rejects a label equal to the base or output SKU before touching the database', async () => {
+        for (const labelVariantId of ['base', 'brand']) {
+            const result = await createProductionPackagingOption({ baseVariantId: 'base', outputVariantId: 'brand', labelVariantId });
+            expect(result).toMatchObject({ success: false, error: 'Etiket tidak boleh sama dengan produk dasar atau SKU hasil.' });
+        }
+        expect(mock.variant).not.toHaveBeenCalled();
+        expect(mock.option).not.toHaveBeenCalled();
+    });
     it('creates matching SKU mapping and audits it', async () => {
         const result = await createProductionPackagingOption({ baseVariantId: 'base', outputVariantId: 'brand', labelVariantId: null });
         expect(result.success).toBe(true); expect(mock.audit).toHaveBeenCalledOnce();
