@@ -229,25 +229,24 @@ describe("customer actions", () => {
   describe("getNextCustomerCode", () => {
     it("returns CUS-001 when no customers exist yet", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
 
       // Act
       const result = await getNextCustomerCode();
 
       // Assert
       expect(result).toBe("CUS-001");
-      expect(prisma.customer.findFirst).toHaveBeenCalledWith({
+      expect(prisma.customer.findMany).toHaveBeenCalledWith({
         where: { code: { startsWith: "CUS-" } },
-        orderBy: { code: "desc" },
         select: { code: true },
       });
     });
 
     it("increments the number from the last customer code", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue({
-        code: "CUS-005",
-      } as never);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-005" },
+      ] as never);
 
       // Act
       const result = await getNextCustomerCode();
@@ -258,9 +257,9 @@ describe("customer actions", () => {
 
     it("pads single-digit numbers to three digits", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue({
-        code: "CUS-009",
-      } as never);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-009" },
+      ] as never);
 
       // Act
       const result = await getNextCustomerCode();
@@ -271,9 +270,9 @@ describe("customer actions", () => {
 
     it("handles large sequence numbers correctly", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue({
-        code: "CUS-999",
-      } as never);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-999" },
+      ] as never);
 
       // Act
       const result = await getNextCustomerCode();
@@ -284,9 +283,9 @@ describe("customer actions", () => {
 
     it("falls back to CUS-001 when last code has non-numeric suffix", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue({
-        code: "CUS-abc",
-      } as never);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-abc" },
+      ] as never);
 
       // Act
       const result = await getNextCustomerCode();
@@ -295,11 +294,27 @@ describe("customer actions", () => {
       expect(result).toBe("CUS-001");
     });
 
+    it("ignores legacy alphabetic suffixes and continues from the highest numeric code", async () => {
+      // Arrange — legacy data: letter codes sort above digits
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-ADEHIDAYAT" },
+        { code: "CUS-004" },
+        { code: "CUS-002" },
+        { code: "CUS-001" },
+      ] as never);
+
+      // Act
+      const result = await getNextCustomerCode();
+
+      // Assert
+      expect(result).toBe("CUS-005");
+    });
+
     it("falls back to CUS-001 when last code has empty suffix", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue({
-        code: "CUS-",
-      } as never);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([
+        { code: "CUS-" },
+      ] as never);
 
       // Act
       const result = await getNextCustomerCode();
@@ -314,7 +329,7 @@ describe("customer actions", () => {
   describe("createCustomer", () => {
     it("creates customer with auto-generated code when code is not provided", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.customer.create).mockResolvedValue({
         id: "new-1",
@@ -353,7 +368,7 @@ describe("customer actions", () => {
 
       // Assert
       expect(result).toEqual({ success: true, data: null });
-      expect(prisma.customer.findFirst).not.toHaveBeenCalled();
+      expect(prisma.customer.findMany).not.toHaveBeenCalled();
       expect(prisma.customer.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           name: "Custom Code Customer",
@@ -387,7 +402,7 @@ describe("customer actions", () => {
 
     it("skips to auto-generation when provided code is empty string after trim", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.customer.create).mockResolvedValue({
         id: "new-1",
@@ -403,7 +418,7 @@ describe("customer actions", () => {
 
       // Assert
       expect(result).toEqual({ success: true, data: null });
-      expect(prisma.customer.findFirst).toHaveBeenCalled();
+      expect(prisma.customer.findMany).toHaveBeenCalled();
     });
 
     it("returns validation error when name is missing", async () => {
@@ -439,7 +454,7 @@ describe("customer actions", () => {
 
     it("allows empty string for email (optional field)", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.customer.create).mockResolvedValue({
         id: "new-1",
@@ -460,9 +475,9 @@ describe("customer actions", () => {
     it("retries with a freshly computed code when the first attempt collides", async () => {
       // Arrange — first getNextCustomerCode() call sees no rows (CUS-001);
       // second call sees the row the colliding request just committed (CUS-002).
-      vi.mocked(prisma.customer.findFirst)
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce({ code: "CUS-001" } as never);
+      vi.mocked(prisma.customer.findMany)
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([{ code: "CUS-001" }] as never);
       vi.mocked(prisma.customer.create)
         .mockRejectedValueOnce(codeUniqueViolation())
         .mockResolvedValueOnce({
@@ -488,7 +503,7 @@ describe("customer actions", () => {
 
     it("returns error after exhausting retries on repeated code collisions", async () => {
       // Arrange — every attempt collides
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.create).mockRejectedValue(
         codeUniqueViolation(),
       );
@@ -511,7 +526,7 @@ describe("customer actions", () => {
 
     it("returns error when database create fails", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.customer.create).mockRejectedValue(
         new Error("Database connection failed"),
@@ -536,7 +551,7 @@ describe("customer actions", () => {
 
     it("returns specific error for unique constraint violation", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       const uniqueError = new Error(
         "Unique constraint failed on the fields: (`code`)",
@@ -558,7 +573,7 @@ describe("customer actions", () => {
 
     it("passes all optional fields to prisma create", async () => {
       // Arrange
-      vi.mocked(prisma.customer.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.customer.findMany).mockResolvedValue([]);
       vi.mocked(prisma.customer.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.customer.create).mockResolvedValue({
         id: "new-1",

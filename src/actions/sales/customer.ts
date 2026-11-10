@@ -73,29 +73,21 @@ export const getNextCustomerCode = withTenant(
         await requireSalesAccess();
         const prefix = 'CUS-';
 
-        const lastCustomer = await prisma.customer.findFirst({
-            where: {
-                code: {
-                    startsWith: prefix,
-                },
-            },
-            orderBy: {
-                code: 'desc',
-            },
-            select: {
-                code: true,
-            },
+        // Urutan string (`code desc`) salah bila ada kode legacy bersufiks huruf
+        // (mis. CUS-ADEHIDAYAT): ia menang sort lalu gagal di-parse dan nomor
+        // berikutnya jatuh ke CUS-001 yang sudah dipakai. Ambil max numerik saja.
+        const existing = await prisma.customer.findMany({
+            where: { code: { startsWith: prefix } },
+            select: { code: true },
         });
 
-        let nextNumber = 1;
-
-        if (lastCustomer?.code) {
-            const numPart = lastCustomer.code.substring(prefix.length);
-            const parsed = parseInt(numPart, 10);
-            if (!isNaN(parsed)) {
-                nextNumber = parsed + 1;
-            }
+        let maxNumber = 0;
+        for (const { code } of existing ?? []) {
+            const numPart = (code ?? '').substring(prefix.length);
+            if (!/^\d+$/.test(numPart)) continue;
+            maxNumber = Math.max(maxNumber, parseInt(numPart, 10));
         }
+        const nextNumber = maxNumber + 1;
 
         return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
     },
