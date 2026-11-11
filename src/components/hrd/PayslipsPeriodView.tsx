@@ -14,6 +14,15 @@ import {
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { toDecimalNumber } from '@/lib/utils/utils';
+import {
+    FinalizePayslipDialog,
+    type FinalizePayslipTarget,
+} from './FinalizePayslipDialog';
+import {
+    parseDraftAmounts,
+    type DraftAmountErrors,
+    type DraftAmountField,
+} from './payslipDraftInput';
 
 type Payslip = {
     id: string;
@@ -49,13 +58,27 @@ function formatIdr(n: number) {
     }).format(n);
 }
 
+const DRAFT_FIELD_LABELS: Record<DraftAmountField, string> = {
+    thrAmount: 'THR',
+    bpjsDeduction: 'BPJS',
+    loanDeduction: 'Kasbon',
+    prorationDeduction: 'Potongan alpa',
+    otherDeductions: 'Potongan lain',
+};
+
 const STATUS_BADGE: Record<Payslip['status'], string> = {
     DRAFT: 'bg-amber-500/10 text-amber-700',
     FINALIZED: 'bg-blue-500/10 text-blue-700',
     PAID: 'bg-green-500/10 text-green-700',
 };
 
-export function PayslipsPeriodView({ periodId }: { periodId: string }) {
+export function PayslipsPeriodView({
+    periodId,
+    periodLabel,
+}: {
+    periodId: string;
+    periodLabel?: string;
+}) {
     const [payslips, setPayslips] = useState<Payslip[]>([]);
     const [loading, setLoading] = useState(false);
     const [selected, setSelected] = useState<Payslip | null>(null);
@@ -69,6 +92,9 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
     });
     const [saving, setSaving] = useState(false);
     const [unfinalizing, setUnfinalizing] = useState(false);
+    const [finalizeTarget, setFinalizeTarget] =
+        useState<FinalizePayslipTarget | null>(null);
+    const [draftErrors, setDraftErrors] = useState<DraftAmountErrors>({});
 
     const load = async () => {
         setLoading(true);
@@ -90,6 +116,7 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
     }, [periodId]);
 
     const syncEditForm = (p: Payslip) => {
+        setDraftErrors({});
         setEditForm({
             thrAmount: String(toN(p.thrAmount)),
             prorationDeduction: String(toN(p.prorationDeduction)),
@@ -105,12 +132,23 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
         syncEditForm(p);
     };
 
-    const handleFinalize = async (id: string) => {
+    const openFinalize = (p: Payslip) => {
+        setFinalizeTarget({
+            id: p.id,
+            employeeName: `${p.employee.code} — ${p.employee.name}`,
+            loanDeduction: toN(p.loanDeduction),
+            netPay: toN(p.netPay),
+        });
+    };
+    // Throws on failure so FinalizePayslipDialog can show the server message.
+    const confirmFinalize = async (id: string) => {
         const res = await finalizePayslip(id);
-        if (res.success) {
-            toast.success('Payslip difinalize');
-            load();
-        } else toast.error(res.error || 'Gagal');
+        if (!res.success) {
+            throw new Error(res.error || 'Gagal memfinalisasi slip gaji');
+        }
+        toast.success('Payslip difinalize');
+        setFinalizeTarget(null);
+        load();
     };
     const handlePaid = async (id: string) => {
         const res = await markPayslipPaid(id);
@@ -146,14 +184,16 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
 
     const handleSaveDraft = async () => {
         if (!selected || selected.status !== 'DRAFT') return;
+        const parsed = parseDraftAmounts(editForm);
+        if (!parsed.ok) {
+            setDraftErrors(parsed.errors);
+            return;
+        }
+        setDraftErrors({});
         setSaving(true);
         try {
             const res = await updateDraftPayslip(selected.id, {
-                thrAmount: Number(editForm.thrAmount) || 0,
-                prorationDeduction: Number(editForm.prorationDeduction) || 0,
-                bpjsDeduction: Number(editForm.bpjsDeduction) || 0,
-                loanDeduction: Number(editForm.loanDeduction) || 0,
-                otherDeductions: Number(editForm.otherDeductions) || 0,
+                ...parsed.values,
                 notes: editForm.notes || null,
             });
             if (res.success) {
@@ -302,9 +342,9 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                             size="sm"
                                             variant="outline"
                                             className="h-7 text-xs"
-                                            onClick={() => handleFinalize(p.id)}
+                                            onClick={() => openFinalize(p)}
                                         >
-                                            Finalize
+                                            Finalisasi
                                         </Button>
                                     )}
                                     {p.status === 'FINALIZED' && (
@@ -493,7 +533,7 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px]">
-                                        Prorata (ABSENT)
+                                        Potongan alpa
                                     </Label>
                                     <Input
                                         type="number"
@@ -542,6 +582,23 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                                     />
                                 </div>
                             </div>
+                            {Object.keys(draftErrors).length > 0 && (
+                                <ul
+                                    role="alert"
+                                    className="text-xs text-red-600 space-y-0.5"
+                                >
+                                    {(
+                                        Object.entries(draftErrors) as Array<
+                                            [DraftAmountField, string]
+                                        >
+                                    ).map(([field, message]) => (
+                                        <li key={field}>
+                                            {DRAFT_FIELD_LABELS[field]}:{' '}
+                                            {message}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
                             <Button
                                 size="sm"
                                 onClick={handleSaveDraft}
@@ -553,6 +610,13 @@ export function PayslipsPeriodView({ periodId }: { periodId: string }) {
                     )}
                 </div>
             )}
+
+            <FinalizePayslipDialog
+                target={finalizeTarget}
+                periodLabel={periodLabel}
+                onConfirm={confirmFinalize}
+                onCancel={() => setFinalizeTarget(null)}
+            />
         </div>
     );
 }
