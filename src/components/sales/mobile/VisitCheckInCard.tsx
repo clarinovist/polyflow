@@ -547,7 +547,7 @@ export function VisitCheckInCard({
                             Buat Order
                         </Link>
                         <Link
-                            href={`/field/sales/orders/create?customer=${customerId}`}
+                            href={`/field/sales/orders/create?customer=${customerId}&type=quotation`}
                             className="flex items-center justify-center gap-2 p-3 bg-muted border rounded-xl font-semibold text-sm active:scale-95 transition-transform min-h-[44px]"
                         >
                             <FileText className="h-4 w-4" />

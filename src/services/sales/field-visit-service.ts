@@ -207,6 +207,35 @@ export async function syncVisitLogs(
             });
 
             if (existing) {
+                const isUnfinished =
+                    Boolean(log.checkOutTime) &&
+                    (existing.durationSeconds === 0 || !existing.checkOutTime) &&
+                    existing.reviewStatus !== 'APPROVED';
+
+                if (isUnfinished && typeof prisma.salesVisit.update === 'function') {
+                    await prisma.salesVisit.update({
+                        where: { id: existing.id },
+                        data: {
+                            checkOutTime: new Date(log.checkOutTime),
+                            durationSeconds: log.durationSeconds,
+                            notes: log.notes ?? existing.notes,
+                            photoUrl: log.photoUrl ?? existing.photoUrl,
+                        },
+                    });
+
+                    const routePlanItemId =
+                        existing.routePlanItemId ?? log.routePlanItemId;
+                    if (
+                        routePlanItemId &&
+                        typeof prisma.salesRoutePlanItem?.update === 'function'
+                    ) {
+                        await prisma.salesRoutePlanItem.update({
+                            where: { id: routePlanItemId },
+                            data: { status: 'COMPLETED' },
+                        });
+                    }
+                }
+
                 results.push({
                     clientVisitId: log.clientVisitId,
                     success: true,

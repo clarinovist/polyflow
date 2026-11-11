@@ -31,6 +31,23 @@ export default async function SalesMobileOrderCreatePage(props: {
         paymentTermDays: c.paymentTermDays,
     }));
 
+    const hasLocations = locations.length > 0;
+    const visibleLocationIds = new Set(
+        locations
+            .filter(
+                (location) =>
+                    location.locationType !== 'CUSTOMER_OWNED' &&
+                    [
+                        'FINISHED_GOOD',
+                        'PACKING',
+                        'GENERAL_PURPOSE',
+                        'RAW_MATERIAL',
+                        'SCRAP',
+                    ].includes(location.locationPurpose),
+            )
+            .map((location) => location.id),
+    );
+
     const serializedProducts = products
         .filter(
             (p) =>
@@ -45,24 +62,16 @@ export default async function SalesMobileOrderCreatePage(props: {
             sellPrice: p.sellPrice ? Number(p.sellPrice) : null,
             ...serializeFieldUnits(p),
             inventories:
-                p.inventories?.map((inv) => ({
-                    locationId: inv.locationId,
-                    quantity: Number(inv.quantity),
-                })) || [],
+                p.inventories
+                    ?.filter((inv) => !hasLocations || visibleLocationIds.has(inv.locationId))
+                    .map((inv) => ({
+                        locationId: inv.locationId,
+                        quantity: Number(inv.quantity),
+                    })) || [],
         }));
 
     const stockLocations = locations
-        .filter(
-            (l) =>
-                l.locationType !== 'CUSTOMER_OWNED' &&
-                [
-                    'FINISHED_GOOD',
-                    'PACKING',
-                    'GENERAL_PURPOSE',
-                    'RAW_MATERIAL',
-                    'SCRAP',
-                ].includes(l.locationPurpose),
-        )
+        .filter((l) => visibleLocationIds.has(l.id))
         .map((l) => ({ id: l.id, name: l.name }));
 
     return (

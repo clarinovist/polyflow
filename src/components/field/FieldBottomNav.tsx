@@ -86,9 +86,7 @@ export function FieldBottomNav({ permissions, badges }: FieldBottomNavProps) {
                     const isActive =
                         tab.href === '/field/sales'
                             ? pathname === tab.href
-                            : pathname === '/field/sales/orders'
-                              ? pathname === tab.href
-                              : pathname.startsWith(tab.href);
+                            : pathname.startsWith(tab.href);
                     const badgeCount = badges?.[tab.badgeKey];
                     return (
                         <Link

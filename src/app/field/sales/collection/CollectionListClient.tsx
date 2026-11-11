@@ -190,7 +190,7 @@ export function CollectionListClient({
 
     const filtered = useMemo(() => {
         return invoices.filter((inv) => {
-            const isOverdue = inv.daysOverdue >= 0 || inv.status === 'OVERDUE';
+            const isOverdue = inv.daysOverdue > 0 || inv.status === 'OVERDUE';
             const hasPromise = !!inv.lastPromise;
             const noActivity = !hasPromise;
 
@@ -423,7 +423,7 @@ export function CollectionListClient({
                             { v: 'ALL', label: `Semua (${invoices.length})` },
                             {
                                 v: 'OVERDUE',
-                                label: `Overdue (${invoices.filter((i) => i.daysOverdue >= 0 || i.status === 'OVERDUE').length})`,
+                                label: `Overdue (${invoices.filter((i) => i.daysOverdue > 0 || i.status === 'OVERDUE').length})`,
                             },
                             {
                                 v: 'PROMISE',
@@ -511,7 +511,7 @@ export function CollectionListClient({
                                                 Jatuh Tempo
                                             </p>
                                             <p
-                                                className={`font-semibold flex items-center gap-1 ${inv.daysOverdue >= 0 ? 'text-destructive' : 'text-foreground'}`}
+                                                className={`font-semibold flex items-center gap-1 ${inv.daysOverdue > 0 ? 'text-destructive' : 'text-foreground'}`}
                                             >
                                                 <Clock className="h-3 w-3" />
                                                 {inv.dueDate
@@ -793,13 +793,7 @@ export function CollectionListClient({
                                 placeholder="Catatan penagihan..."
                                 rows={3}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                {/* ponytail: visitId auto-link skipped for now; field optional in model.
-                                    Upgrade path: read active SalesVisit from workstream 02 check-in state (localStorage or action) and pass visitId here. */}
-                                Kaitan otomatis ke visit check-in aktif belum
-                                diaktifkan (field visitId opsional) — akan
-                                ditambah setelah workstream 02 stabil.
-                            </p>
+
                         </div>
 
                         {formError && (

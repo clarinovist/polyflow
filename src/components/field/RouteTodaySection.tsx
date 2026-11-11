@@ -93,6 +93,30 @@ export function RouteTodaySection({
         return localPlan;
     }, [routePlan, localPlan]);
 
+    // Sync routePlan items to localStorage for offline / list fallback
+    useEffect(() => {
+        if (
+            typeof window !== 'undefined' &&
+            businessDate &&
+            routePlan?.items &&
+            routePlan.items.length > 0
+        ) {
+            const key = getStorageKey(businessDate);
+            const itemsToStore: RouteItem[] = routePlan.items.map((item) => ({
+                id: item.customerId,
+                name: item.customer?.name ?? '',
+                code: item.customer?.code ?? null,
+                city: item.customer?.city ?? null,
+                status: (item.status as RouteItem['status']) || 'PENDING',
+            }));
+            try {
+                localStorage.setItem(key, JSON.stringify(itemsToStore));
+            } catch {
+                // Ignore storage errors
+            }
+        }
+    }, [businessDate, routePlan]);
+
     const stats = useMemo(() => {
         const total = journeyPlan.length;
         const completed = journeyPlan.filter(

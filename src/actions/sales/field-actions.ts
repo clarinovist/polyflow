@@ -246,11 +246,11 @@ export const getMyFieldPipelineStats = withTenant(
 
 function calcDaysOverdue(
     dueDate: Date | null | undefined,
-    invoiceDate: Date,
+    _invoiceDate?: Date,
 ): number {
-    const base = dueDate ?? invoiceDate;
+    if (!dueDate) return 0;
     const msPerDay = 1000 * 3600 * 24;
-    return Math.floor((Date.now() - new Date(base).getTime()) / msPerDay);
+    return Math.floor((Date.now() - new Date(dueDate).getTime()) / msPerDay);
 }
 
 export const getMyFieldReceivables = withTenant(

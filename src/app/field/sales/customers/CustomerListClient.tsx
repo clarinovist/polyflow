@@ -60,21 +60,34 @@ export function CustomerListClient({
 
     // Load today's route from localStorage
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window === 'undefined') return;
+
+        const loadRoute = () => {
             const today = new Date();
             const yyyy = today.getFullYear();
             const mm = String(today.getMonth() + 1).padStart(2, '0');
             const dd = String(today.getDate()).padStart(2, '0');
-            const key = `today_journey_plan_${yyyy}-${mm}-${dd}`;
+            const todayStr = `${yyyy}-${mm}-${dd}`;
+            const key = `today_journey_plan_${todayStr}`;
             const saved = localStorage.getItem(key);
             if (saved) {
-                const plan = JSON.parse(saved) as {
-                    id: string;
-                    status: string;
-                }[];
-                setRouteCustomerIds(new Set(plan.map((p) => p.id)));
+                try {
+                    const plan = JSON.parse(saved);
+                    if (Array.isArray(plan)) {
+                        const ids = plan
+                            .map((p) => (typeof p === 'string' ? p : p?.id))
+                            .filter((id): id is string => Boolean(id));
+                        setRouteCustomerIds(new Set(ids));
+                    }
+                } catch {
+                    // Ignore parse error
+                }
             }
-        }
+        };
+
+        loadRoute();
+        window.addEventListener('storage', loadRoute);
+        return () => window.removeEventListener('storage', loadRoute);
     }, []);
 
     const filtered = useMemo(() => {
@@ -180,7 +193,7 @@ export function CustomerListClient({
             </div>
 
             {/* Toko Baru — inline form */}
-            {showStartVisit && !showNewStore && (
+            {!showNewStore && (
                 <button
                     onClick={() => setShowNewStore(true)}
                     className="w-full flex items-center gap-3 p-4 border-2 border-dashed border-emerald-300 dark:border-emerald-700 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/10 active:scale-[0.98] transition-transform"
@@ -193,7 +206,9 @@ export function CustomerListClient({
                             Toko / Prospek Baru
                         </p>
                         <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70">
-                            Buat customer baru dan langsung check-in
+                            {showStartVisit
+                                ? 'Buat customer baru dan langsung check-in'
+                                : 'Daftarkan toko atau outlet prospek baru'}
                         </p>
                     </div>
                 </button>

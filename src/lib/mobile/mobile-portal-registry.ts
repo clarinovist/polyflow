@@ -110,6 +110,11 @@ export const MOBILE_PORTAL_REGISTRY = [
             },
             { id: 'orders', label: 'Order', path: '/field/sales/orders' },
             { id: 'visits', label: 'Kunjungan', path: '/field/sales/visits' },
+            {
+                id: 'collection',
+                label: 'Tagih',
+                path: '/field/sales/collection',
+            },
             { id: 'stock', label: 'Stok', path: '/field/sales/stock' },
         ],
         icon: 'ShoppingBag',

@@ -63,7 +63,7 @@ interface CustomerDetailClientProps {
     customer: Customer;
     recentOrders: Order[];
     outstandingInvoices: Invoice[];
-    routePlanItemId?: string;
+    routePlanItemId?: string | null;
     queuePartition: { tenantId: string; userId: string };
 }
 
@@ -75,9 +75,14 @@ export function CustomerDetailClient({
     queuePartition,
 }: CustomerDetailClientProps) {
     const router = useRouter();
-    const [isOutsideRoute, setIsOutsideRoute] = useState(false);
+    const [isOutsideRoute, setIsOutsideRoute] = useState(() => !routePlanItemId);
 
     useEffect(() => {
+        if (routePlanItemId) {
+            setIsOutsideRoute(false);
+            return;
+        }
+
         const today = new Date();
         const yyyy = today.getFullYear();
         const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -85,13 +90,23 @@ export function CustomerDetailClient({
         const key = `today_journey_plan_${yyyy}-${mm}-${dd}`;
         const saved = localStorage.getItem(key);
         if (saved) {
-            const plan = JSON.parse(saved) as { id: string }[];
-            const inRoute = plan.some((item) => item.id === customer.id);
-            setIsOutsideRoute(!inRoute);
-        } else {
-            setIsOutsideRoute(true);
+            try {
+                const plan = JSON.parse(saved);
+                if (Array.isArray(plan)) {
+                    const inRoute = plan.some((item) =>
+                        typeof item === 'string'
+                            ? item === customer.id
+                            : item?.id === customer.id,
+                    );
+                    setIsOutsideRoute(!inRoute);
+                    return;
+                }
+            } catch {
+                // Ignore parse error
+            }
         }
-    }, [customer.id]);
+        setIsOutsideRoute(true);
+    }, [customer.id, routePlanItemId]);
 
     const totalOutstanding = outstandingInvoices.reduce(
         (sum, inv) =>
@@ -180,7 +195,7 @@ export function CustomerDetailClient({
                 targetLongitude={customer.longitude}
                 isOutsideRoute={isOutsideRoute}
                 isProspect={customer.lifecycleStatus === 'PROSPECT'}
-                routePlanItemId={routePlanItemId}
+                routePlanItemId={routePlanItemId || undefined}
                 queuePartition={queuePartition}
             />
 

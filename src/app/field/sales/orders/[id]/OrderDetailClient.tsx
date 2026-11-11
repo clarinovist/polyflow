@@ -19,8 +19,11 @@ import {
     XCircle,
     ClipboardList,
     Pencil,
+    Send,
+    Calendar,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import * as authReact from 'next-auth/react';
 import { format } from 'date-fns';
 import { formatQuantity, formatRupiah } from '@/lib/utils/utils';
 import {
@@ -29,6 +32,10 @@ import {
     cancelSalesOrder,
     markReadyToShip,
     shipSalesOrder,
+    sendQuotationOrder,
+    acceptQuotationOrder,
+    rejectQuotationOrder,
+    updateFollowUpDateAction,
 } from '@/actions/sales/sales';
 import { createSalesReturnAction } from '@/actions/sales/sales-returns';
 import { useState } from 'react';
@@ -37,7 +44,8 @@ import {
     getMobileStatusColor,
     getMobileStatusLabel,
 } from '../../lib/status-helpers';
-import { ReturnReason, ItemCondition } from '@prisma/client';
+import { ReturnReason, ItemCondition, type SalesLostReason } from '@prisma/client';
+import { SALES_LOST_REASON_OPTIONS } from '@/lib/sales/order-phase';
 import { CreateDeliveryOrderDialog } from '@/components/sales/CreateDeliveryOrderDialog';
 import { salesLabels } from '@/lib/labels';
 import Link from 'next/link';
@@ -85,6 +93,8 @@ type Order = {
     discountAmount: number | null;
     taxAmount: number | null;
     shippingCost: number | null;
+    validUntil?: string | null;
+    nextFollowUpDate?: string | null;
     notes: string | null;
     customer: {
         id: string;
@@ -106,6 +116,9 @@ type LocationOption = {
 interface OrderDetailClientProps {
     order: Order;
     locations: LocationOption[];
+    userRole?: string;
+    canCancel?: boolean;
+    canWarehouseShip?: boolean;
 }
 
 const RETURN_REASONS = [
@@ -126,10 +139,42 @@ const ITEM_CONDITIONS = [
 export function OrderDetailClient({
     order,
     locations,
+    userRole,
+    canCancel: canCancelProp,
+    canWarehouseShip: canWarehouseShipProp,
 }: OrderDetailClientProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [showReturnModal, setShowReturnModal] = useState(false);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+
+    // Role checks
+    let sessionRole: string | undefined;
+    try {
+        const session = authReact.useSession?.();
+        sessionRole = (session?.data?.user as { role?: string })?.role;
+    } catch {
+        // Fallback for tests or non-session environments
+    }
+    const effectiveRole = userRole || sessionRole || 'SALES';
+    const isSalesRole = effectiveRole === 'SALES';
+    const hasCancelPermission =
+        canCancelProp ??
+        (!isSalesRole && (effectiveRole === 'ADMIN' || effectiveRole === 'MARKETING'));
+    const hasWarehouseShipPermission =
+        canWarehouseShipProp ??
+        (!isSalesRole && (effectiveRole === 'ADMIN' || effectiveRole === 'WAREHOUSE'));
+
+    // Quotation Form State
+    const [followUpDate, setFollowUpDate] = useState<string | null>(
+        order.nextFollowUpDate ? order.nextFollowUpDate.slice(0, 10) : null,
+    );
+    const [selectedFollowUpDate, setSelectedFollowUpDate] = useState<string>(
+        order.nextFollowUpDate ? order.nextFollowUpDate.slice(0, 10) : '',
+    );
+    const [rejectReason, setRejectReason] = useState<string>('HARGA_TERLALU_TINGGI');
+    const [rejectNotes, setRejectNotes] = useState<string>('');
 
     // Return Form State
     const [returnLocationId, setReturnLocationId] = useState(
@@ -283,6 +328,49 @@ export function OrderDetailClient({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleSubmitReject = async () => {
+        if (!rejectReason) {
+            toast.error('Pilih alasan penolakan penawaran');
+            return;
+        }
+        if (rejectReason === 'LAINNYA' && !rejectNotes.trim()) {
+            toast.error('Catatan wajib diisi untuk alasan Lainnya');
+            return;
+        }
+        await handleAction(
+            'Tolak Penawaran',
+            () =>
+                rejectQuotationOrder(
+                    order.id,
+                    rejectReason as SalesLostReason,
+                    rejectNotes.trim() || undefined,
+                ).then((r) => ({
+                    success: r.success ?? false,
+                    error: 'error' in r ? r.error : undefined,
+                })),
+            () => {
+                setShowRejectModal(false);
+                setRejectReason('HARGA_TERLALU_TINGGI');
+                setRejectNotes('');
+            },
+        );
+    };
+
+    const handleSaveFollowUpDate = async (newDateIso: string | null) => {
+        await handleAction(
+            'Update Jadwal Follow-up',
+            () =>
+                updateFollowUpDateAction(order.id, newDateIso).then((r) => ({
+                    success: r.success ?? false,
+                    error: 'error' in r ? r.error : undefined,
+                })),
+            () => {
+                setFollowUpDate(newDateIso ? newDateIso.slice(0, 10) : null);
+                setShowFollowUpModal(false);
+            },
+        );
     };
 
     const subtotal = order.items.reduce((sum, item) => sum + item.subtotal, 0);
@@ -522,6 +610,26 @@ export function OrderDetailClient({
                             : '-'}
                     </span>
                 </div>
+                {(order.validUntil || followUpDate) && (
+                    <div className="pt-2 border-t space-y-1 text-xs">
+                        {order.validUntil && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Masa Berlaku</span>
+                                <span className="font-medium">
+                                    {format(new Date(order.validUntil), 'd MMMM yyyy')}
+                                </span>
+                            </div>
+                        )}
+                        {followUpDate && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Jadwal Follow-up</span>
+                                <span className="font-medium text-amber-700 dark:text-amber-400">
+                                    {format(new Date(followUpDate), 'd MMMM yyyy')}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Notes */}
@@ -563,15 +671,39 @@ export function OrderDetailClient({
                                 </Link>
                             </Button>
                         )}
-                        {order.status === 'DRAFT' && (
+                        {/* Quotation Lifecycle Actions */}
+                        {(order.status === 'QUOTATION' ||
+                            order.status === 'QUOTATION_SENT') && (
                             <>
+                                {order.status === 'QUOTATION' && (
+                                    <Button
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-11 text-sm font-semibold"
+                                        disabled={isLoading}
+                                        onClick={() =>
+                                            handleAction('Kirim Penawaran', () =>
+                                                sendQuotationOrder(order.id).then(
+                                                    (r) => ({
+                                                        success:
+                                                            r.success ?? false,
+                                                        error:
+                                                            'error' in r
+                                                                ? r.error
+                                                                : undefined,
+                                                    }),
+                                                ),
+                                            )
+                                        }
+                                    >
+                                        <Send className="h-4.5 w-4.5 mr-1.5" />
+                                        Kirim Penawaran
+                                    </Button>
+                                )}
                                 <Button
-                                    variant="outline"
-                                    className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 text-sm font-semibold"
                                     disabled={isLoading}
                                     onClick={() =>
-                                        handleAction('Batalkan', () =>
-                                            cancelSalesOrder(order.id).then(
+                                        handleAction('Terima Penawaran', () =>
+                                            acceptQuotationOrder(order.id).then(
                                                 (r) => ({
                                                     success: r.success ?? false,
                                                     error:
@@ -583,9 +715,79 @@ export function OrderDetailClient({
                                         )
                                     }
                                 >
-                                    <XCircle className="h-4.5 w-4.5 mr-1.5" />
-                                    Batal
+                                    <CheckCircle className="h-4.5 w-4.5 mr-1.5" />
+                                    Terima Penawaran
                                 </Button>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/30 dark:text-rose-400 rounded-xl h-11 text-sm font-semibold"
+                                    disabled={isLoading}
+                                    onClick={() => setShowRejectModal(true)}
+                                >
+                                    <XCircle className="h-4.5 w-4.5 mr-1.5" />
+                                    Tolak Penawaran
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                    disabled={isLoading}
+                                    onClick={() => setShowFollowUpModal(true)}
+                                >
+                                    <Calendar className="h-4.5 w-4.5 mr-1.5" />
+                                    Follow-up
+                                </Button>
+                                {hasCancelPermission && (
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                        disabled={isLoading}
+                                        onClick={() =>
+                                            handleAction('Batalkan', () =>
+                                                cancelSalesOrder(order.id).then(
+                                                    (r) => ({
+                                                        success:
+                                                            r.success ?? false,
+                                                        error:
+                                                            'error' in r
+                                                                ? r.error
+                                                                : undefined,
+                                                    }),
+                                                ),
+                                            )
+                                        }
+                                    >
+                                        <XCircle className="h-4.5 w-4.5 mr-1.5" />
+                                        Batal
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                        {order.status === 'DRAFT' && (
+                            <>
+                                {hasCancelPermission && (
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                        disabled={isLoading}
+                                        onClick={() =>
+                                            handleAction('Batalkan', () =>
+                                                cancelSalesOrder(order.id).then(
+                                                    (r) => ({
+                                                        success:
+                                                            r.success ?? false,
+                                                        error:
+                                                            'error' in r
+                                                                ? r.error
+                                                                : undefined,
+                                                    }),
+                                                ),
+                                            )
+                                        }
+                                    >
+                                        <XCircle className="h-4.5 w-4.5 mr-1.5" />
+                                        Batal
+                                    </Button>
+                                )}
                                 <Button
                                     className="flex-1 rounded-xl h-11 text-sm font-semibold"
                                     disabled={isLoading}
@@ -636,14 +838,16 @@ export function OrderDetailClient({
                             </>
                         )}
                         {/* MTO hot-loading: Buat SJ without stock (when no open DO) */}
-                        {canCreateSj && openDeliveryOrders.length === 0 && (
-                            <CreateDeliveryOrderDialog
-                                defaultSalesOrderId={order.id}
-                                triggerLabel={salesLabels.buatSuratJalan}
-                                triggerVariant="outline"
-                                triggerClassName="flex-1 rounded-xl h-11 text-sm font-semibold"
-                            />
-                        )}
+                        {hasWarehouseShipPermission &&
+                            canCreateSj &&
+                            openDeliveryOrders.length === 0 && (
+                                <CreateDeliveryOrderDialog
+                                    defaultSalesOrderId={order.id}
+                                    triggerLabel={salesLabels.buatSuratJalan}
+                                    triggerVariant="outline"
+                                    triggerClassName="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                />
+                            )}
 
                         {primaryOpenDo && (
                             <p className="w-full rounded-xl border p-3 text-sm">
@@ -663,55 +867,60 @@ export function OrderDetailClient({
                             order.status === 'READY_TO_SHIP') &&
                             openDeliveryOrders.length === 0 && (
                                 <>
-                                    <Button
-                                        variant="outline"
-                                        className="flex-1 rounded-xl h-11 text-sm font-semibold"
-                                        disabled={isLoading}
-                                        onClick={() =>
-                                            handleAction('Batalkan', () =>
-                                                cancelSalesOrder(order.id).then(
-                                                    (r) => ({
-                                                        success:
-                                                            r.success ?? false,
-                                                        error:
-                                                            'error' in r
-                                                                ? r.error
-                                                                : undefined,
-                                                    }),
-                                                ),
-                                            )
-                                        }
-                                    >
-                                        <XCircle className="h-4.5 w-4.5 mr-1.5" />
-                                        Batal
-                                    </Button>
-                                    <Button
-                                        className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl h-11 text-sm font-semibold"
-                                        disabled={isLoading}
-                                        onClick={() =>
-                                            handleAction(
-                                                salesLabels.createAndShip,
-                                                () =>
-                                                    shipSalesOrder({
-                                                        id: order.id,
-                                                    }).then((r) => ({
-                                                        success:
-                                                            r.success ?? false,
-                                                        error:
-                                                            'error' in r
-                                                                ? r.error
-                                                                : undefined,
-                                                    })),
-                                            )
-                                        }
-                                    >
-                                        <Truck className="h-4.5 w-4.5 mr-1.5" />
-                                        {salesLabels.createAndShip}
-                                    </Button>
+                                    {hasCancelPermission && (
+                                        <Button
+                                            variant="outline"
+                                            className="flex-1 rounded-xl h-11 text-sm font-semibold"
+                                            disabled={isLoading}
+                                            onClick={() =>
+                                                handleAction('Batalkan', () =>
+                                                    cancelSalesOrder(order.id).then(
+                                                        (r) => ({
+                                                            success:
+                                                                r.success ?? false,
+                                                            error:
+                                                                'error' in r
+                                                                    ? r.error
+                                                                    : undefined,
+                                                        }),
+                                                    ),
+                                                )
+                                            }
+                                        >
+                                            <XCircle className="h-4.5 w-4.5 mr-1.5" />
+                                            Batal
+                                        </Button>
+                                    )}
+                                    {hasWarehouseShipPermission && (
+                                        <Button
+                                            className="flex-1 bg-purple-600 hover:bg-purple-700 text-white rounded-xl h-11 text-sm font-semibold"
+                                            disabled={isLoading}
+                                            onClick={() =>
+                                                handleAction(
+                                                    salesLabels.createAndShip,
+                                                    () =>
+                                                        shipSalesOrder({
+                                                            id: order.id,
+                                                        }).then((r) => ({
+                                                            success:
+                                                                r.success ?? false,
+                                                            error:
+                                                                'error' in r
+                                                                    ? r.error
+                                                                    : undefined,
+                                                        })),
+                                                )
+                                            }
+                                        >
+                                            <Truck className="h-4.5 w-4.5 mr-1.5" />
+                                            {salesLabels.createAndShip}
+                                        </Button>
+                                    )}
                                 </>
                             )}
 
-                        {order.status === 'IN_PRODUCTION' &&
+                        {hasWarehouseShipPermission &&
+                            order.status === 'IN_PRODUCTION' &&
                             openDeliveryOrders.length === 0 && (
                                 <Button
                                     className="flex-1 rounded-xl h-11 text-sm font-semibold"
@@ -744,26 +953,28 @@ export function OrderDetailClient({
                                     <Package className="h-4.5 w-4.5 mr-1.5" />
                                     Retur
                                 </Button>
-                                <Button
-                                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 text-sm font-semibold"
-                                    disabled={isLoading}
-                                    onClick={() =>
-                                        handleAction('Tandai Terkirim', () =>
-                                            deliverSalesOrder(order.id).then(
-                                                (r) => ({
-                                                    success: r.success ?? false,
-                                                    error:
-                                                        'error' in r
-                                                            ? r.error
-                                                            : undefined,
-                                                }),
-                                            ),
-                                        )
-                                    }
-                                >
-                                    <CheckCircle className="h-4.5 w-4.5 mr-1.5" />
-                                    Terkirim
-                                </Button>
+                                {hasWarehouseShipPermission && (
+                                    <Button
+                                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl h-11 text-sm font-semibold"
+                                        disabled={isLoading}
+                                        onClick={() =>
+                                            handleAction('Tandai Terkirim', () =>
+                                                deliverSalesOrder(order.id).then(
+                                                    (r) => ({
+                                                        success: r.success ?? false,
+                                                        error:
+                                                            'error' in r
+                                                                ? r.error
+                                                                : undefined,
+                                                    }),
+                                                ),
+                                            )
+                                        }
+                                    >
+                                        <CheckCircle className="h-4.5 w-4.5 mr-1.5" />
+                                        Terkirim
+                                    </Button>
+                                )}
                             </>
                         )}
                         {order.status === 'DELIVERED' && (
@@ -1051,6 +1262,169 @@ export function OrderDetailClient({
                         >
                             Kirim Pengajuan Retur
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reject Quotation Dialog */}
+            <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>
+                <DialogContent
+                    showCloseButton={false}
+                    mobileSheet
+                    className="flex max-h-[85dvh] max-w-lg flex-col gap-0 space-y-4 rounded-2xl p-5 shadow-2xl"
+                >
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="font-bold text-lg text-foreground flex items-center gap-1.5">
+                                <XCircle className="h-5 w-5 text-rose-600" />
+                                Tolak Penawaran
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                Pilih alasan customer menolak penawaran {order.orderNumber}
+                            </DialogDescription>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowRejectModal(false)}
+                            className="h-8 w-8 p-0 rounded-full"
+                            aria-label="Tutup"
+                        >
+                            ✕
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3 text-sm">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Alasan Penolakan *
+                            </label>
+                            <select
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                className="w-full h-11 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                            >
+                                {SALES_LOST_REASON_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Catatan {rejectReason === 'LAINNYA' ? '*' : '(Opsional)'}
+                            </label>
+                            <textarea
+                                value={rejectNotes}
+                                onChange={(e) => setRejectNotes(e.target.value)}
+                                placeholder={
+                                    rejectReason === 'LAINNYA'
+                                        ? 'Tuliskan alasan penolakan...'
+                                        : 'Catatan tambahan penolakan penawaran...'
+                                }
+                                rows={3}
+                                className="w-full p-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end pt-3 border-t">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowRejectModal(false)}
+                            className="h-10 rounded-xl px-4 text-xs font-semibold"
+                            disabled={isLoading}
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            onClick={handleSubmitReject}
+                            disabled={isLoading || (rejectReason === 'LAINNYA' && !rejectNotes.trim())}
+                            className="h-10 bg-rose-600 hover:bg-rose-700 text-white rounded-xl px-5 text-xs font-semibold"
+                        >
+                            Tolak Penawaran
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Update Follow-up Date Dialog */}
+            <Dialog open={showFollowUpModal} onOpenChange={setShowFollowUpModal}>
+                <DialogContent
+                    showCloseButton={false}
+                    mobileSheet
+                    className="flex max-h-[85dvh] max-w-lg flex-col gap-0 space-y-4 rounded-2xl p-5 shadow-2xl"
+                >
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <DialogTitle className="font-bold text-lg text-foreground flex items-center gap-1.5">
+                                <Calendar className="h-5 w-5 text-primary" />
+                                Jadwal Follow-up
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                                Tentukan tanggal jadwal tindak lanjut penawaran {order.orderNumber}
+                            </DialogDescription>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowFollowUpModal(false)}
+                            className="h-8 w-8 p-0 rounded-full"
+                            aria-label="Tutup"
+                        >
+                            ✕
+                        </Button>
+                    </div>
+
+                    <div className="space-y-3 text-sm">
+                        <div className="space-y-1">
+                            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                Tanggal Follow-up
+                            </label>
+                            <input
+                                type="date"
+                                value={selectedFollowUpDate}
+                                onChange={(e) => setSelectedFollowUpDate(e.target.value)}
+                                className="w-full h-11 px-3 border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t">
+                        {followUpDate ? (
+                            <Button
+                                variant="ghost"
+                                onClick={() => handleSaveFollowUpDate(null)}
+                                className="h-10 text-rose-600 hover:text-rose-700 hover:bg-rose-50 text-xs font-semibold px-2"
+                                disabled={isLoading}
+                            >
+                                Hapus Jadwal
+                            </Button>
+                        ) : <div />}
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => setShowFollowUpModal(false)}
+                                className="h-10 rounded-xl px-4 text-xs font-semibold"
+                                disabled={isLoading}
+                            >
+                                Batal
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    if (!selectedFollowUpDate) {
+                                        toast.error('Pilih tanggal follow-up');
+                                        return;
+                                    }
+                                    handleSaveFollowUpDate(new Date(selectedFollowUpDate).toISOString());
+                                }}
+                                disabled={isLoading || !selectedFollowUpDate}
+                                className="h-10 bg-primary text-primary-foreground rounded-xl px-5 text-xs font-semibold"
+                            >
+                                Simpan Jadwal
+                            </Button>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>

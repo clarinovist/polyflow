@@ -5,7 +5,7 @@ import type { Unit } from '@prisma/client';
 import { convertSalesEntry } from '@/lib/sales/unit-entry';
 import { fieldEntryMeta, fieldEntryPayload, type FieldProductUnits, type FieldUnitEntry } from '@/lib/sales/field-order-units';
 import { UnitEntryControl } from '@/components/sales/order-form/UnitEntryControl';
-import { useRouter } from 'next/navigation';
+import * as navigation from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -78,7 +78,14 @@ export function QuickOrderWizard({
     locations,
     preselectedCustomerId,
 }: QuickOrderWizardProps) {
-    const router = useRouter();
+    const router = navigation.useRouter();
+    let typeParam: string | null = null;
+    try {
+        const searchParams = navigation.useSearchParams();
+        typeParam = searchParams?.get('type') ?? null;
+    } catch {
+        // Fallback if useSearchParams is missing in test mock or SSR
+    }
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -97,7 +104,7 @@ export function QuickOrderWizard({
 
     // Step 3: Review
     const [notes, setNotes] = useState('');
-    const [isQuotation, setIsQuotation] = useState(false);
+    const [isQuotation, setIsQuotation] = useState(typeParam === 'quotation');
     const [validUntil, setValidUntil] = useState('');
 
     // Quick-add dialog state
@@ -337,7 +344,9 @@ export function QuickOrderWizard({
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex-1">
-                    <h1 className="text-lg font-bold">Order Baru</h1>
+                    <h1 className="text-lg font-bold">
+                        {isQuotation ? 'Penawaran Baru' : 'Order Baru'}
+                    </h1>
                     <p className="text-xs text-muted-foreground">
                         Langkah {step} dari 3
                     </p>

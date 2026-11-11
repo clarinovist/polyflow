@@ -11,23 +11,77 @@ import {
     getMobileStatusColor,
     getMobileStatusLabel,
     filterOrders,
-    STATUS_OPTIONS,
     type StatusFilter,
     type MobileOrder,
 } from '../lib/status-helpers';
 
+export type FieldMobileOrder = MobileOrder & {
+    nextFollowUpDate?: string | null;
+    validUntil?: string | null;
+};
+
+export type OrderListFilter = StatusFilter | 'FOLLOW_UP';
+
+const FILTER_OPTIONS: { value: OrderListFilter; label: string }[] = [
+    { value: 'ALL', label: 'Semua' },
+    { value: 'FOLLOW_UP', label: 'Butuh Follow-up' },
+    { value: 'PIPELINE', label: 'Penawaran' },
+    { value: 'DRAFT', label: 'Draft' },
+    { value: 'ACTIVE', label: 'Berjalan' },
+    { value: 'DONE', label: 'Selesai' },
+    { value: 'CANCELLED', label: 'Ditolak/Batal' },
+];
+
 interface OrderListClientProps {
-    orders: MobileOrder[];
+    orders: FieldMobileOrder[];
+    initialFollowUpDue?: boolean;
 }
 
-export function OrderListClient({ orders }: OrderListClientProps) {
+export function OrderListClient({ orders, initialFollowUpDue }: OrderListClientProps) {
     const [search, setSearch] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
-
-    const filtered = useMemo(
-        () => filterOrders(orders, search, statusFilter),
-        [orders, search, statusFilter],
+    const [statusFilter, setStatusFilter] = useState<OrderListFilter>(
+        initialFollowUpDue ? 'FOLLOW_UP' : 'ALL',
     );
+
+    const filtered = useMemo(() => {
+        if (statusFilter === 'FOLLOW_UP') {
+            const now = new Date();
+            const todayEnd = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate(),
+                23,
+                59,
+                59,
+                999,
+            );
+            let result = orders.filter((o) => {
+                if (!o.nextFollowUpDate) return false;
+                if (
+                    [
+                        'CANCELLED',
+                        'DELIVERED',
+                        'QUOTATION_REJECTED',
+                        'QUOTATION_EXPIRED',
+                    ].includes(o.status)
+                ) {
+                    return false;
+                }
+                const d = new Date(o.nextFollowUpDate);
+                return !isNaN(d.getTime()) && d <= todayEnd;
+            });
+            if (search) {
+                const q = search.toLowerCase();
+                result = result.filter(
+                    (o) =>
+                        o.orderNumber.toLowerCase().includes(q) ||
+                        o.customerName.toLowerCase().includes(q),
+                );
+            }
+            return result;
+        }
+        return filterOrders(orders, search, statusFilter) as FieldMobileOrder[];
+    }, [orders, search, statusFilter]);
 
     return (
         <div className="p-4 space-y-4">
@@ -51,7 +105,7 @@ export function OrderListClient({ orders }: OrderListClientProps) {
 
             {/* Status Filter Pills */}
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-                {STATUS_OPTIONS.map((opt) => (
+                {FILTER_OPTIONS.map((opt) => (
                     <button
                         key={opt.value}
                         type="button"
@@ -72,9 +126,11 @@ export function OrderListClient({ orders }: OrderListClientProps) {
                 <div className="text-center py-12">
                     <ShoppingBag className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                     <p className="text-sm text-muted-foreground">
-                        {search || statusFilter !== 'ALL'
-                            ? 'Order tidak ditemukan'
-                            : 'Belum ada order'}
+                        {statusFilter === 'FOLLOW_UP'
+                            ? 'Tidak ada order yang butuh follow-up saat ini'
+                            : search || statusFilter !== 'ALL'
+                              ? 'Order tidak ditemukan'
+                              : 'Belum ada order'}
                     </p>
                 </div>
             ) : (
@@ -111,6 +167,15 @@ export function OrderListClient({ orders }: OrderListClientProps) {
                                             'd MMM yyyy',
                                         )}
                                     </p>
+                                    {order.nextFollowUpDate && (
+                                        <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium mt-0.5">
+                                            Follow-up:{' '}
+                                            {format(
+                                                new Date(order.nextFollowUpDate),
+                                                'd MMM yyyy',
+                                            )}
+                                        </p>
+                                    )}
                                     <div className="flex items-center justify-between mt-1">
                                         <span className="text-xs text-muted-foreground">
                                             {order.itemCount} item
