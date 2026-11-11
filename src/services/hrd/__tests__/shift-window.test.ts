@@ -86,6 +86,67 @@ describe('shift-window', () => {
       const result = resolveWorkDate(clockIn, '08:00', '16:00');
       expect(result.toISOString().slice(0, 10)).toBe('2026-07-15');
     });
+
+    // Work date = previous day ONLY when an overnight clock-in happens before
+    // the shift END (an after-midnight arrival for a shift that began
+    // yesterday). Being before shift START is not enough: an early arrival
+    // (15:30 for a 16:00 shift) or a midday arrival (12:00 for a 20:00 shift)
+    // belongs to today's shift. Inputs are WIB wall-clock times, converted to
+    // the UTC instants the app actually receives.
+    const wib = (date: string, time: string) => new Date(`${date}T${time}:00+07:00`);
+    const workDateOf = (clockIn: Date, start: string, end: string) =>
+      resolveWorkDate(clockIn, start, end).toISOString().slice(0, 10);
+
+    describe.each([
+      // [label, start, end, clock-in WIB time, expected work date]
+      ['20:00-08:00 07:30 (before end, after midnight)', '20:00', '08:00', '07:30', '2026-07-14'],
+      ['20:00-08:00 00:30 (after midnight)', '20:00', '08:00', '00:30', '2026-07-14'],
+      ['20:00-08:00 08:00 (exactly at end)', '20:00', '08:00', '08:00', '2026-07-15'],
+      ['20:00-08:00 12:00 (midday, was H-1 bug)', '20:00', '08:00', '12:00', '2026-07-15'],
+      ['20:00-08:00 19:30 (early arrival, was H-1 bug)', '20:00', '08:00', '19:30', '2026-07-15'],
+      ['20:00-08:00 20:05 (after start)', '20:00', '08:00', '20:05', '2026-07-15'],
+      ['20:00-08:00 23:59 (before midnight)', '20:00', '08:00', '23:59', '2026-07-15'],
+      ['23:00-07:00 06:30 (before end)', '23:00', '07:00', '06:30', '2026-07-14'],
+      ['23:00-07:00 12:00 (midday)', '23:00', '07:00', '12:00', '2026-07-15'],
+      ['23:00-07:00 22:30 (early arrival)', '23:00', '07:00', '22:30', '2026-07-15'],
+      ['19:00-07:00 06:59 (before end)', '19:00', '07:00', '06:59', '2026-07-14'],
+      ['19:00-07:00 07:00 (exactly at end)', '19:00', '07:00', '07:00', '2026-07-15'],
+      ['19:00-07:00 18:30 (early arrival)', '19:00', '07:00', '18:30', '2026-07-15'],
+      // 16:00-00:00 ends exactly at midnight: isOvernightShift is true, but no
+      // clock-in can be "before 00:00", so the work date is never H-1.
+      ['16:00-00:00 15:30 (early arrival, was H-1 bug)', '16:00', '00:00', '15:30', '2026-07-15'],
+      ['16:00-00:00 16:05', '16:00', '00:00', '16:05', '2026-07-15'],
+      ['16:00-00:00 23:50', '16:00', '00:00', '23:50', '2026-07-15'],
+      // Regular and midnight-start shifts are unchanged.
+      ['08:00-16:00 07:59', '08:00', '16:00', '07:59', '2026-07-15'],
+      ['08:00-16:00 08:05', '08:00', '16:00', '08:05', '2026-07-15'],
+      ['00:00-08:00 00:05', '00:00', '08:00', '00:05', '2026-07-15'],
+      ['00:00-08:00 07:30', '00:00', '08:00', '07:30', '2026-07-15'],
+      ['00:00-08:00 23:30', '00:00', '08:00', '23:30', '2026-07-15'],
+    ])('%s', (_label, start, end, time, expected) => {
+      it(`resolves to ${expected}`, () => {
+        expect(workDateOf(wib('2026-07-15', time), start, end)).toBe(expected);
+      });
+    });
+
+    it('16:00-00:00 clock-in at 00:10 next calendar day → that calendar day (not a new-shift arrival)', () => {
+      // A session that runs past midnight is the SAME open session (clock-in was
+      // at 16:xx); a fresh clock-in at 00:10 is a different, off-shift event
+      // and follows plain WIB calendar semantics because the shift ends at 00:00.
+      expect(workDateOf(wib('2026-07-16', '00:10'), '16:00', '00:00')).toBe('2026-07-16');
+    });
+
+    it('returns a UTC-midnight Date for the WIB calendar day', () => {
+      const result = resolveWorkDate(wib('2026-07-15', '07:30'), '20:00', '08:00');
+      expect(result.toISOString()).toBe('2026-07-14T00:00:00.000Z');
+    });
+
+    it('uses WIB, not UTC, for the clock-in hour', () => {
+      // 2026-07-14T23:30Z is 06:30 WIB on 15 July → before the 08:00 end → H-1 (14 July).
+      expect(workDateOf(new Date('2026-07-14T23:30:00.000Z'), '20:00', '08:00')).toBe('2026-07-14');
+      // 2026-07-15T05:00Z is 12:00 WIB → today.
+      expect(workDateOf(new Date('2026-07-15T05:00:00.000Z'), '20:00', '08:00')).toBe('2026-07-15');
+    });
   });
 
   describe('calcActualHours', () => {

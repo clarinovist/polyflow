@@ -4,6 +4,7 @@ const MINUTES_PER_DAY = 1440;
 const DEFAULT_SHIFT_HOURS = 8;
 const WIB_OFFSET_HOURS = 7;
 const WIB_OFFSET_MS = WIB_OFFSET_HOURS * 60 * 60 * 1000;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Shift window utilities for attendance.
@@ -57,7 +58,11 @@ export function calcPlannedHours(
 /**
  * Resolve workDate from a clock-in timestamp.
  * Uses Asia/Jakarta (WIB, UTC+7).
- * For overnight shifts: clock-in before shift start → workDate = previous day.
+ * Overnight shift (e.g. 20:00→08:00): a clock-in before the shift END is an
+ * after-midnight arrival for a shift that began yesterday → workDate = previous
+ * day. Earlier arrivals (midday, or just before the start) belong to today's
+ * shift. A shift ending exactly at 00:00 (e.g. 16:00→00:00) can never match
+ * (no time is before 00:00), so its workDate is always the clock-in calendar day.
  * Normal: workDate = calendar date of clock-in in WIB.
  */
 export function resolveWorkDate(
@@ -65,23 +70,19 @@ export function resolveWorkDate(
     shiftStartTime: string,
     shiftEndTime: string,
 ): Date {
-    const wib = new Date(clockInAt.getTime() + 7 * 60 * 60 * 1000);
+    const wib = new Date(clockInAt.getTime() + WIB_OFFSET_MS);
     const wibMinutes = wib.getUTCHours() * 60 + wib.getUTCMinutes();
-    const startMinutes = parseTime(shiftStartTime);
+    const endMinutes = parseTime(shiftEndTime);
 
-    // Overnight shift (e.g. 22:00→06:00): clock-in before shift start means
-    // the employee arrived after midnight for a shift that started yesterday.
     if (
         isOvernightShift(shiftStartTime, shiftEndTime) &&
-        wibMinutes < startMinutes
+        wibMinutes < endMinutes
     ) {
-        const prevDay = new Date(wib.getTime() - 24 * 60 * 60 * 1000);
-        const dateStr = prevDay.toISOString().slice(0, 10);
-        return new Date(dateStr + 'T00:00:00.000Z');
+        const prevDay = new Date(wib.getTime() - MS_PER_DAY);
+        return new Date(prevDay.toISOString().slice(0, 10) + 'T00:00:00.000Z');
     }
 
-    const dateStr = wib.toISOString().slice(0, 10);
-    return new Date(dateStr + 'T00:00:00.000Z');
+    return new Date(wib.toISOString().slice(0, 10) + 'T00:00:00.000Z');
 }
 
 /** Get today's date string in WIB (Asia/Jakarta, UTC+7). */
