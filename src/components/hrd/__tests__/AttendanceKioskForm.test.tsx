@@ -9,16 +9,22 @@ const {
     mockKioskClockOut,
     mockUploadSelfieWithRetry,
     mockSampleBestPosition,
+    mockKioskRequestLeave,
 } = vi.hoisted(() => ({
     mockKioskClockIn: vi.fn(),
     mockKioskClockOut: vi.fn(),
     mockUploadSelfieWithRetry: vi.fn(),
     mockSampleBestPosition: vi.fn(),
+    mockKioskRequestLeave: vi.fn(),
 }));
 
 vi.mock('@/actions/admin/attendance', () => ({
     kioskClockIn: (...args: unknown[]) => mockKioskClockIn(...args),
     kioskClockOut: (...args: unknown[]) => mockKioskClockOut(...args),
+}));
+
+vi.mock('@/actions/admin/kiosk-leave', () => ({
+    kioskRequestLeave: (...args: unknown[]) => mockKioskRequestLeave(...args),
 }));
 
 vi.mock('../attendance-selfie-upload', () => ({
@@ -69,7 +75,7 @@ async function fillForm() {
     await waitFor(() =>
         expect(
             screen
-                .getByRole('button', { name: /MASUK/i })
+                .getByRole('button', { name: /^MASUK$/i })
                 .hasAttribute('disabled'),
         ).toBe(false),
     );
@@ -99,7 +105,7 @@ describe('AttendanceKioskForm', () => {
         );
         await fillForm();
 
-        fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^MASUK$/i }));
 
         await waitFor(() => expect(mockKioskClockIn).toHaveBeenCalled());
         const args = mockKioskClockIn.mock.calls[0];
@@ -122,7 +128,7 @@ describe('AttendanceKioskForm', () => {
             <AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />,
         );
         await fillForm();
-        fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^MASUK$/i }));
 
         await waitFor(() =>
             expect(screen.getAllByText(/Shift 1/).length).toBeGreaterThan(0),
@@ -138,7 +144,7 @@ describe('AttendanceKioskForm', () => {
             <AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />,
         );
         await fillForm();
-        fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
+        fireEvent.click(screen.getByRole('button', { name: /^MASUK$/i }));
 
         await waitFor(() =>
             expect(
@@ -167,11 +173,11 @@ describe('AttendanceKioskForm', () => {
         it('lets the success message go by itself and keeps a named history', async () => {
             render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" successDismissMs={50} />);
             await fillForm();
-            fireEvent.click(screen.getByRole('button', { name: /MASUK/i }));
+            fireEvent.click(screen.getByRole('button', { name: /^MASUK$/i }));
 
             const message = await screen.findByRole('status');
             expect(message.textContent).toContain('Budi');
-            const history = screen.getByRole('region', { name: 'Tadi di tablet ini' });
+            const history = screen.getByRole('region', { name: 'Terakhir absen di sini' });
             expect(within(history).getByText('Budi')).toBeTruthy();
             expect(within(history).queryByText('EMP-001')).toBeNull();
 
@@ -186,9 +192,45 @@ describe('AttendanceKioskForm', () => {
             render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
             fireEvent.click(screen.getByTestId('pick-employee'));
             fireEvent.change(screen.getByPlaceholderText('••••'), { target: { value: '1234' } });
-            fireEvent.click(await screen.findByRole('button', { name: /PULANG/i }));
+            fireEvent.click(await screen.findByRole('button', { name: /^PULANG$/i }));
 
             expect((await screen.findByRole('status')).textContent).toContain('Budi pulang · kerja 8,1 jam · lembur 1 jam');
+        });
+    });
+
+    describe('izin tidak masuk', () => {
+        const leaveButton = () =>
+            screen.getByRole('button', { name: /Ajukan Izin Tidak Masuk/i });
+
+        it('keeps the leave button locked until name and PIN are filled', () => {
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            expect(leaveButton().hasAttribute('disabled')).toBe(true);
+
+            fireEvent.click(screen.getByTestId('pick-employee'));
+            expect(leaveButton().hasAttribute('disabled')).toBe(true);
+
+            fireEvent.change(screen.getByPlaceholderText('••••'), { target: { value: '1234' } });
+            expect(leaveButton().hasAttribute('disabled')).toBe(false);
+        });
+
+        it('logs an Izin row without calling clock-in or clock-out', async () => {
+            mockKioskRequestLeave.mockResolvedValue({ success: true, data: { id: 'l1', days: 1 } });
+            render(<AttendanceKioskForm employees={EMPLOYEES} geofenceMode="off" />);
+            fireEvent.click(screen.getByTestId('pick-employee'));
+            fireEvent.change(screen.getByPlaceholderText('••••'), { target: { value: '1234' } });
+
+            fireEvent.click(leaveButton());
+            fireEvent.click(await screen.findByRole('button', { name: 'Sakit' }));
+            fireEvent.click(screen.getByRole('button', { name: 'Kirim Pengajuan' }));
+
+            expect((await screen.findByRole('status')).textContent).toContain(
+                'Pengajuan izin 1 hari terkirim untuk Budi.',
+            );
+            const history = screen.getByRole('region', { name: 'Terakhir absen di sini' });
+            expect(within(history).getByText('Budi')).toBeTruthy();
+            expect(within(history).getByText(/Izin · 1 hari/)).toBeTruthy();
+            expect(mockKioskClockIn).not.toHaveBeenCalled();
+            expect(mockKioskClockOut).not.toHaveBeenCalled();
         });
     });
 });

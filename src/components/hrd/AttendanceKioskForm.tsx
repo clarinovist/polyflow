@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import {
     LogIn,
@@ -19,6 +19,7 @@ import { EmployeeNameSearch } from '@/components/hrd/EmployeeNameSearch';
 import { LiveSelfieCapture } from '@/components/hrd/LiveSelfieCapture';
 import { kioskButton } from '@/components/kiosk/ui/kiosk-button';
 import { KioskPill } from '@/components/kiosk/ui/KioskPill';
+import { KioskLeaveRequest } from '@/components/hrd/KioskLeaveRequest';
 import { uploadSelfieWithRetry } from './attendance-selfie-upload';
 import {
     sampleBestPosition,
@@ -39,7 +40,7 @@ interface Feedback {
 interface LogEntry {
     id: number;
     employeeName: string;
-    kind: 'Masuk' | 'Pulang';
+    kind: 'Masuk' | 'Pulang' | 'Izin';
     detail: string;
     time: string;
 }
@@ -73,6 +74,23 @@ function nowWIB(): string {
         timeZone: 'Asia/Jakarta',
     });
 }
+
+/** Numbered step: the badge sits beside the field's own label. */
+function Step({ n, children }: { n: number; children: ReactNode }) {
+    return (
+        <div className="grid grid-cols-[auto_1fr] items-start gap-3">
+            <span
+                aria-hidden="true"
+                className="inline-flex size-6 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background"
+            >
+                {n}
+            </span>
+            <div className="min-w-0">{children}</div>
+        </div>
+    );
+}
+
+const LOG_TONE = { Masuk: 'go', Izin: 'info', Pulang: 'neutral' } as const;
 
 const hours = (value: number) =>
     value.toLocaleString('id-ID', { maximumFractionDigits: 1 });
@@ -300,6 +318,21 @@ export function AttendanceKioskForm({
         }
     };
 
+    const handleLeaveSubmitted = ({
+        employeeName,
+        days,
+    }: {
+        employeeName: string;
+        days: number;
+    }) => {
+        addLog({ employeeName, kind: 'Izin', detail: `${days} hari` });
+        setFeedback({
+            type: 'success',
+            message: `Pengajuan izin ${days} hari terkirim untuk ${employeeName}.`,
+        });
+        resetForm();
+    };
+
     const hasRequiredLocation = !isLocationRequired || !!location;
     const canClockOut =
         !!selectedEmployee && !!pin.trim() && hasRequiredLocation && !loading;
@@ -320,12 +353,12 @@ export function AttendanceKioskForm({
                     Absensi
                 </h1>
                 <p className="mt-1 text-lg text-muted-foreground">
-                    Untuk semua karyawan: bulanan, harian, helper.
+                    Pilih nama, isi PIN, lalu tekan Masuk atau Pulang.
                 </p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4">
+                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4 md:col-start-1 md:row-start-1">
                     {employeesError && (
                         <p
                             role="alert"
@@ -334,43 +367,47 @@ export function AttendanceKioskForm({
                             {employeesError}
                         </p>
                     )}
-                    <EmployeeNameSearch
-                        employees={employees}
-                        selected={selectedEmployee}
-                        onSelect={setSelectedEmployee}
-                        disabled={loading}
-                    />
-
-                    <div className="grid gap-1.5">
-                        <label
-                            htmlFor="attendance-pin"
-                            className="text-base font-semibold text-muted-foreground"
-                        >
-                            PIN
-                        </label>
-                        <Input
-                            id="attendance-pin"
-                            type="password"
-                            inputMode="numeric"
-                            value={pin}
-                            onChange={(e) =>
-                                setPin(
-                                    e.target.value
-                                        .replace(/\D/g, '')
-                                        .slice(0, 6),
-                                )
-                            }
-                            placeholder="••••"
-                            className="h-14 text-2xl font-bold tracking-[0.5em]"
-                            maxLength={6}
-                            autoComplete="off"
+                    <Step n={1}>
+                        <EmployeeNameSearch
+                            employees={employees}
+                            selected={selectedEmployee}
+                            onSelect={setSelectedEmployee}
                             disabled={loading}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && canClockIn)
-                                    void handleClockIn();
-                            }}
                         />
-                    </div>
+                    </Step>
+
+                    <Step n={2}>
+                        <div className="grid gap-1.5">
+                            <label
+                                htmlFor="attendance-pin"
+                                className="text-base font-semibold text-muted-foreground"
+                            >
+                                PIN
+                            </label>
+                            <Input
+                                id="attendance-pin"
+                                type="password"
+                                inputMode="numeric"
+                                value={pin}
+                                onChange={(e) =>
+                                    setPin(
+                                        e.target.value
+                                            .replace(/\D/g, '')
+                                            .slice(0, 6),
+                                    )
+                                }
+                                placeholder="••••"
+                                className="h-14 text-2xl font-bold tracking-[0.5em]"
+                                maxLength={6}
+                                autoComplete="off"
+                                disabled={loading}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && canClockIn)
+                                        void handleClockIn();
+                                }}
+                            />
+                        </div>
+                    </Step>
 
                     {feedback &&
                         (feedback.type === 'success' ? (
@@ -396,51 +433,17 @@ export function AttendanceKioskForm({
                                 {feedback.message}
                             </p>
                         ))}
-
-                    {logs.length > 0 && (
-                        <section
-                            aria-label="Tadi di tablet ini"
-                            className="grid gap-2"
-                        >
-                            <h2 className="text-base font-semibold text-muted-foreground">
-                                Tadi di tablet ini
-                            </h2>
-                            <ul className="grid max-h-64 overflow-y-auto">
-                                {logs.map((log) => (
-                                    <li
-                                        key={log.id}
-                                        className="flex flex-wrap items-center gap-3 border-b py-2 text-base last:border-0"
-                                    >
-                                        <span className="tabular-nums text-muted-foreground">
-                                            {log.time}
-                                        </span>
-                                        <span className="font-semibold">
-                                            {log.employeeName}
-                                        </span>
-                                        <KioskPill
-                                            tone={
-                                                log.kind === 'Masuk'
-                                                    ? 'go'
-                                                    : 'neutral'
-                                            }
-                                        >
-                                            {log.kind}
-                                            {log.detail && ` · ${log.detail}`}
-                                        </KioskPill>
-                                    </li>
-                                ))}
-                            </ul>
-                        </section>
-                    )}
                 </div>
 
-                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4">
-                    <LiveSelfieCapture
-                        key={selfieKey}
-                        onCapture={handleSelfieCapture}
-                        disabled={loading}
-                        label="Selfie (wajib untuk Masuk)"
-                    />
+                <div className="grid content-start gap-4 rounded-2xl border-2 border-border bg-card p-4 md:col-start-2 md:row-span-2 md:row-start-1">
+                    <Step n={3}>
+                        <LiveSelfieCapture
+                            key={selfieKey}
+                            onCapture={handleSelfieCapture}
+                            disabled={loading}
+                            label="Selfie (wajib untuk Masuk)"
+                        />
+                    </Step>
 
                     <div className="flex flex-wrap items-center gap-2">
                         {gettingLocation ? (
@@ -518,12 +521,50 @@ export function AttendanceKioskForm({
                             Pulang
                         </button>
                     </div>
+                    <KioskLeaveRequest
+                        employee={selectedEmployee}
+                        pin={pin}
+                        disabled={loading}
+                        onSubmitted={handleLeaveSubmitted}
+                    />
                     {lockReason && (
                         <p className="text-center text-base text-muted-foreground">
                             {lockReason}
                         </p>
                     )}
                 </div>
+
+                {logs.length > 0 && (
+                    <div className="rounded-2xl border-2 border-border bg-card p-4 md:col-start-1 md:row-start-2">
+                        <section
+                            aria-label="Terakhir absen di sini"
+                            className="grid gap-2"
+                        >
+                            <h2 className="text-base font-semibold text-muted-foreground">
+                                Terakhir absen di sini
+                            </h2>
+                            <ul className="grid max-h-64 overflow-y-auto">
+                                {logs.map((log) => (
+                                    <li
+                                        key={log.id}
+                                        className="flex flex-wrap items-center gap-3 border-b py-2 text-base last:border-0"
+                                    >
+                                        <span className="tabular-nums text-muted-foreground">
+                                            {log.time}
+                                        </span>
+                                        <span className="font-semibold">
+                                            {log.employeeName}
+                                        </span>
+                                        <KioskPill tone={LOG_TONE[log.kind]}>
+                                            {log.kind}
+                                            {log.detail && ` · ${log.detail}`}
+                                        </KioskPill>
+                                    </li>
+                                ))}
+                            </ul>
+                        </section>
+                    </div>
+                )}
             </div>
         </div>
     );
