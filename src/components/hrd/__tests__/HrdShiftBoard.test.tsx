@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { HrdShiftBoardComponent } from '../HrdShiftBoard';
 import type { HrdShiftBoard } from '@/actions/hrd/dashboard-kpis';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 function section<T>(data: T) {
     return { status: 'AVAILABLE' as const, data };
@@ -19,7 +21,12 @@ const data: HrdShiftBoard = {
             present: 8,
             absent: 1,
             onLeave: 1,
+            noRecord: 2,
+            late: 1,
+            outsideRadius: 0,
+            noSelfie: 0,
             overtimeHours: 2.25,
+            isNonWorkingDay: false,
         }),
         payrollReadiness: section({
             year: 2026,
@@ -66,10 +73,12 @@ describe('HrdShiftBoardComponent', () => {
                 Node.DOCUMENT_POSITION_FOLLOWING,
         ).toBeTruthy();
         expect(screen.getByText(/Diperbarui/)).toBeTruthy();
-        expect(screen.getByText('8 hadir')).toBeTruthy();
+        expect(screen.getByText('Status absensi hari ini')).toBeTruthy();
+        expect(screen.getByRole('link', { name: /^Hadir\s*8$/ })).toBeTruthy();
         expect(
-            screen.getByText(/1 tidak hadir · 1 cuti\/izin · 2,25 jam lembur/),
-        ).toBeTruthy();
+            screen.getByRole('link', { name: /^Belum absen\s*2$/ }).getAttribute('href'),
+        ).toBe('/hrd/attendance?status=norecord&date=2026-10-10');
+        expect(screen.getByText(/2,25 jam lembur/)).toBeTruthy();
         expect(screen.getAllByText('5 slip dibuat').length).toBeGreaterThanOrEqual(1);
         expect(
             screen.getByText(/1 draf · 2 diselesaikan · 2 dibayar/),
@@ -108,7 +117,12 @@ describe('HrdShiftBoardComponent', () => {
                     present: 0,
                     absent: 0,
                     onLeave: 0,
+                    noRecord: 0,
+                    late: 0,
+                    outsideRadius: 0,
+                    noSelfie: 0,
                     overtimeHours: 0,
+                    isNonWorkingDay: false,
                 }),
                 payrollReadiness: section({
                     year: 2026,
@@ -129,7 +143,7 @@ describe('HrdShiftBoardComponent', () => {
 
         render(<HrdShiftBoardComponent data={zero} />);
 
-        expect(screen.getByText('0 hadir')).toBeTruthy();
+        expect(screen.getByRole('link', { name: /^Hadir\s*0$/ })).toBeTruthy();
         expect(screen.getByText('0 slip dibuat')).toBeTruthy();
         expect(screen.queryByText('Absensi tercatat tidak tersedia')).toBeNull();
     });
@@ -179,11 +193,15 @@ describe('HrdShiftBoardComponent', () => {
 
         render(<HrdShiftBoardComponent data={partial} />);
 
-        expect(screen.getAllByText('Data tidak tersedia').length).toBeGreaterThan(
+        expect(screen.getAllByText(/Data tidak tersedia/).length).toBeGreaterThan(
             0,
         );
         expect(screen.getAllByText('Belum disiapkan').length).toBeGreaterThan(0);
-        expect(screen.queryByText('0 hadir')).toBeNull();
+        expect(screen.queryByRole('link', { name: /^Hadir/ })).toBeNull();
+        expect(
+            screen.getByText(/Status absensi hari ini tidak tersedia/),
+        ).toBeTruthy();
+        expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeTruthy();
         expect(screen.getByText(/Rp\s*250\.000/)).toBeTruthy();
     });
 
@@ -192,7 +210,8 @@ describe('HrdShiftBoardComponent', () => {
 
         expect(screen.getByText('Dashboard HRD tidak tersedia')).toBeTruthy();
         expect(screen.getByText(/Angka kosong tidak dianggap nol/)).toBeTruthy();
-        expect(screen.queryByText('0 hadir')).toBeNull();
+        expect(screen.getByRole('button', { name: 'Coba lagi' })).toBeTruthy();
+        expect(screen.queryByRole('link', { name: /^Hadir/ })).toBeNull();
     });
 
     it('does not render personal names, codes, identifiers, or notification text', () => {
@@ -211,7 +230,7 @@ describe('HrdShiftBoardComponent', () => {
         expect(screen.queryByText(/attendance rate/i)).toBeNull();
         expect(
             screen.getByRole('button', {
-                name: 'Penjelasan Status absensi tercatat hari ini',
+                name: 'Penjelasan Status absensi hari ini',
             }),
         ).toBeTruthy();
         expect(screen.queryByText(/turnover/i)).toBeNull();

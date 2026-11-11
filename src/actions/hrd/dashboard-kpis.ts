@@ -48,7 +48,9 @@ async function requireHrdRootRead() {
 
 export const getHrdShiftBoard = withTenant(async function getHrdShiftBoard() {
     return safeAction(async () => {
-        await requireHrdRootRead();
-        return readHrdDashboardAggregate(prisma);
+        const session = await requireHrdRootRead();
+        return readHrdDashboardAggregate(prisma, {
+            userId: session.user.id,
+        });
     });
 });

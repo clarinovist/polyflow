@@ -2,6 +2,9 @@ const ATTENDANCE_LABELS: Record<string, string> = {
     PRESENT: 'Hadir',
     ABSENT: 'Alfa',
     ON_LEAVE: 'Izin',
+    // Turunan tampilan (bukan nilai enum AttendanceStatus di database).
+    NO_RECORD: 'Belum absen',
+    LATE: 'Terlambat',
 };
 
 const LEAVE_LABELS: Record<string, string> = {

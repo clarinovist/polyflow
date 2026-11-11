@@ -8,7 +8,6 @@ import {
     CalendarRange,
     Clock,
     HandCoins,
-    UserCheck,
     Users,
     UserX,
     Wallet,
@@ -26,6 +25,8 @@ import {
     DashboardHealthCard,
     DashboardSectionState,
 } from '@/components/dashboard/DashboardMetricPrimitives';
+import { AttendanceTodayTile } from '@/components/hrd/AttendanceTodayTile';
+import { HrdRetryButton } from '@/components/hrd/HrdRetryButton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -45,13 +46,6 @@ function formatIdr(value: number): string {
         currency: 'IDR',
         maximumFractionDigits: 0,
     }).format(value);
-}
-
-function formatHours(value: number): string {
-    return value.toLocaleString('id-ID', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2,
-    });
 }
 
 function stateRow({
@@ -285,6 +279,7 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                     title="Dashboard HRD tidak tersedia"
                     description="Data gagal dimuat. Angka kosong tidak dianggap nol."
                 />
+                <HrdRetryButton />
             </div>
         );
     }
@@ -389,36 +384,6 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         href="/hrd/employees"
                     />
                     <DashboardHealthCard
-                        title="Status absensi tercatat hari ini"
-                        value={
-                            health.attendanceToday.status === 'AVAILABLE'
-                                ? health.attendanceToday.data.present + ' hadir'
-                                : undefined
-                        }
-                        state={health.attendanceToday.status}
-                        icon={UserCheck}
-                        definition={{
-                            unit: 'Karyawan unik',
-                            period: 'Hari kerja WIB ' + workDate,
-                            description:
-                                'Jumlah karyawan unik yang memiliki status absensi tersimpan; bukan tingkat kehadiran.',
-                            source: 'Data absensi',
-                        }}
-                        href="/hrd/attendance"
-                        supportingText={
-                            health.attendanceToday.status === 'AVAILABLE'
-                                ? health.attendanceToday.data.absent +
-                                  ' tidak hadir · ' +
-                                  health.attendanceToday.data.onLeave +
-                                  ' cuti/izin · ' +
-                                  formatHours(
-                                      health.attendanceToday.data.overtimeHours,
-                                  ) +
-                                  ' jam lembur pada catatan hadir'
-                                : undefined
-                        }
-                    />
-                    <DashboardHealthCard
                         title="Review slip payroll terbaru"
                         value={
                             health.payrollReadiness.status === 'AVAILABLE'
@@ -482,6 +447,16 @@ export function HrdShiftBoardComponent({ data }: HrdShiftBoardProps) {
                         }
                     />
                 </div>
+            </section>
+
+            <section
+                aria-label="Absensi hari ini"
+                className="min-w-0 max-w-2xl"
+            >
+                <AttendanceTodayTile
+                    section={health.attendanceToday}
+                    workDate={workDate}
+                />
             </section>
 
             <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(22rem,0.85fr)]">

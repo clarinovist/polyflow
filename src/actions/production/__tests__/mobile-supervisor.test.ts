@@ -62,6 +62,7 @@ vi.mock('@/lib/core/prisma', () => {
         },
         appSetting: {
             findUnique: vi.fn(),
+            findMany: vi.fn(),
         },
         payrollPeriod: {
             count: vi.fn(),
@@ -604,7 +605,8 @@ describe('factory manager canonical owner overview', () => {
         vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(0);
         vi.mocked(prisma.employee.count).mockResolvedValue(0);
         vi.mocked(prisma.attendanceRecord.groupBy).mockResolvedValue([]);
-        vi.mocked(prisma.attendanceRecord.aggregate).mockResolvedValue({ _sum: { overtimeHours: 0 } } as any);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([]);
+        vi.mocked(prisma.appSetting.findMany).mockResolvedValue([]);
         vi.mocked(prisma.payrollPeriod.count).mockResolvedValue(0);
         vi.mocked(prisma.payrollPeriod.findFirst).mockResolvedValue(null);
         vi.mocked(prisma.leaveRequest.count).mockResolvedValue(0);
@@ -621,13 +623,18 @@ describe('factory manager canonical owner overview', () => {
         ] as any);
         vi.mocked(prisma.purchaseOrder.count).mockResolvedValue(3);
         vi.mocked(prisma.employee.count).mockResolvedValue(12);
-        vi.mocked(prisma.attendanceRecord.groupBy)
-            .mockResolvedValueOnce([
-                { status: 'PRESENT', employeeId: 'e1' },
-                { status: 'ABSENT', employeeId: 'e2' },
-                { status: 'ON_LEAVE', employeeId: 'e3' },
-            ] as any)
-            .mockResolvedValueOnce([]);
+        const todayRow = {
+            clockInAt: null,
+            clockInDistance: null,
+            clockInPhotoUrl: null,
+            overtimeHours: null,
+            workShift: { startTime: '08:00' },
+        };
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([
+            { ...todayRow, status: 'PRESENT', employeeId: 'e1' },
+            { ...todayRow, status: 'ABSENT', employeeId: 'e2' },
+            { ...todayRow, status: 'ON_LEAVE', employeeId: 'e3' },
+        ] as any);
 
         const result = await getFactoryManagerExecutiveOverview();
 

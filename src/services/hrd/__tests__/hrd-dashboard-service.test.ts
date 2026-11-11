@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     collectHrdDashboardAggregate,
     readHrdDashboardAggregate,
+    readHrdDashboardHealth,
     readHrdDashboardMobileAggregate,
     readHrdDashboardPayrollReadiness,
     readHrdPendingLeaveDashboardCount,
@@ -10,7 +11,8 @@ import {
 
 const db = {
     employee: { count: vi.fn() },
-    attendanceRecord: { groupBy: vi.fn(), aggregate: vi.fn() },
+    attendanceRecord: { groupBy: vi.fn(), findMany: vi.fn() },
+    appSetting: { findMany: vi.fn() },
     payrollPeriod: { count: vi.fn(), findFirst: vi.fn() },
     payslip: { groupBy: vi.fn() },
     leaveRequest: { count: vi.fn() },
@@ -23,9 +25,8 @@ const now = new Date('2026-10-09T17:30:00.000Z');
 function setupAvailableZeroes() {
     db.employee.count.mockResolvedValue(0);
     db.attendanceRecord.groupBy.mockResolvedValue([]);
-    db.attendanceRecord.aggregate.mockResolvedValue({
-        _sum: { overtimeHours: null },
-    });
+    db.attendanceRecord.findMany.mockResolvedValue([]);
+    db.appSetting.findMany.mockResolvedValue([]);
     db.payrollPeriod.count.mockResolvedValue(0);
     db.payrollPeriod.findFirst.mockResolvedValue(null);
     db.payslip.groupBy.mockResolvedValue([]);
@@ -99,7 +100,12 @@ describe('readHrdDashboardAggregate', () => {
                 present: 0,
                 absent: 0,
                 onLeave: 0,
+                noRecord: 0,
+                late: 0,
+                outsideRadius: 0,
+                noSelfie: 0,
                 overtimeHours: 0,
+                isNonWorkingDay: false,
             },
         });
         expect(result.health.payrollReadiness).toEqual({
@@ -116,21 +122,24 @@ describe('readHrdDashboardAggregate', () => {
         });
     });
 
-    it('counts unique stored statuses by status+employee and sums PRESENT overtime hours', async () => {
-        db.attendanceRecord.groupBy.mockImplementation(
-            async (args: { by: string[] }) =>
-                args.by.includes('status')
-                    ? [
-                          { status: 'PRESENT', employeeId: 'one' },
-                          { status: 'PRESENT', employeeId: 'two' },
-                          { status: 'ABSENT', employeeId: 'two' },
-                          { status: 'ON_LEAVE', employeeId: 'three' },
-                      ]
-                    : [],
-        );
-        db.attendanceRecord.aggregate.mockResolvedValue({
-            _sum: { overtimeHours: 3.335 },
-        });
+    it('dedupes attendance per employee with one record query and no groupBy by status', async () => {
+        db.employee.count.mockResolvedValue(6);
+        db.appSetting.findMany.mockResolvedValue([
+            { key: 'attendance.lateGraceMinutes', value: '5' },
+        ]);
+        const base = {
+            clockInAt: new Date('2026-10-10T00:55:00.000Z'),
+            clockInDistance: null,
+            clockInPhotoUrl: '/api/images/t1/attendance/e1/in.jpg',
+            overtimeHours: null,
+            workShift: { startTime: '08:00' },
+        };
+        db.attendanceRecord.findMany.mockResolvedValue([
+            { ...base, employeeId: 'one', status: 'PRESENT', overtimeHours: 3.335 },
+            { ...base, employeeId: 'two', status: 'PRESENT' },
+            { ...base, employeeId: 'two', status: 'ABSENT' },
+            { ...base, employeeId: 'three', status: 'ON_LEAVE' },
+        ]);
 
         const result = await readHrdDashboardAggregate(db as never, { now });
 
@@ -138,22 +147,21 @@ describe('readHrdDashboardAggregate', () => {
             status: 'AVAILABLE',
             data: {
                 present: 2,
-                absent: 1,
+                absent: 0,
                 onLeave: 1,
+                noRecord: 3,
+                late: 0,
+                outsideRadius: 0,
+                noSelfie: 0,
                 overtimeHours: 3.34,
+                isNonWorkingDay: false,
             },
         });
-        expect(db.attendanceRecord.groupBy).toHaveBeenCalledWith({
-            by: ['status', 'employeeId'],
-            where: { workDate: new Date('2026-10-10T00:00:00.000Z') },
-        });
-        expect(db.attendanceRecord.aggregate).toHaveBeenCalledWith({
-            where: {
-                workDate: new Date('2026-10-10T00:00:00.000Z'),
-                status: 'PRESENT',
-            },
-            _sum: { overtimeHours: true },
-        });
+        expect(db.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
+        const statusGroupBys = db.attendanceRecord.groupBy.mock.calls.filter(
+            ([args]) => args.by.includes('status'),
+        );
+        expect(statusGroupBys).toHaveLength(0);
         expect(JSON.stringify(result)).not.toContain('NO_RECORD');
     });
 
@@ -370,7 +378,7 @@ describe('readHrdDashboardAggregate', () => {
     });
 
     it('marks independent failed sections unavailable while unrelated valid zeroes survive', async () => {
-        db.attendanceRecord.aggregate.mockRejectedValue(
+        db.attendanceRecord.findMany.mockRejectedValue(
             new Error('attendance unavailable'),
         );
         db.payrollPeriod.count.mockRejectedValue(
@@ -449,7 +457,12 @@ describe('readHrdDashboardAggregate', () => {
                 present: 0,
                 absent: 0,
                 onLeave: 0,
+                noRecord: 0,
+                late: 0,
+                outsideRadius: 0,
+                noSelfie: 0,
                 overtimeHours: 0,
+                isNonWorkingDay: false,
             }),
             readPayrollAttention: async () => ({
                 openPeriods: 0,
@@ -533,7 +546,107 @@ describe('readHrdDashboardAggregate', () => {
                 status: 'ABSENT',
             },
         });
-        expect(db.attendanceRecord).not.toHaveProperty('findMany');
+        // Personal rows are only read for today's in-memory summary and never
+        // leave the service: the yesterday figure stays an aggregate groupBy.
+        for (const [args] of db.attendanceRecord.findMany.mock.calls) {
+            expect(args.where.workDate).toEqual(
+                new Date('2026-10-10T00:00:00.000Z'),
+            );
+        }
+        expect(JSON.stringify(result)).not.toContain('"employeeId"');
+    });
+});
+
+describe('hrAlerts recipient scoping (userId option)', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        setupAvailableZeroes();
+    });
+
+    it('counts unread HR alerts for the given userId only', async () => {
+        db.notification.count.mockResolvedValue(3);
+
+        const result = await readHrdDashboardAggregate(db as never, {
+            now,
+            userId: 'user-1',
+        });
+
+        expect(result.attention.hrAlerts).toEqual({
+            status: 'AVAILABLE',
+            data: { unreadRecipientNotifications: 3 },
+        });
+        expect(db.notification.count).toHaveBeenCalledWith({
+            where: {
+                type: { in: ['HRD_PROBATION_ENDING', 'HRD_CONTRACT_EXPIRING'] },
+                isRead: false,
+                userId: 'user-1',
+            },
+        });
+    });
+
+    it('keeps counting every recipient when no userId is given', async () => {
+        await readHrdDashboardAggregate(db as never, { now });
+
+        const where = db.notification.count.mock.calls[0][0].where;
+        expect(where).not.toHaveProperty('userId');
+    });
+
+    it('applies the same userId scoping to the mobile aggregate', async () => {
+        await readHrdDashboardMobileAggregate(db as never, {
+            now,
+            userId: 'user-2',
+        });
+
+        expect(db.notification.count).toHaveBeenCalledWith({
+            where: expect.objectContaining({ userId: 'user-2' }),
+        });
+    });
+});
+
+describe('readHrdDashboardHealth', () => {
+    beforeEach(() => {
+        vi.resetAllMocks();
+        setupAvailableZeroes();
+    });
+
+    it('returns only health and drivers, without an attention block', async () => {
+        const result = await readHrdDashboardHealth(db as never, now);
+
+        expect(result.workDate).toBe('2026-10-10');
+        expect(result.yesterdayWorkDate).toBe('2026-10-09');
+        expect(result.health.attendanceToday.status).toBe('AVAILABLE');
+        expect(result.health.activeHeadcount.status).toBe('AVAILABLE');
+        expect(result.drivers).toEqual({
+            status: 'NOT_CONFIGURED',
+            data: null,
+        });
+        expect(result).not.toHaveProperty('attention');
+    });
+
+    it('does not run any attention query', async () => {
+        await readHrdDashboardHealth(db as never, now);
+
+        expect(db.leaveRequest.count).not.toHaveBeenCalled();
+        expect(db.employeeLoan.aggregate).not.toHaveBeenCalled();
+        expect(db.notification.count).not.toHaveBeenCalled();
+        expect(db.payrollPeriod.count).not.toHaveBeenCalled();
+        expect(db.attendanceRecord.groupBy).not.toHaveBeenCalled();
+        const bpjsQueries = db.employee.count.mock.calls.filter(
+            ([args]) => args.where.bpjsParticipant !== undefined,
+        );
+        expect(bpjsQueries).toHaveLength(0);
+    });
+
+    it('marks attendance UNAVAILABLE when its read fails while other health sections survive', async () => {
+        db.attendanceRecord.findMany.mockRejectedValue(new Error('down'));
+
+        const result = await readHrdDashboardHealth(db as never, now);
+
+        expect(result.health.attendanceToday).toEqual({
+            status: 'UNAVAILABLE',
+            data: null,
+        });
+        expect(result.health.activeHeadcount.status).toBe('AVAILABLE');
     });
 });
 

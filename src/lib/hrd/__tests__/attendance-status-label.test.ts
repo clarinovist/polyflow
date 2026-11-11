@@ -9,6 +9,8 @@ describe('attendanceStatusLabel', () => {
         ['PRESENT', 'Hadir'],
         ['ABSENT', 'Alfa'],
         ['ON_LEAVE', 'Izin'],
+        ['NO_RECORD', 'Belum absen'],
+        ['LATE', 'Terlambat'],
     ])('maps %s to %s', (status, label) => {
         expect(attendanceStatusLabel(status)).toBe(label);
     });

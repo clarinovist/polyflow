@@ -83,7 +83,9 @@ describe('getHrdShiftBoard authorization', () => {
                 '/hrd',
             );
             expect(mocks.resource).toHaveBeenCalledWith(['/hrd'], 'hrd');
-            expect(mocks.reader).toHaveBeenCalledWith(mocks.prisma);
+            expect(mocks.reader).toHaveBeenCalledWith(mocks.prisma, {
+                userId: 'u1',
+            });
         },
     );
 

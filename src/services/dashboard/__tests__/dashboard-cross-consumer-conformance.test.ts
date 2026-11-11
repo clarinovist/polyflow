@@ -177,10 +177,9 @@ describe('dashboard cross-consumer conformance', () => {
             employee: { count: vi.fn().mockResolvedValue(0) },
             attendanceRecord: {
                 groupBy: vi.fn().mockResolvedValue([]),
-                aggregate: vi.fn().mockResolvedValue({
-                    _sum: { overtimeHours: null },
-                }),
+                findMany: vi.fn().mockResolvedValue([]),
             },
+            appSetting: { findMany: vi.fn().mockResolvedValue([]) },
             payrollPeriod: {
                 count: vi.fn().mockResolvedValue(0),
                 findFirst: vi.fn().mockResolvedValue(null),
@@ -207,6 +206,7 @@ describe('dashboard cross-consumer conformance', () => {
         expect(mobile.drivers).toEqual(desktop.drivers);
         expect(mobile.attention).not.toHaveProperty('loanPortfolio');
         expect(db.employeeLoan.aggregate).not.toHaveBeenCalled();
+        expect(mobile.health.attendanceToday.status).toBe('AVAILABLE');
         expect(mobile.health.payrollReadiness.status).toBe('NOT_CONFIGURED');
         expect(mobile.drivers.status).toBe('NOT_CONFIGURED');
     });
