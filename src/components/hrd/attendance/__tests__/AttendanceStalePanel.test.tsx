@@ -4,6 +4,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { AttendanceStalePanel } from '../AttendanceStalePanel';
+import { CLOSURE_MAX_BATCH } from '../stale-closure-types';
 import type { StaleSessionsState } from '../useStaleOpenSessions';
 
 const SESSIONS = [
@@ -138,3 +139,176 @@ describe('AttendanceStalePanel', () => {
         expect(onCorrect).toHaveBeenCalledWith(SESSIONS[1]);
     });
 });
+
+const manySessions = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+        ...SESSIONS[0],
+        id: `m${i}`,
+        employeeId: `em${i}`,
+        employeeName: `Karyawan ${i}`,
+        employeeCode: `K${i}`,
+    }));
+
+describe('AttendanceStalePanel bulk closure controls', () => {
+    const bulk = (
+        state: StaleSessionsState = ready(),
+        props: Partial<React.ComponentProps<typeof AttendanceStalePanel>> = {},
+    ) => {
+        const onPreviewClosure = vi.fn();
+        const utils = setup(state, {
+            canBulkClose: true,
+            onPreviewClosure,
+            ...props,
+        });
+        return { onPreviewClosure, ...utils };
+    };
+    const previewBtn = () =>
+        screen.getByRole('button', { name: /Pratinjau koreksi/ }) as HTMLButtonElement;
+
+    it('hides every bulk control for roles that cannot bulk close', () => {
+        setup(ready());
+
+        expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+        expect(screen.queryByRole('radiogroup')).toBeNull();
+        expect(screen.queryByRole('button', { name: /Pratinjau koreksi/ })).toBeNull();
+        expect(screen.getAllByRole('button', { name: /Koreksi jam/ })).toHaveLength(2);
+    });
+
+    it('shows a checkbox per row and a select-all box when allowed', () => {
+        bulk();
+
+        expect(screen.getAllByRole('checkbox')).toHaveLength(3);
+        expect(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' })).toBeTruthy();
+        expect(screen.getByRole('checkbox', { name: 'Pilih Budi Contoh' })).toBeTruthy();
+    });
+
+    it('disables the preview button until something is selected and counts the selection', () => {
+        bulk();
+
+        expect(previewBtn().disabled).toBe(true);
+        expect(previewBtn().textContent).toContain('(0)');
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih Budi Contoh' }));
+        expect(previewBtn().disabled).toBe(false);
+        expect(previewBtn().textContent).toContain('(1)');
+    });
+
+    it('offers the two policies with plain explanations, defaulting to end of shift', () => {
+        bulk();
+
+        const radios = screen.getAllByRole('radio');
+        expect(radios).toHaveLength(2);
+        expect(radios[0].getAttribute('aria-checked')).toBe('true');
+        expect(screen.getByText('Akhir shift terjadwal')).toBeTruthy();
+        expect(screen.getByText(/jam selesai shift pada tanggal kerja/)).toBeTruthy();
+        expect(screen.getByText('Jam masuk + durasi terjadwal')).toBeTruthy();
+        expect(screen.getByText(/jam masuk ditambah jam kerja terjadwal/)).toBeTruthy();
+    });
+
+    it('previews the selected ids with the default policy', () => {
+        const { onPreviewClosure } = bulk();
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih Siti Contoh' }));
+        fireEvent.click(previewBtn());
+
+        expect(onPreviewClosure).toHaveBeenCalledWith(['r2'], 'SHIFT_END');
+    });
+
+    it('previews with the policy the user picked', () => {
+        const { onPreviewClosure } = bulk();
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+        fireEvent.click(screen.getAllByRole('radio')[1]);
+        fireEvent.click(previewBtn());
+
+        expect(onPreviewClosure).toHaveBeenCalledWith(['r1', 'r2'], 'CLOCK_IN_PLUS_PLANNED');
+    });
+
+    it('select-all picks only the rows that are shown by the search query', () => {
+        const { onPreviewClosure } = bulk(ready(), { query: 'siti' });
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+        fireEvent.click(previewBtn());
+
+        expect(onPreviewClosure).toHaveBeenCalledWith(['r2'], 'SHIFT_END');
+    });
+
+    it('toggling select-all twice clears the selection', () => {
+        bulk();
+        const all = screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' });
+
+        fireEvent.click(all);
+        fireEvent.click(all);
+
+        expect(previewBtn().disabled).toBe(true);
+    });
+
+    it('does not send a row that was selected and then filtered out by the search', () => {
+        const { onPreviewClosure, rerender } = (() => {
+            const onPreviewClosure = vi.fn();
+            const utils = render(
+                <AttendanceStalePanel
+                    state={ready()}
+                    query=""
+                    onRetry={vi.fn()}
+                    onCorrect={vi.fn()}
+                    canBulkClose
+                    onPreviewClosure={onPreviewClosure}
+                />,
+            );
+            return { onPreviewClosure, ...utils };
+        })();
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih Budi Contoh' }));
+
+        rerender(
+            <AttendanceStalePanel
+                state={ready()}
+                query="siti"
+                onRetry={vi.fn()}
+                onCorrect={vi.fn()}
+                canBulkClose
+                onPreviewClosure={onPreviewClosure}
+            />,
+        );
+
+        expect(previewBtn().disabled).toBe(true);
+    });
+
+    it('caps select-all at the batch limit and says how many were left out', () => {
+        const total = CLOSURE_MAX_BATCH + 5;
+        const { onPreviewClosure } = bulk(ready(manySessions(total)));
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+
+        expect(previewBtn().textContent).toContain(`(${CLOSURE_MAX_BATCH})`);
+        expect(
+            screen.getByText(new RegExp(`${CLOSURE_MAX_BATCH} dari ${total}`)),
+        ).toBeTruthy();
+        fireEvent.click(previewBtn());
+        const ids = onPreviewClosure.mock.calls[0][0] as string[];
+        expect(ids).toHaveLength(CLOSURE_MAX_BATCH);
+        expect(ids[0]).toBe('m0');
+    });
+
+    it('blocks ticking more rows once the batch limit is reached', () => {
+        bulk(ready(manySessions(CLOSURE_MAX_BATCH + 1)));
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+
+        const extra = screen.getByRole('checkbox', {
+            name: `Pilih Karyawan ${CLOSURE_MAX_BATCH}`,
+        }) as HTMLButtonElement;
+
+        expect(extra.disabled).toBe(true);
+        const first = screen.getByRole('checkbox', {
+            name: 'Pilih Karyawan 0',
+        }) as HTMLButtonElement;
+        expect(first.disabled).toBe(false);
+    });
+
+    it('does not warn about the limit for a small selection', () => {
+        bulk();
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+
+        expect(screen.queryByText(/batas per koreksi/)).toBeNull();
+    });
+});
+

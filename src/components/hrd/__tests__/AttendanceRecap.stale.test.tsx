@@ -10,6 +10,11 @@ import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 import React from 'react';
 import { AttendanceRecap } from '../AttendanceRecap';
 import * as actions from '@/actions/admin/attendance';
+import * as closure from '@/actions/hrd/stale-session-closure';
+import {
+    APPLY_RESULT,
+    PREVIEW,
+} from '../attendance/__tests__/closureFixtures';
 import { installRadixPolyfills, props } from './attendanceRecapTestKit';
 
 const push = vi.fn();
@@ -20,6 +25,10 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => params,
 }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('@/actions/hrd/stale-session-closure', () => ({
+    previewStaleSessionClosure: vi.fn(),
+    applyStaleSessionClosure: vi.fn(),
+}));
 vi.mock('@/actions/admin/attendance', () => ({
     correctAttendance: vi.fn(),
     getAttendanceMonthlySummary: vi.fn(),
@@ -120,5 +129,38 @@ describe('AttendanceRecap filter Lupa pulang', () => {
         await waitFor(() =>
             expect(actions.listStaleOpenSessions).toHaveBeenCalledTimes(2),
         );
+    });
+});
+
+describe('AttendanceRecap bulk closure access', () => {
+    it('hides bulk controls unless the role may bulk close (default)', async () => {
+        render(<AttendanceRecap {...props} initialStatus="stale" />);
+
+        await screen.findByText('Rina Contoh');
+
+        expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+        expect(screen.queryByRole('button', { name: /Pratinjau koreksi/ })).toBeNull();
+    });
+
+    it('shows bulk controls to ADMIN/HRD and refreshes page data after applying', async () => {
+        vi.mocked(closure.previewStaleSessionClosure).mockResolvedValue({
+            success: true,
+            data: PREVIEW,
+        } as never);
+        vi.mocked(closure.applyStaleSessionClosure).mockResolvedValue({
+            success: true,
+            data: APPLY_RESULT,
+        } as never);
+        render(<AttendanceRecap {...props} initialStatus="stale" canBulkClose />);
+        await screen.findByText('Rina Contoh');
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih Rina Contoh' }));
+        fireEvent.click(screen.getByRole('button', { name: /Pratinjau koreksi \(1\)/ }));
+        const dialog = await screen.findByRole('dialog');
+        fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Saya mengerti/ }));
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Terapkan koreksi' }));
+
+        await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+        expect(await within(dialog).findByText(/2 sesi ditutup/)).toBeTruthy();
     });
 });

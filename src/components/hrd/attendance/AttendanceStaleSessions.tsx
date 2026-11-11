@@ -3,8 +3,10 @@
 import type { StaleOpenSession } from '@/services/hrd/attendance-query-service';
 import { AttendanceStalePanel } from './AttendanceStalePanel';
 import { CorrectAttendanceDialog } from './CorrectAttendanceDialog';
+import { StaleClosurePreviewDialog } from './StaleClosurePreviewDialog';
 import type { AttendanceRecord } from './attendance-recap-types';
 import { useCorrectAttendance } from './useCorrectAttendance';
+import { useStaleClosure } from './useStaleClosure';
 import { useStaleOpenSessions } from './useStaleOpenSessions';
 
 interface Props {
@@ -12,6 +14,8 @@ interface Props {
     query: string;
     /** Dipanggil setelah koreksi tersimpan (mis. menyegarkan data halaman). */
     onCorrected?: () => void;
+    /** Koreksi massal: hanya ADMIN/HRD (server tetap otoritas). */
+    canBulkClose?: boolean;
 }
 
 /**
@@ -40,15 +44,21 @@ export function toCorrectableRecord(
 }
 
 /**
- * Panel "Sesi belum pulang" + dialog koreksi yang sudah ada. Tidak ada jalur
- * tulis baru: koreksi lewat `correctAttendance`, lalu daftar dimuat ulang.
+ * Panel "Sesi belum pulang" + dialog koreksi satuan, plus (ADMIN/HRD) koreksi
+ * massal dengan pratinjau. Setelah koreksi tersimpan daftar dimuat ulang.
  */
-export function AttendanceStaleSessions({ query, onCorrected }: Props) {
+export function AttendanceStaleSessions({
+    query,
+    onCorrected,
+    canBulkClose = false,
+}: Props) {
     const { state, reload } = useStaleOpenSessions(true);
-    const correction = useCorrectAttendance(() => {
+    const refreshAll = () => {
         void reload();
         onCorrected?.();
-    });
+    };
+    const correction = useCorrectAttendance(refreshAll);
+    const closure = useStaleClosure(refreshAll);
 
     return (
         <>
@@ -56,10 +66,20 @@ export function AttendanceStaleSessions({ query, onCorrected }: Props) {
                 state={state}
                 query={query}
                 onRetry={reload}
+                canBulkClose={canBulkClose}
+                onPreviewClosure={closure.open}
                 onCorrect={(session) =>
                     correction.open(toCorrectableRecord(session))
                 }
             />
+            {canBulkClose && (
+                <StaleClosurePreviewDialog
+                    phase={closure.phase}
+                    onClose={closure.close}
+                    onApply={closure.apply}
+                    onRetry={closure.retry}
+                />
+            )}
             <CorrectAttendanceDialog
                 record={correction.correcting}
                 form={correction.form}

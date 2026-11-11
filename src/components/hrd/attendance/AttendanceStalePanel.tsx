@@ -2,12 +2,17 @@
 
 import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { StaleOpenSession } from '@/services/hrd/attendance-query-service';
 import { AttendanceLoadError } from './AttendanceLoadError';
+import { StaleClosureControls } from './StaleClosureControls';
 import { formatTime } from './attendance-format';
 import { STALE_FILTER_LABEL } from './attendance-recap-helpers';
+import { formatWorkDate } from './stale-closure-format';
+import type { ClosurePolicy } from './stale-closure-types';
 import type { StaleSessionsState } from './useStaleOpenSessions';
+import { useStaleSelection } from './useStaleSelection';
 
 export type { StaleSessionsState } from './useStaleOpenSessions';
 
@@ -25,6 +30,9 @@ interface Props {
     query: string;
     onRetry: () => void;
     onCorrect: (session: StaleOpenSession) => void;
+    /** Kontrol koreksi massal; hanya untuk ADMIN/HRD (server tetap otoritas). */
+    canBulkClose?: boolean;
+    onPreviewClosure?: (recordIds: string[], policy: ClosurePolicy) => void;
 }
 
 function matchesQuery(session: StaleOpenSession, query: string): boolean {
@@ -34,16 +42,6 @@ function matchesQuery(session: StaleOpenSession, query: string): boolean {
         session.employeeName.toLowerCase().includes(needle) ||
         session.employeeCode.toLowerCase().includes(needle)
     );
-}
-
-/** `YYYY-MM-DD` menjadi "9 Nov 2026" (tanggal kalender, tanpa konversi zona). */
-function formatWorkDate(workDate: string): string {
-    return new Date(`${workDate}T00:00:00.000Z`).toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'UTC',
-    });
 }
 
 function formatOpenHours(hours: number): string {
@@ -73,16 +71,32 @@ function LoadingSkeleton() {
     );
 }
 
+interface RowSelection {
+    isChecked: boolean;
+    isDisabled: boolean;
+    onToggle: () => void;
+}
+
 interface RowProps {
     session: StaleOpenSession;
     onCorrect: (session: StaleOpenSession) => void;
+    /** Ada hanya bila koreksi massal diizinkan. */
+    selection?: RowSelection;
 }
 
-function StaleRow({ session, onCorrect }: RowProps) {
+function StaleRow({ session, onCorrect, selection }: RowProps) {
     const { shift } = session;
     return (
         <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0 space-y-0.5">
+            {selection && (
+                <Checkbox
+                    aria-label={`Pilih ${session.employeeName}`}
+                    checked={selection.isChecked}
+                    disabled={selection.isDisabled}
+                    onCheckedChange={selection.onToggle}
+                />
+            )}
+            <div className="min-w-0 flex-1 space-y-0.5">
                 <p className="font-medium truncate">{session.employeeName}</p>
                 <p className="text-xs text-muted-foreground">
                     <span>{session.employeeCode}</span>
@@ -117,12 +131,26 @@ function StaleRow({ session, onCorrect }: RowProps) {
     );
 }
 
+function rowSelection(
+    selection: ReturnType<typeof useStaleSelection>,
+    id: string,
+): RowSelection {
+    const isChecked = selection.isSelected(id);
+    return {
+        isChecked,
+        isDisabled: !isChecked && selection.isAtLimit,
+        onToggle: () => selection.toggle(id),
+    };
+}
+
 /** Daftar "Sesi belum pulang" (lupa pulang) dengan tombol Koreksi jam per baris. */
 export function AttendanceStalePanel({
     state,
     query,
     onRetry,
     onCorrect,
+    canBulkClose = false,
+    onPreviewClosure,
 }: Props) {
     const sessions = useMemo(
         () =>
@@ -131,6 +159,7 @@ export function AttendanceStalePanel({
                 : [],
         [state, query],
     );
+    const selection = useStaleSelection(sessions);
 
     if (state.status === 'loading') return <LoadingSkeleton />;
     if (state.status === 'error') {
@@ -158,6 +187,22 @@ export function AttendanceStalePanel({
                     {TRUNCATED_TEXT}
                 </p>
             )}
+            {canBulkClose && sessions.length > 0 && (
+                <StaleClosureControls
+                    policy={selection.policy}
+                    onPolicyChange={selection.setPolicy}
+                    selectedCount={selection.selectedIds.length}
+                    visibleCount={sessions.length}
+                    isAllSelected={selection.isAllSelected}
+                    onToggleAll={selection.toggleAll}
+                    onPreview={() =>
+                        onPreviewClosure?.(
+                            selection.selectedIds,
+                            selection.policy,
+                        )
+                    }
+                />
+            )}
             {sessions.length === 0 ? (
                 <PanelMessage>{NO_MATCH_TEXT}</PanelMessage>
             ) : (
@@ -167,6 +212,11 @@ export function AttendanceStalePanel({
                             key={s.id}
                             session={s}
                             onCorrect={onCorrect}
+                            selection={
+                                canBulkClose
+                                    ? rowSelection(selection, s.id)
+                                    : undefined
+                            }
                         />
                     ))}
                 </ul>

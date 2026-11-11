@@ -24,6 +24,10 @@ vi.mock('next/navigation', () => ({
     useSearchParams: () => params,
 }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('@/actions/hrd/stale-session-closure', () => ({
+    previewStaleSessionClosure: vi.fn(),
+    applyStaleSessionClosure: vi.fn(),
+}));
 vi.mock('@/actions/admin/attendance', () => ({
     correctAttendance: vi.fn(),
     getAttendanceMonthlySummary: vi.fn(),

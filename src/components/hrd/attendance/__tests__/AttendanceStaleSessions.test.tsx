@@ -11,15 +11,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { toast } from 'sonner';
 import * as actions from '@/actions/admin/attendance';
+import * as closure from '@/actions/hrd/stale-session-closure';
 import {
     AttendanceStaleSessions,
     toCorrectableRecord,
 } from '../AttendanceStaleSessions';
+import { APPLY_RESULT, PREVIEW } from './closureFixtures';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 vi.mock('@/actions/admin/attendance', () => ({
     listStaleOpenSessions: vi.fn(),
     correctAttendance: vi.fn(),
+}));
+vi.mock('@/actions/hrd/stale-session-closure', () => ({
+    previewStaleSessionClosure: vi.fn(),
+    applyStaleSessionClosure: vi.fn(),
 }));
 
 const SESSION = {
@@ -177,3 +183,114 @@ describe('AttendanceStaleSessions', () => {
         );
     });
 });
+
+describe('AttendanceStaleSessions bulk closure flow', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(actions.listStaleOpenSessions).mockResolvedValue(
+            listOf([SESSION, OTHER]),
+        );
+        vi.mocked(closure.previewStaleSessionClosure).mockResolvedValue({
+            success: true,
+            data: PREVIEW,
+        } as never);
+        vi.mocked(closure.applyStaleSessionClosure).mockResolvedValue({
+            success: true,
+            data: APPLY_RESULT,
+        } as never);
+    });
+
+    function setupBulk() {
+        const onCorrected = vi.fn();
+        render(
+            <AttendanceStaleSessions
+                query=""
+                canBulkClose
+                onCorrected={onCorrected}
+            />,
+        );
+        return { onCorrected };
+    }
+
+    async function openPreview() {
+        await screen.findByText('Budi Contoh');
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Pilih semua yang tampil' }));
+        fireEvent.click(screen.getByRole('button', { name: /Pratinjau koreksi \(2\)/ }));
+        return screen.findByRole('dialog');
+    }
+
+    it('keeps bulk controls away from users without the bulk role', async () => {
+        setup();
+
+        await screen.findByText('Budi Contoh');
+
+        expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+        expect(screen.queryByRole('button', { name: /Pratinjau koreksi/ })).toBeNull();
+    });
+
+    it('previews the selection and shows the preview dialog', async () => {
+        setupBulk();
+
+        const dialog = await openPreview();
+
+        expect(closure.previewStaleSessionClosure).toHaveBeenCalledWith({
+            recordIds: ['r1', 'r2'],
+            policy: 'SHIFT_END',
+        });
+        expect(await within(dialog).findByText(/2 layak/)).toBeTruthy();
+    });
+
+    it('applies only after confirmation, then shows the result, reloads and notifies', async () => {
+        vi.mocked(actions.listStaleOpenSessions)
+            .mockResolvedValueOnce(listOf([SESSION, OTHER]))
+            .mockResolvedValueOnce(listOf([]));
+        const { onCorrected } = setupBulk();
+        const dialog = await openPreview();
+
+        const apply = await within(dialog).findByRole('button', { name: 'Terapkan koreksi' });
+        expect((apply as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(within(dialog).getByRole('checkbox', { name: /Saya mengerti/ }));
+        fireEvent.click(apply);
+
+        expect(await within(dialog).findByText(/2 sesi ditutup/)).toBeTruthy();
+        expect(closure.applyStaleSessionClosure).toHaveBeenCalledTimes(1);
+        expect(closure.applyStaleSessionClosure).toHaveBeenCalledWith({
+            recordIds: ['r1', 'r2', 'r3'],
+            policy: 'SHIFT_END',
+            fingerprint: 'fp-abc',
+        });
+        await waitFor(() =>
+            expect(actions.listStaleOpenSessions).toHaveBeenCalledTimes(2),
+        );
+        expect(onCorrected).toHaveBeenCalledTimes(1);
+    });
+
+    it('rebuilds the preview after a data-changed error', async () => {
+        vi.mocked(closure.applyStaleSessionClosure).mockResolvedValue({
+            success: false,
+            error: 'Data berubah sejak pratinjau, buat pratinjau ulang',
+        } as never);
+        const { onCorrected } = setupBulk();
+        const dialog = await openPreview();
+
+        fireEvent.click(await within(dialog).findByRole('checkbox', { name: /Saya mengerti/ }));
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Terapkan koreksi' }));
+        fireEvent.click(await within(dialog).findByRole('button', { name: 'Buat pratinjau ulang' }));
+
+        await waitFor(() =>
+            expect(closure.previewStaleSessionClosure).toHaveBeenCalledTimes(2),
+        );
+        expect(onCorrected).not.toHaveBeenCalled();
+    });
+
+    it('closes the dialog without applying anything when cancelled', async () => {
+        setupBulk();
+        const dialog = await openPreview();
+
+        fireEvent.click(await within(dialog).findByRole('button', { name: 'Batal' }));
+
+        await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+        expect(closure.applyStaleSessionClosure).not.toHaveBeenCalled();
+    });
+});
+

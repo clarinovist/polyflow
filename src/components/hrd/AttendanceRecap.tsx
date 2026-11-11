@@ -57,6 +57,8 @@ interface Props {
     initialStatus?: StatusFilter;
     /** Pesan galat bila daftar absensi gagal dimuat di server. */
     loadError?: string | null;
+    /** ADMIN/HRD: boleh koreksi massal sesi lupa pulang (server tetap otoritas). */
+    canBulkClose?: boolean;
 }
 
 export function AttendanceRecap({
@@ -68,6 +70,7 @@ export function AttendanceRecap({
     overtimeOnly,
     initialStatus = 'all',
     loadError = null,
+    canBulkClose = false,
 }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -253,6 +256,7 @@ export function AttendanceRecap({
             {viewMode === 'daily' && !loadError && statusFilter === 'stale' && (
                 <AttendanceStaleSessions
                     query={query}
+                    canBulkClose={canBulkClose}
                     onCorrected={() => router.refresh()}
                 />
             )}

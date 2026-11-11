@@ -1,3 +1,5 @@
+import { auth } from '@/auth';
+import { hasAnyRole } from '@/lib/auth/roles';
 import {
     listAttendance,
     getAttendanceSummary,
@@ -22,6 +24,9 @@ export default async function AttendancePage({
 }) {
     const params = await searchParams;
     const dateStr = params.date || todayWibDateString();
+    // Kontrol koreksi massal hanya untuk ADMIN/HRD; server tetap otoritas.
+    const session = await auth();
+    const canBulkClose = hasAnyRole(session?.user, ['ADMIN', 'HRD']);
 
     const [attendanceResult, summaryResult, shiftsResult] = await Promise.all([
         listAttendance(dateStr, {
@@ -75,6 +80,7 @@ export default async function AttendancePage({
                 overtimeOnly={params.ot === '1'}
                 initialStatus={parseStatusFilter(params.status)}
                 loadError={loadError}
+                canBulkClose={canBulkClose}
             />
         </div>
     );
