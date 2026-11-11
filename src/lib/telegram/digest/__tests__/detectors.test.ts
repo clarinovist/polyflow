@@ -8,6 +8,7 @@ import {
   daysOverdue,
   overdueSeverity,
 } from '../detectors';
+import { buildHistoricalSalesOrderExclusion } from '@/lib/sales/operational-receivables';
 
 function makeTenantDb(overrides: Record<string, unknown> = {}) {
   return {
@@ -148,6 +149,23 @@ describe('detectStuckSalesOrders', () => {
     expect(result.items[0].entityId).toBe('so-1');
     expect(result.items[0].headline).toContain('SO-001');
     expect(result.items[0].detail).toContain('hari');
+  });
+
+  it('excludes historical/opening-balance orders but not guest orders', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const tenantDb = makeTenantDb({ salesOrder: { findMany } });
+
+    await detectStuckSalesOrders(tenantDb as never);
+
+    const where = findMany.mock.calls[0][0].where;
+    expect(where.AND).toEqual(buildHistoricalSalesOrderExclusion());
+    expect(where.AND).toEqual(
+      expect.arrayContaining([
+        { NOT: { orderNumber: { startsWith: 'OB-AR-' } } },
+        { NOT: { orderNumber: { startsWith: 'SO-OPEN-' } } },
+      ]),
+    );
+    expect(where).not.toHaveProperty('customerId');
   });
 
   it('returns no items when no stuck orders', async () => {

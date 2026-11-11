@@ -29,22 +29,26 @@ export function isOperationalSalesReceivableOrder(
     );
 }
 
+export function buildHistoricalSalesOrderExclusion(): Prisma.SalesOrderWhereInput[] {
+    return [
+        ...HISTORICAL_AR_ORDER_PREFIXES.map((prefix) => ({
+            NOT: { orderNumber: { startsWith: prefix } },
+        })),
+        // SQL three-valued logic makes NOT (NULL LIKE 'prefix%') unknown,
+        // which Prisma/PostgreSQL then filters out. Keep normal orders with
+        // no notes while excluding only matching import markers.
+        ...HISTORICAL_AR_NOTE_PREFIXES.map((prefix) => ({
+            OR: [
+                { notes: null },
+                { NOT: { notes: { startsWith: prefix } } },
+            ],
+        })),
+    ];
+}
+
 export function buildOperationalSalesReceivableOrderWhere(): Prisma.SalesOrderWhereInput {
     return {
         customerId: { not: null },
-        AND: [
-            ...HISTORICAL_AR_ORDER_PREFIXES.map((prefix) => ({
-                NOT: { orderNumber: { startsWith: prefix } },
-            })),
-            // SQL three-valued logic makes NOT (NULL LIKE 'prefix%') unknown,
-            // which Prisma/PostgreSQL then filters out. Keep normal orders with
-            // no notes while excluding only matching import markers.
-            ...HISTORICAL_AR_NOTE_PREFIXES.map((prefix) => ({
-                OR: [
-                    { notes: null },
-                    { NOT: { notes: { startsWith: prefix } } },
-                ],
-            })),
-        ],
+        AND: buildHistoricalSalesOrderExclusion(),
     };
 }

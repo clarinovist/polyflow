@@ -5,6 +5,7 @@ import { collectBarterHealth } from '@/services/finance/barter-health-service';
 import type { DetectedItem, DetectionResult } from './detection-types';
 import { detectorResources } from '@/lib/findings/detector-catalog';
 import { isLowStockAlertLocation } from '@/lib/constants/locations';
+import { buildHistoricalSalesOrderExclusion } from '@/lib/sales/operational-receivables';
 import { getWibDayBounds, toBusinessDateString } from '@/lib/utils/timezone';
 
 // Safety cap on rows fetched per detector. Not a display limit (that lives in
@@ -123,6 +124,9 @@ export async function detectStuckSalesOrders(
             where: {
                 status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] },
                 orderDate: { lt: threshold },
+                // Historical/opening-balance orders are not real stuck work.
+                // No customerId filter: guest orders must still be detected.
+                AND: buildHistoricalSalesOrderExclusion(),
             },
             select: {
                 id: true,

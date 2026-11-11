@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+    buildHistoricalSalesOrderExclusion,
     buildOperationalSalesReceivableOrderWhere,
     isOperationalSalesReceivableOrder,
 } from '@/lib/sales/operational-receivables';
@@ -63,6 +64,35 @@ describe('buildOperationalSalesReceivableOrderWhere', () => {
                     ],
                 },
             ]),
+        );
+    });
+});
+
+describe('buildHistoricalSalesOrderExclusion', () => {
+    it('excludes order-number and note markers without requiring a customer', () => {
+        const exclusion = buildHistoricalSalesOrderExclusion();
+
+        expect(exclusion).toEqual([
+            { NOT: { orderNumber: { startsWith: 'SO-OPEN-' } } },
+            { NOT: { orderNumber: { startsWith: 'OB-AR-' } } },
+            {
+                OR: [
+                    { notes: null },
+                    { NOT: { notes: { startsWith: 'Opening Balance Entry' } } },
+                ],
+            },
+            {
+                OR: [
+                    { notes: null },
+                    { NOT: { notes: { startsWith: 'Sheet Penjualan Jun:' } } },
+                ],
+            },
+        ]);
+    });
+
+    it('is reused as the AND clause of the operational receivable where', () => {
+        expect(buildOperationalSalesReceivableOrderWhere().AND).toEqual(
+            buildHistoricalSalesOrderExclusion(),
         );
     });
 });

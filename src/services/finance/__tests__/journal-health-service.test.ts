@@ -18,6 +18,7 @@ type FakeDbConfig = {
     arDebitEntries?: Array<{ id: string; referenceId: string }>;
     arDebitGroups?: Array<{ journalEntryId: string; _sum: { debit: number | null } }>;
     barterSettlements?: unknown[];
+    manualJournals?: unknown[];
 };
 
 function makeFakeDb(cfg: FakeDbConfig): PrismaClient {
@@ -35,9 +36,12 @@ function makeFakeDb(cfg: FakeDbConfig): PrismaClient {
                 where: {
                     referenceType?: string;
                     id?: { in: string[] };
+                    OR?: unknown[];
                 };
             }) => {
                 if (args.where.id?.in) return cfg.arDebitEntries ?? [];
+                // Manual AR credit coverage lookup (no top-level referenceType).
+                if (args.where.OR) return cfg.manualJournals ?? [];
                 return cfg.journalByType[args.where.referenceType ?? ''] ?? [];
             }),
         },
@@ -346,5 +350,172 @@ describe('collectFinanceJournalIssues', () => {
         expect(issues.salesInvoiceShortfalls).toHaveLength(0);
         // Missing-journal detection still works without the control account.
         expect(issues.salesInvoicesMissing).toHaveLength(1);
+    });
+});
+
+describe('collectFinanceJournalIssues: historical payments covered by manual journals', () => {
+    const HISTORICAL_SO = { orderNumber: 'OB-AR-0001', notes: null };
+    const OPERATIONAL_SO = { orderNumber: 'SO-2026-0100', notes: null };
+
+    const payment = (
+        id: string,
+        paymentNumber: string,
+        salesOrder: { orderNumber: string; notes: string | null } | null,
+        extra: Record<string, unknown> = {},
+    ) => ({
+        id,
+        paymentNumber,
+        paymentDate: new Date('2026-06-10T03:00:00.000Z'),
+        amount: 500000,
+        method: 'Bank Transfer',
+        invoice: salesOrder ? { salesOrder } : null,
+        ...extra,
+    });
+
+    const manualEntry = (
+        entryNumber: string,
+        credits: number[],
+        entryDate = new Date('2026-06-10T10:00:00.000Z'),
+    ) => ({
+        entryNumber,
+        entryDate,
+        lines: credits.map((credit) => ({ credit })),
+    });
+
+    const base: FakeDbConfig = {
+        accounts: { ar: { id: 'acc-ar', code: '1-115b' }, ap: null },
+        journalByType: {},
+        invoices: [],
+        customerPayments: [],
+        supplierPayments: [],
+        purchaseInvoices: [],
+    };
+
+    const missingIds = async (db: PrismaClient) =>
+        (await collectFinanceJournalIssues(db)).salesPaymentsMissing.map(
+            (p) => p.id,
+        );
+
+    it('still reports an operational payment even when a matching manual journal exists', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-op', 'PAY-IN-1', OPERATIONAL_SO)],
+            manualJournals: [manualEntry('PAY-IN-1', [500000])],
+        });
+
+        expect(await missingIds(db)).toEqual(['p-op']);
+    });
+
+    it('does not report a historical payment whose number matches a manual AR credit entry', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [
+                payment('p-num', 'PAY-IN-2', HISTORICAL_SO, { amount: 123 }),
+            ],
+            manualJournals: [
+                manualEntry('PAY-IN-2', [999], new Date('2026-06-30T00:00:00Z')),
+            ],
+        });
+
+        expect(await missingIds(db)).toEqual([]);
+    });
+
+    it('does not report a historical payment matched by amount and same UTC date', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-amt', 'PAY-IN-3', HISTORICAL_SO)],
+            manualJournals: [manualEntry('JV-0001', [500000.0])],
+        });
+
+        expect(await missingIds(db)).toEqual([]);
+    });
+
+    it('reports a historical payment when amount matches but the date differs', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-date', 'PAY-IN-4', HISTORICAL_SO)],
+            manualJournals: [
+                manualEntry('JV-0002', [500000], new Date('2026-06-11T00:00:00Z')),
+            ],
+        });
+
+        expect(await missingIds(db)).toEqual(['p-date']);
+    });
+
+    it('reports a historical payment with no matching manual journal', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-none', 'PAY-IN-5', HISTORICAL_SO)],
+            manualJournals: [manualEntry('JV-0003', [1])],
+        });
+
+        expect(await missingIds(db)).toEqual(['p-none']);
+    });
+
+    it('exempts nothing when the AR control account cannot be resolved', async () => {
+        const db = makeFakeDb({
+            ...base,
+            accounts: { ar: null, ap: null },
+            customerPayments: [payment('p-noar', 'PAY-IN-6', HISTORICAL_SO)],
+            manualJournals: [manualEntry('PAY-IN-6', [500000])],
+        });
+
+        expect(await missingIds(db)).toEqual(['p-noar']);
+    });
+
+    it('treats a payment with an unknown sales order as operational', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-unk', 'PAY-IN-7', null)],
+            manualJournals: [manualEntry('PAY-IN-7', [500000])],
+        });
+
+        expect(await missingIds(db)).toEqual(['p-unk']);
+    });
+
+    it('issues one bounded coverage query for historical candidates only', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [
+                payment('p-h1', 'PAY-IN-8', HISTORICAL_SO),
+                payment('p-h2', 'PAY-IN-9', HISTORICAL_SO, {
+                    paymentDate: new Date('2026-06-20T03:00:00.000Z'),
+                }),
+                payment('p-op', 'PAY-IN-10', OPERATIONAL_SO),
+            ],
+        });
+
+        await collectFinanceJournalIssues(db);
+
+        const coverageCalls = vi
+            .mocked(db.journalEntry.findMany)
+            .mock.calls.filter(([args]) => 'OR' in (args?.where ?? {}));
+        expect(coverageCalls).toHaveLength(1);
+        const where = coverageCalls[0][0]?.where as {
+            status: string;
+            OR: unknown[];
+            entryDate: { gte: Date; lte: Date };
+        };
+        expect(where.status).toBe('POSTED');
+        expect(where.OR).toEqual([
+            { referenceType: null },
+            { referenceType: { not: 'SALES_PAYMENT' } },
+        ]);
+        expect(where.entryDate.gte.toISOString()).toBe('2026-06-09T03:00:00.000Z');
+        expect(where.entryDate.lte.toISOString()).toBe('2026-06-21T03:00:00.000Z');
+    });
+
+    it('skips the coverage query when no historical payment lacks a journal', async () => {
+        const db = makeFakeDb({
+            ...base,
+            customerPayments: [payment('p-op', 'PAY-IN-11', OPERATIONAL_SO)],
+        });
+
+        await collectFinanceJournalIssues(db);
+
+        const coverageCalls = vi
+            .mocked(db.journalEntry.findMany)
+            .mock.calls.filter(([args]) => 'OR' in (args?.where ?? {}));
+        expect(coverageCalls).toHaveLength(0);
     });
 });

@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient, ReferenceType } from '@prisma/client';
 import { collectBarterHealth, type BarterSettlementIssue } from './barter-health-service';
+import { isOperationalSalesReceivableOrder } from '@/lib/sales/operational-receivables';
 
 type Db = Prisma.TransactionClient | PrismaClient;
 
@@ -157,6 +158,114 @@ async function loadArDebitByInvoice(
     return byInvoice;
 }
 
+type PaymentCandidate = {
+    id: string;
+    paymentNumber: string | null;
+    paymentDate: Date;
+    amount: unknown;
+    method: string | null;
+    invoice?: {
+        salesOrder?: { orderNumber: string; notes: string | null } | null;
+    } | null;
+};
+
+type ManualArCredit = {
+    entryNumber: string;
+    dateKey: string;
+    credits: string[];
+};
+
+const MS_PER_DAY = 86_400_000;
+
+const toDateKey = (date: Date) => date.toISOString().slice(0, 10);
+const toAmountKey = (value: unknown) => Number(value).toFixed(2);
+
+/**
+ * A payment is "historical" only when its invoice's sales order is known and
+ * matches an opening-balance/import marker. Unknown sales order => operational.
+ */
+function isHistoricalPayment(payment: PaymentCandidate): boolean {
+    const salesOrder = payment.invoice?.salesOrder;
+    if (!salesOrder) return false;
+    return !isOperationalSalesReceivableOrder(salesOrder);
+}
+
+/**
+ * Manual POSTED journals (not SALES_PAYMENT) that credit the AR control
+ * account, within the candidates' payment-date range +-1 day. One query.
+ * Prisma `not` excludes NULL, hence the explicit referenceType: null branch.
+ */
+async function loadManualArCredits(
+    db: Db,
+    arAccountId: string,
+    candidates: PaymentCandidate[],
+): Promise<ManualArCredit[]> {
+    const times = candidates.map((p) => p.paymentDate.getTime());
+    const entries = await db.journalEntry.findMany({
+        where: {
+            status: 'POSTED',
+            OR: [
+                { referenceType: null },
+                { referenceType: { not: 'SALES_PAYMENT' } },
+            ],
+            entryDate: {
+                gte: new Date(Math.min(...times) - MS_PER_DAY),
+                lte: new Date(Math.max(...times) + MS_PER_DAY),
+            },
+            lines: { some: { accountId: arAccountId, credit: { gt: 0 } } },
+        },
+        select: {
+            entryNumber: true,
+            entryDate: true,
+            lines: {
+                where: { accountId: arAccountId, credit: { gt: 0 } },
+                select: { credit: true },
+            },
+        },
+    });
+    return entries.map((entry) => ({
+        entryNumber: entry.entryNumber,
+        dateKey: toDateKey(entry.entryDate),
+        credits: entry.lines.map((line) => toAmountKey(line.credit)),
+    }));
+}
+
+function isCoveredByManualCredit(
+    payment: PaymentCandidate,
+    manualCredits: ManualArCredit[],
+): boolean {
+    const amountKey = toAmountKey(payment.amount);
+    const dateKey = toDateKey(payment.paymentDate);
+    return manualCredits.some(
+        (entry) =>
+            entry.entryNumber === payment.paymentNumber ||
+            (entry.dateKey === dateKey && entry.credits.includes(amountKey)),
+    );
+}
+
+/**
+ * Customer payments with no POSTED SALES_PAYMENT journal. Historical
+ * (opening-balance) payments already settled by a manual journal that credits
+ * AR are not reported; everything else is.
+ */
+async function findPaymentsMissingJournal(
+    db: Db,
+    payments: PaymentCandidate[],
+    journalIndex: Map<string, JournalIndexEntry>,
+    arAccountId: string | null,
+): Promise<PaymentCandidate[]> {
+    const unjournaled = payments.filter(
+        (p) => !journalIndex.get(p.id)?.statuses.has('POSTED'),
+    );
+    const exemptable = arAccountId ? unjournaled.filter(isHistoricalPayment) : [];
+    if (!arAccountId || exemptable.length === 0) return unjournaled;
+
+    const manualCredits = await loadManualArCredits(db, arAccountId, exemptable);
+    return unjournaled.filter(
+        (p) => !isHistoricalPayment(p) || !isCoveredByManualCredit(p, manualCredits),
+    );
+}
+
 export async function collectFinanceJournalIssues(
     db: Db,
 ): Promise<FinanceJournalIssues> {
@@ -203,6 +312,13 @@ export async function collectFinanceJournalIssues(
                 paymentDate: true,
                 amount: true,
                 method: true,
+                invoice: {
+                    select: {
+                        salesOrder: {
+                            select: { orderNumber: true, notes: true },
+                        },
+                    },
+                },
             },
         }),
         db.purchaseInvoice.findMany({
@@ -268,17 +384,21 @@ export async function collectFinanceJournalIssues(
         }
     }
 
-    const salesPaymentsMissing: MissingPaymentIssue[] = payments
-        .filter(
-            (p) => !salesPaymentJournalIndex.get(p.id)?.statuses.has('POSTED'),
-        )
-        .map((p) => ({
+    const unjournaledPayments = await findPaymentsMissingJournal(
+        db,
+        payments,
+        salesPaymentJournalIndex,
+        arAccount?.id ?? null,
+    );
+    const salesPaymentsMissing: MissingPaymentIssue[] = unjournaledPayments.map(
+        (p) => ({
             id: p.id,
             paymentNumber: p.paymentNumber,
             paymentDate: p.paymentDate,
             amount: Number(p.amount),
             method: p.method,
-        }));
+        }),
+    );
 
     // Post-cutoff: SEMUA purchase invoice wajib punya jurnal (model AP
     // invoice-based). Pra-cutoff dikecualikan (historis terparkir di 1-199).
