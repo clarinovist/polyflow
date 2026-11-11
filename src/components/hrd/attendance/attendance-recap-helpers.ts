@@ -10,9 +10,13 @@ export const STATUS_FILTERS = [
     'norecord',
     'outside',
     'nophoto',
+    'stale',
 ] as const;
 
 export type StatusFilter = (typeof STATUS_FILTERS)[number];
+
+/** Label filter/lencana sesi yang lupa pulang (tanpa jam pulang > 20 jam). */
+export const STALE_FILTER_LABEL = 'Lupa pulang';
 
 /** Label seragam untuk istilah shift ganda di rekap harian/mingguan/bulanan. */
 export const MULTI_SHIFT_LABEL = 'Shift Ganda';
@@ -111,6 +115,8 @@ const STATUS_MATCHERS: Record<StatusFilter, (r: RecapRecord) => boolean> = {
     norecord: () => false,
     outside: (r) => r.status === 'PRESENT' && r.isOutsideRadius === true,
     nophoto: (r) => r.status === 'PRESENT' && r.hasValidSelfie === false,
+    // Sesi lupa pulang lintas tanggal: panel tersendiri yang menampilkannya.
+    stale: () => false,
 };
 
 export function filterAttendanceRecords<T extends RecapRecord>(

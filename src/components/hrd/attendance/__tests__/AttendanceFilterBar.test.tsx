@@ -35,6 +35,7 @@ describe('AttendanceFilterBar', () => {
             'Belum absen',
             'Di luar radius',
             'Tanpa selfie',
+            'Lupa pulang',
         ]);
     });
 

@@ -14,6 +14,7 @@ import { AttendanceLoadError } from './attendance/AttendanceLoadError';
 import { AttendanceMonthlyView } from './attendance/AttendanceMonthlyView';
 import { AttendanceNoRecordPanel } from './attendance/AttendanceNoRecordPanel';
 import { AttendanceRecapToolbar } from './attendance/AttendanceRecapToolbar';
+import { AttendanceStaleSessions } from './attendance/AttendanceStaleSessions';
 import { AttendanceSummaryChips } from './attendance/AttendanceSummaryChips';
 import { AttendanceWeeklyView } from './attendance/AttendanceWeeklyView';
 import { CorrectAttendanceDialog } from './attendance/CorrectAttendanceDialog';
@@ -249,19 +250,29 @@ export function AttendanceRecap({
                 />
             )}
 
+            {viewMode === 'daily' && !loadError && statusFilter === 'stale' && (
+                <AttendanceStaleSessions
+                    query={query}
+                    onCorrected={() => router.refresh()}
+                />
+            )}
+
             {viewMode === 'daily' && !loadError && summary && (
                 <AttendanceDailySummaryCards summary={summary} />
             )}
 
-            {viewMode === 'daily' && !loadError && statusFilter !== 'norecord' && (
-                <AttendanceDailyTable
-                    records={visibleRecords}
-                    totalCount={records.length}
-                    actionsDisabled={correction.loading}
-                    onPreview={setPhotoPreview}
-                    onCorrect={correction.open}
-                />
-            )}
+            {viewMode === 'daily' &&
+                !loadError &&
+                statusFilter !== 'norecord' &&
+                statusFilter !== 'stale' && (
+                    <AttendanceDailyTable
+                        records={visibleRecords}
+                        totalCount={records.length}
+                        actionsDisabled={correction.loading}
+                        onPreview={setPhotoPreview}
+                        onCorrect={correction.open}
+                    />
+                )}
 
             <SelfieLightbox
                 preview={photoPreview}

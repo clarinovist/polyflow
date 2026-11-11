@@ -25,7 +25,7 @@ const rec = (overrides: Partial<RecapRecord> = {}): RecapRecord => {
 };
 
 describe('parseStatusFilter', () => {
-    it.each(['norecord', 'late', 'outside', 'nophoto', 'absent', 'leave'])(
+    it.each(['norecord', 'late', 'outside', 'nophoto', 'absent', 'leave', 'stale'])(
         'accepts %s',
         (value) => {
             expect(parseStatusFilter(value)).toBe(value);
@@ -157,6 +157,10 @@ describe('filterAttendanceRecords', () => {
 
     it('does not list a record for norecord (those people have no record)', () => {
         expect(ids('norecord')).toEqual([]);
+    });
+
+    it('does not list a record for stale (the panel lists those sessions)', () => {
+        expect(ids('stale')).toEqual([]);
     });
 
     it('matches the search query on name or code, ignoring case and spaces', () => {

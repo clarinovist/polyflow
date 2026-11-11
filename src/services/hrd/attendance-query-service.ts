@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
-import { isLateForShift } from './shift-window';
+import { isLateForShift, wibDateFrom } from './shift-window';
+import { isStaleOpenSession, staleSessionCutoff } from './stale-session';
 import type {
     AttendanceRecordResult,
     DailySummary,
@@ -74,6 +75,100 @@ export function withAttendanceFlags(
         isOutsideRadius: isRecordOutsideRadius(record, context.radiusMeters),
         hasValidSelfie: isValidAttendancePhotoUrl(record.clockInPhotoUrl),
     }));
+}
+
+// ─── Sesi belum pulang (basi) ───
+
+/** Batas mundur tanggal kerja untuk daftar sesi belum pulang. */
+export const STALE_SESSION_LOOKBACK_DAYS = 60;
+/** Jumlah maksimum sesi yang dikembalikan sekali baca. */
+export const STALE_SESSION_LIMIT = 500;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+export interface StaleOpenSession {
+    id: string;
+    employeeId: string;
+    employeeName: string;
+    employeeCode: string;
+    /** Tanggal kerja `YYYY-MM-DD`. */
+    workDate: string;
+    /** Jam masuk (ISO UTC). */
+    clockInAt: string;
+    shift: { id: string; name: string; startTime: string; endTime: string };
+    /** Lama sesi terbuka sejak jam masuk, dibulatkan 1 desimal. */
+    openHours: number;
+}
+
+export interface StaleOpenSessionList {
+    sessions: StaleOpenSession[];
+    /** True bila ada lebih banyak sesi daripada batas yang dikembalikan. */
+    truncated: boolean;
+}
+
+const STALE_SESSION_INCLUDE = {
+    employee: { select: { name: true, code: true } },
+    workShift: {
+        select: { id: true, name: true, startTime: true, endTime: true },
+    },
+} as const;
+
+type StaleSessionRow = {
+    id: string;
+    employeeId: string;
+    workDate: Date;
+    clockInAt: Date | null;
+    clockOutAt: Date | null;
+    employee: { name: string; code: string };
+    workShift: StaleOpenSession['shift'];
+};
+
+function toStaleOpenSession(row: StaleSessionRow, now: Date): StaleOpenSession {
+    const clockInAt = row.clockInAt as Date;
+    const openHours = (now.getTime() - clockInAt.getTime()) / MS_PER_HOUR;
+    return {
+        id: row.id,
+        employeeId: row.employeeId,
+        employeeName: row.employee.name,
+        employeeCode: row.employee.code,
+        workDate: row.workDate.toISOString().slice(0, 10),
+        clockInAt: clockInAt.toISOString(),
+        shift: row.workShift,
+        openHours: Math.round(openHours * 10) / 10,
+    };
+}
+
+/**
+ * Sesi PRESENT yang sudah > 20 jam tanpa jam pulang, `workDate` 60 hari
+ * terakhir (WIB). Satu query; baca saja, tidak mengubah data absensi.
+ */
+export async function findStaleOpenSessions(
+    db: PrismaClient,
+    now: Date,
+): Promise<StaleOpenSessionList> {
+    const lookbackFrom = new Date(
+        wibDateFrom(now).getTime() - STALE_SESSION_LOOKBACK_DAYS * MS_PER_DAY,
+    );
+    const rows = (await db.attendanceRecord.findMany({
+        where: {
+            status: 'PRESENT',
+            clockOutAt: null,
+            clockInAt: { lt: staleSessionCutoff(now) },
+            workDate: { gte: lookbackFrom },
+        },
+        include: STALE_SESSION_INCLUDE,
+        orderBy: [{ workDate: 'desc' }, { clockInAt: 'desc' }],
+        // Satu baris ekstra hanya untuk mendeteksi pemotongan.
+        take: STALE_SESSION_LIMIT + 1,
+    })) as StaleSessionRow[];
+
+    const truncated = rows.length > STALE_SESSION_LIMIT;
+    const sessions = rows
+        .slice(0, STALE_SESSION_LIMIT)
+        .filter((row) => isStaleOpenSession(row, now))
+        .map((row) => toStaleOpenSession(row, now));
+    return { sessions, truncated };
 }
 
 type AttendanceQueryDependencies = {

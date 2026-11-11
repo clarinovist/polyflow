@@ -3,7 +3,10 @@
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
-import type { StatusFilter } from './attendance-recap-helpers';
+import {
+    STALE_FILTER_LABEL,
+    type StatusFilter,
+} from './attendance-recap-helpers';
 
 interface Props {
     status: StatusFilter;
@@ -21,6 +24,7 @@ const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: 'norecord', label: attendanceStatusLabel('NO_RECORD') },
     { value: 'outside', label: 'Di luar radius' },
     { value: 'nophoto', label: 'Tanpa selfie' },
+    { value: 'stale', label: STALE_FILTER_LABEL },
 ];
 
 /** Filter status + pencarian nama/kode untuk rekap harian. */

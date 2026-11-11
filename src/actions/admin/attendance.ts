@@ -8,6 +8,7 @@ import {
     type ListFilters,
 } from '@/services/hrd/attendance-service';
 import {
+    findStaleOpenSessions,
     readConfiguredRadius,
     withAttendanceFlags,
     type AttendanceRecordWithFlags,
@@ -322,6 +323,31 @@ export const listNoRecordAttendance = withTenant(
             return {
                 success: false,
                 error: 'Gagal memuat daftar belum absen',
+            };
+        }
+    },
+);
+
+/**
+ * Sesi PRESENT yang lupa pulang (> 20 jam tanpa jam pulang, 60 hari terakhir).
+ * Baca saja; koreksi tetap lewat `correctAttendance`.
+ */
+export const listStaleOpenSessions = withTenant(
+    async function listStaleOpenSessions() {
+        try {
+            const guard = await runHrdGuard(requireHrdFinance);
+            if (guard.denied) return guard.denied;
+            const data = await findStaleOpenSessions(db, new Date());
+            return { success: true, data };
+        } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
+            logger.error('List stale open sessions failed', {
+                error,
+                module: 'AttendanceActions',
+            });
+            return {
+                success: false,
+                error: 'Gagal memuat sesi belum pulang',
             };
         }
     },
