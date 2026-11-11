@@ -18,12 +18,16 @@ vi.mock('@/lib/auth/access-policy', async (importOriginal) => ({
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    getHrdMobileHealth,
     getHrdMobileOverview,
     getHrdMobileTeamAttendance,
 } from '../mobile-dashboard';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/core/prisma';
-import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-service';
+import {
+    readHrdDashboardHealth,
+    readHrdDashboardMobileAggregate,
+} from '@/services/hrd/hrd-dashboard-service';
 import { requireMobilePortalAccess } from '@/lib/mobile/mobile-portal-access';
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
@@ -47,6 +51,7 @@ vi.mock('@/lib/core/tenant', () => ({
 }));
 vi.mock('@/services/hrd/hrd-dashboard-service', () => ({
     readHrdDashboardMobileAggregate: vi.fn(),
+    readHrdDashboardHealth: vi.fn(),
 }));
 
 const aggregateFixture = {
@@ -84,6 +89,14 @@ const aggregateFixture = {
     drivers: { status: 'NOT_CONFIGURED', data: null },
 };
 
+const healthFixture = {
+    generatedAt: aggregateFixture.generatedAt,
+    workDate: aggregateFixture.workDate,
+    yesterdayWorkDate: aggregateFixture.yesterdayWorkDate,
+    health: aggregateFixture.health,
+    drivers: aggregateFixture.drivers,
+};
+
 function session(role: string, roles?: string[]) {
     vi.mocked(auth).mockResolvedValue({
         user: { id: 'u1', role, roles },
@@ -103,6 +116,9 @@ beforeEach(() => {
     vi.mocked(readHrdDashboardMobileAggregate).mockResolvedValue(
         aggregateFixture as never,
     );
+    vi.mocked(readHrdDashboardHealth).mockResolvedValue(
+        healthFixture as never,
+    );
     rootPolicy.permissions.mockResolvedValue({
         success: true,
         data: ['/hrd'],
@@ -117,7 +133,9 @@ describe('HRD overview authorization and canonical conformance', () => {
         const result = await getHrdMobileOverview();
 
         expect(result).toEqual({ success: true, data: aggregateFixture });
-        expect(readHrdDashboardMobileAggregate).toHaveBeenCalledWith(prisma);
+        expect(readHrdDashboardMobileAggregate).toHaveBeenCalledWith(prisma, {
+            userId: 'u1',
+        });
         if (!result.success) throw new Error(result.error);
         expect(result.data.attention).not.toHaveProperty('loanPortfolio');
     });
@@ -250,8 +268,10 @@ describe('HRD team attendance', () => {
         expect(result).toMatchObject({
             success: true,
             data: {
+                // Tiles come from the whole day, not the filtered list.
                 noRecordCount: 1,
-                presentCount: 0,
+                presentCount: 1,
+                totalEmployees: 1,
                 records: [{ employeeId: 'two', status: 'NO_RECORD' }],
             },
         });
@@ -271,7 +291,7 @@ describe('HRD team attendance', () => {
             await getHrdMobileTeamAttendance({ status: 'PRESENT' }),
         ).toMatchObject({
             success: true,
-            data: { presentCount: 1, noRecordCount: 0 },
+            data: { presentCount: 1, noRecordCount: 1, totalEmployees: 1 },
         });
         expect(await getHrdMobileTeamAttendance()).toMatchObject({
             success: true,
@@ -312,5 +332,149 @@ describe('HRD team attendance', () => {
             success: false,
         });
         expect(prisma.employee.findMany).not.toHaveBeenCalled();
+    });
+});
+
+describe('HRD mobile health reader', () => {
+    it('reads only health and drivers, never the attention aggregate', async () => {
+        const result = await getHrdMobileHealth();
+
+        expect(result).toEqual({ success: true, data: healthFixture });
+        expect(readHrdDashboardHealth).toHaveBeenCalledWith(prisma);
+        expect(readHrdDashboardMobileAggregate).not.toHaveBeenCalled();
+        if (!result.success) throw new Error(result.error);
+        expect(result.data).not.toHaveProperty('attention');
+    });
+
+    it('keeps the role guard before reading', async () => {
+        session('FINANCE');
+        expect(await getHrdMobileHealth()).toMatchObject({ success: false });
+        expect(readHrdDashboardHealth).not.toHaveBeenCalled();
+    });
+});
+
+describe('HRD team attendance summary and paging', () => {
+    function roster(total: number, presentIds: string[]) {
+        const people = Array.from({ length: total }, (_, i) => ({
+            id: `emp-${String(i).padStart(2, '0')}`,
+            name: `Synthetic ${String(i).padStart(2, '0')}`,
+            code: `E${i}`,
+            role: 'OPERATOR',
+        }));
+        vi.mocked(prisma.employee.findMany).mockResolvedValue(people as never);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue(
+            presentIds.map((employeeId) => ({
+                id: `rec-${employeeId}`,
+                employeeId,
+                status: 'PRESENT',
+                workShift: { name: 'Shift', startTime: '06:00', endTime: '14:00' },
+                clockInAt: new Date('2026-09-23T00:00:00Z'),
+                clockOutAt: null,
+                actualHours: null,
+            })) as never,
+        );
+    }
+
+    it('counts tiles from the whole day even when a status filter is active', async () => {
+        roster(5, ['emp-00', 'emp-01']);
+        const result = await getHrdMobileTeamAttendance({
+            date: '2026-09-23',
+            status: 'NO_RECORD',
+        });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data.presentCount).toBe(2);
+        expect(result.data.noRecordCount).toBe(3);
+        expect(result.data.totalEmployees).toBe(3);
+        expect(result.data.records).toHaveLength(3);
+    });
+
+    it('returns the requested second page with its own rows', async () => {
+        roster(45, []);
+        const result = await getHrdMobileTeamAttendance({
+            date: '2026-09-23',
+            page: '2',
+        });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data).toMatchObject({
+            page: 2,
+            pageCount: 3,
+            totalEmployees: 45,
+            returned: 20,
+        });
+        expect(result.data.records[0].employeeName).toBe('Synthetic 20');
+    });
+
+    it('clamps an out-of-range page to the last page', async () => {
+        roster(45, []);
+        const result = await getHrdMobileTeamAttendance({
+            date: '2026-09-23',
+            page: '99',
+        });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data).toMatchObject({ page: 3, returned: 5 });
+        expect(result.data.records[0].employeeName).toBe('Synthetic 40');
+    });
+
+    it('keeps page 1 and zero pages worth of rows for an empty roster', async () => {
+        roster(0, []);
+        const result = await getHrdMobileTeamAttendance({ page: '7' });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data).toMatchObject({ page: 1, pageCount: 1, returned: 0 });
+    });
+
+    it('forwards the specific rule message for an invalid status', async () => {
+        const result = await getHrdMobileTeamAttendance({ status: 'BAD' as never });
+        expect(result).toMatchObject({
+            success: false,
+            error: 'Filter status absensi tidak valid.',
+        });
+    });
+});
+
+describe('HRD team attendance on a non-working day', () => {
+    function twoEmployees() {
+        vi.mocked(prisma.employee.findMany).mockResolvedValue([
+            { id: 'one', name: 'Synthetic One', code: 'E1', role: 'OPERATOR' },
+            { id: 'two', name: 'Synthetic Two', code: 'E2', role: 'OPERATOR' },
+        ] as never);
+        vi.mocked(prisma.attendanceRecord.findMany).mockResolvedValue([
+            {
+                id: 'a1',
+                employeeId: 'one',
+                status: 'PRESENT',
+                workShift: { name: 'Shift', startTime: '06:00', endTime: '14:00' },
+                clockInAt: new Date('2026-09-27T00:00:00Z'),
+                clockOutAt: null,
+                actualHours: null,
+            },
+        ] as never);
+    }
+
+    it('has no not-yet-clocked-in people on Sunday', async () => {
+        twoEmployees();
+        const result = await getHrdMobileTeamAttendance({ date: '2026-09-27' });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data.isNonWorkingDay).toBe(true);
+        expect(result.data.noRecordCount).toBe(0);
+        expect(result.data.records.map((r) => r.employeeId)).toEqual(['one']);
+    });
+
+    it('returns no rows for the not-yet-clocked-in filter on Sunday', async () => {
+        twoEmployees();
+        const result = await getHrdMobileTeamAttendance({
+            date: '2026-09-27',
+            status: 'NO_RECORD',
+        });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data).toMatchObject({ totalEmployees: 0, records: [] });
+    });
+
+    it.each(['2026-09-26', '2026-09-28'])('keeps %s unchanged', async (date) => {
+        twoEmployees();
+        const result = await getHrdMobileTeamAttendance({ date });
+        if (!result.success) throw new Error(result.error);
+        expect(result.data.isNonWorkingDay).toBe(false);
+        expect(result.data.noRecordCount).toBe(1);
+        expect(result.data.records).toHaveLength(2);
     });
 });

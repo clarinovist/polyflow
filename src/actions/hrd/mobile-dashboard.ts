@@ -15,9 +15,18 @@ import { hasRole } from '@/lib/auth/roles';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
 import { getLateGraceMinutes } from '@/services/hrd/attendance-location';
 import { isLateForShift } from '@/services/hrd/shift-window';
-import { readHrdDashboardMobileAggregate } from '@/services/hrd/hrd-dashboard-service';
+import {
+    readHrdDashboardHealth,
+    readHrdDashboardMobileAggregate,
+} from '@/services/hrd/hrd-dashboard-service';
+import {
+    ATTENDANCE_STATUS_FILTERS,
+    type AttendanceStatusFilter,
+} from '@/components/hrd/mobile/attendance-filters';
 
 const PAGE_SIZE = 20;
+const MAX_PAGE = 10000;
+const SUNDAY = 0;
 async function requireHrdMobile() {
     const session = await requireRole(['ADMIN', 'HRD']);
     // Tenant admins may read the existing mobile projection, not expand its
@@ -33,8 +42,20 @@ async function requireHrdMobile() {
 export const getHrdMobileOverview = withTenant(
     async function getHrdMobileOverview() {
         return safeAction(async () => {
+            const session = await requireHrdMobile();
+            return readHrdDashboardMobileAggregate(prisma, {
+                userId: session.user.id,
+            });
+        });
+    },
+);
+
+/** Health + drivers only; skips the attention queries the pages never show. */
+export const getHrdMobileHealth = withTenant(
+    async function getHrdMobileHealth() {
+        return safeAction(async () => {
             await requireHrdMobile();
-            return readHrdDashboardMobileAggregate(prisma);
+            return readHrdDashboardHealth(prisma);
         });
     },
 );
@@ -42,7 +63,7 @@ export const getHrdMobileOverview = withTenant(
 export interface HrdMobileTeamAttendanceFilters {
     date?: string;
     workShiftId?: string;
-    status?: 'PRESENT' | 'ABSENT' | 'ON_LEAVE' | 'NO_RECORD' | 'LATE' | 'ALL';
+    status?: AttendanceStatusFilter;
     q?: string;
     page?: string;
 }
@@ -64,6 +85,8 @@ export interface HrdMobileTeamAttendanceResult {
     date: string;
     page?: number;
     pageSize?: number;
+    pageCount?: number;
+    isNonWorkingDay?: boolean;
     totalEmployees: number;
     returned?: number;
     presentCount: number;
@@ -82,16 +105,7 @@ export const getHrdMobileTeamAttendance = withTenant(
         return safeAction(async () => {
             await requireHrdMobile();
             const status = filters?.status || 'ALL';
-            if (
-                ![
-                    'ALL',
-                    'PRESENT',
-                    'ABSENT',
-                    'ON_LEAVE',
-                    'NO_RECORD',
-                    'LATE',
-                ].includes(status)
-            )
+            if (!ATTENDANCE_STATUS_FILTERS.includes(status))
                 throw new BusinessRuleError(
                     'Filter status absensi tidak valid.',
                 );
@@ -99,9 +113,9 @@ export const getHrdMobileTeamAttendance = withTenant(
                 filters?.date?.trim() || toBusinessDateString(new Date()),
             );
             const workDate = new Date(businessDate + 'T00:00:00.000Z');
-            const page = Math.max(
+            const requestedPage = Math.max(
                 1,
-                Math.min(10000, Number(filters?.page) || 1),
+                Math.min(MAX_PAGE, Number(filters?.page) || 1),
             );
             const employeeWhere: Prisma.EmployeeWhereInput = {
                 status: 'ACTIVE',
@@ -188,7 +202,9 @@ export const getHrdMobileTeamAttendance = withTenant(
                 )
                     byEmployee.set(record.employeeId, record);
             }
-            const all: HrdMobileTeamAttendanceRecord[] = employees.map(
+            // Sunday is a day off: nobody is "belum absen"; only real records show.
+            const isNonWorkingDay = workDate.getUTCDay() === SUNDAY;
+            const allRows: HrdMobileTeamAttendanceRecord[] = employees.map(
                 (employee) => {
                     const record = byEmployee.get(employee.id);
                     return {
@@ -217,6 +233,9 @@ export const getHrdMobileTeamAttendance = withTenant(
                     };
                 },
             );
+            const all = isNonWorkingDay
+                ? allRows.filter((r) => r.status !== 'NO_RECORD')
+                : allRows;
             const filtered = all.filter(
                 (r) =>
                     status === 'ALL' ||
@@ -228,24 +247,28 @@ export const getHrdMobileTeamAttendance = withTenant(
                     order[a.status] - order[b.status] ||
                     a.employeeName.localeCompare(b.employeeName),
             );
+            const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            const page = Math.min(requestedPage, pageCount);
             const start = (page - 1) * PAGE_SIZE;
+            const rows = filtered.slice(start, start + PAGE_SIZE);
+            // Tiles summarise the whole day; only paging follows the filter.
+            const countOf = (predicate: (r: HrdMobileTeamAttendanceRecord) => unknown) =>
+                all.filter(predicate).length;
             return {
                 generatedAt: new Date().toISOString(),
                 date: businessDate,
                 page,
                 pageSize: PAGE_SIZE,
+                pageCount,
+                isNonWorkingDay,
                 totalEmployees: filtered.length,
-                returned: filtered.slice(start, start + PAGE_SIZE).length,
-                presentCount: filtered.filter((r) => r.status === 'PRESENT')
-                    .length,
-                absentCount: filtered.filter((r) => r.status === 'ABSENT')
-                    .length,
-                onLeaveCount: filtered.filter((r) => r.status === 'ON_LEAVE')
-                    .length,
-                noRecordCount: filtered.filter((r) => r.status === 'NO_RECORD')
-                    .length,
-                lateCount: filtered.filter((r) => r.isLate).length,
-                records: filtered.slice(start, start + PAGE_SIZE),
+                returned: rows.length,
+                presentCount: countOf((r) => r.status === 'PRESENT'),
+                absentCount: countOf((r) => r.status === 'ABSENT'),
+                onLeaveCount: countOf((r) => r.status === 'ON_LEAVE'),
+                noRecordCount: countOf((r) => r.status === 'NO_RECORD'),
+                lateCount: countOf((r) => r.isLate),
+                records: rows,
                 shifts,
             } satisfies HrdMobileTeamAttendanceResult;
         });

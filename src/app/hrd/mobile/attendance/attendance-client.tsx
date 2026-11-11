@@ -4,7 +4,26 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { HrdMobileTeamAttendanceResult } from '@/actions/hrd/mobile-dashboard';
 import { formatWIB } from '@/lib/utils/timezone';
-import { MobileReadError } from '@/components/mobile/MobileReadError';
+import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
+import {
+    ATTENDANCE_STATUS_FILTERS,
+    attendanceFilterLabel,
+    buildAttendanceHref,
+    describePageRange,
+    employeeRoleLabel,
+} from '@/components/hrd/mobile/attendance-filters';
+
+const SUMMARY_TILES = [
+    { status: 'PRESENT', field: 'presentCount', tone: 'text-emerald-600' },
+    { status: 'LATE', field: 'lateCount', tone: 'text-red-600' },
+    { status: 'ON_LEAVE', field: 'onLeaveCount', tone: 'text-amber-600' },
+    { status: 'ABSENT', field: 'absentCount', tone: 'text-red-600' },
+    { status: 'NO_RECORD', field: 'noRecordCount', tone: '' },
+] as const satisfies ReadonlyArray<{
+    status: string;
+    field: keyof HrdMobileTeamAttendanceResult;
+    tone: string;
+}>;
 
 function fmtTime(iso: string | null): string {
     if (!iso) return '-';
@@ -19,7 +38,7 @@ export function HrdAttendanceClient({
     initialData,
     initialFilters,
 }: {
-    initialData: HrdMobileTeamAttendanceResult | null;
+    initialData: HrdMobileTeamAttendanceResult;
     initialFilters: {
         date?: string;
         workShiftId?: string;
@@ -35,56 +54,42 @@ export function HrdAttendanceClient({
     const [status, setStatus] = useState(initialFilters.status || 'ALL');
     const [q, setQ] = useState(initialFilters.q || '');
 
-    if (!initialData) {
-        return <MobileReadError title="Rekap absensi belum tersedia" />;
-    }
-
     const data = initialData;
+    const page = data.page ?? 1;
+    const pageSize = data.pageSize ?? data.records.length;
+    const pageCount = data.pageCount ?? 1;
 
-    const apply = () => {
-        const params = new URLSearchParams();
-        if (date) params.set('date', date);
-        if (shift) params.set('shift', shift);
-        if (status && status !== 'ALL') params.set('status', status);
-        if (q.trim()) params.set('q', q.trim());
-        router.push(`/hrd/mobile/attendance?${params.toString()}`);
-    };
+    // Changing filters always restarts from page 1.
+    const apply = () =>
+        router.push(
+            buildAttendanceHref(
+                { date, workShiftId: shift, status, q },
+                1,
+            ),
+        );
+    // Paging keeps the filters that are actually applied, not unsent edits.
+    const goToPage = (target: number) =>
+        router.push(buildAttendanceHref(initialFilters, target));
 
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">Hadir</div>
-                    <div className="font-bold text-emerald-600">
-                        {data.presentCount}
+                {SUMMARY_TILES.filter(
+                    (tile) =>
+                        !(data.isNonWorkingDay && tile.status === 'NO_RECORD'),
+                ).map((tile) => (
+                    <div
+                        key={tile.status}
+                        className="rounded-lg border bg-card p-2"
+                    >
+                        <div className="text-xs text-muted-foreground">
+                            {attendanceStatusLabel(tile.status)}
+                        </div>
+                        <div className={`font-bold ${tile.tone}`}>
+                            {data[tile.field] ?? 0}
+                        </div>
                     </div>
-                </div>
-                <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">Absen</div>
-                    <div className="font-bold text-red-600">
-                        {data.absentCount}
-                    </div>
-                </div>
-                <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">Cuti</div>
-                    <div className="font-bold text-amber-600">
-                        {data.onLeaveCount}
-                    </div>
-                </div>
-                <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">
-                        Belum tercatat
-                    </div>
-                    <div className="font-bold">{data.noRecordCount}</div>
-                </div>
-                <div className="rounded-lg border bg-card p-2">
-                    <div className="text-xs text-muted-foreground">
-                        Terlambat
-                    </div>
-                    <div className="font-bold text-red-600">
-                        {data.lateCount ?? 0}
-                    </div>
-                </div>
+                ))}
             </div>
 
             <div className="rounded-lg border bg-card p-3 space-y-2 [&_input]:min-h-11 [&_select]:min-h-11 [&_button]:min-h-11">
@@ -117,12 +122,11 @@ export function HrdAttendanceClient({
                         onChange={(e) => setStatus(e.target.value)}
                         className="rounded-md border px-2 py-1.5 text-sm"
                     >
-                        <option value="ALL">Semua Status</option>
-                        <option value="PRESENT">Hadir</option>
-                        <option value="ABSENT">Tidak Hadir</option>
-                        <option value="ON_LEAVE">Cuti</option>
-                        <option value="NO_RECORD">Belum Absen</option>
-                        <option value="LATE">Terlambat</option>
+                        {ATTENDANCE_STATUS_FILTERS.map((value) => (
+                            <option key={value} value={value}>
+                                {attendanceFilterLabel(value)}
+                            </option>
+                        ))}
                     </select>
                     <input
                         type="text"
@@ -142,11 +146,45 @@ export function HrdAttendanceClient({
             </div>
 
             <p className="text-xs text-muted-foreground">
-                Menampilkan {data.returned ?? data.records.length} dari{' '}
-                {data.totalEmployees}. Belum tercatat bukan berarti tidak hadir;
-                shift mungkin belum dimulai. Status terlambat memakai jam mulai
-                shift dan grace period HRD.
+                Ringkasan di atas dihitung dari seluruh karyawan pada tanggal
+                ini. Belum absen bukan berarti tidak hadir; shift mungkin
+                belum dimulai. Terlambat memakai jam mulai shift dan toleransi
+                keterlambatan HRD.
             </p>
+            {data.isNonWorkingDay ? (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs font-semibold">
+                    Hari libur (Minggu)
+                </p>
+            ) : null}
+            <div
+                className="flex items-center justify-between gap-2 text-xs [&_button]:min-h-11"
+                aria-label="Halaman rekap"
+            >
+                <button
+                    type="button"
+                    onClick={() => goToPage(page - 1)}
+                    disabled={page <= 1}
+                    className="rounded-md border px-3 disabled:opacity-50"
+                >
+                    Sebelumnya
+                </button>
+                <span>
+                    {describePageRange(
+                        page,
+                        pageSize,
+                        data.returned ?? data.records.length,
+                        data.totalEmployees,
+                    )}
+                </span>
+                <button
+                    type="button"
+                    onClick={() => goToPage(page + 1)}
+                    disabled={page >= pageCount}
+                    className="rounded-md border px-3 disabled:opacity-50"
+                >
+                    Berikutnya
+                </button>
+            </div>
             <div className="space-y-2">
                 {!data.records.length && (
                     <p className="text-sm">
@@ -164,19 +202,19 @@ export function HrdAttendanceClient({
                                     {r.employeeName}{' '}
                                     {r.isLate ? (
                                         <span className="ml-1 rounded bg-red-100 px-1 text-xs text-red-700">
-                                            Terlambat
+                                            {attendanceStatusLabel('LATE')}
                                         </span>
                                     ) : null}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                    {r.employeeCode} • {r.employeeRole}{' '}
+                                    {r.employeeCode} • {employeeRoleLabel(r.employeeRole)}{' '}
                                     {r.shiftName ? `• ${r.shiftName}` : ''}
                                 </div>
                             </div>
                             <span
                                 className={`h-fit rounded-full px-2 py-0.5 text-xs font-semibold ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-red-100 text-red-700' : r.status === 'ON_LEAVE' ? 'bg-amber-100 text-amber-700' : 'bg-muted text-muted-foreground'}`}
                             >
-                                {r.status}
+                                {attendanceStatusLabel(r.status)}
                             </span>
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-xs">

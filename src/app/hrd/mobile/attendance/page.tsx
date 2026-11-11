@@ -1,5 +1,7 @@
 import React from 'react';
-import { getHrdMobileTeamAttendance, type HrdMobileTeamAttendanceFilters } from '@/actions/hrd/mobile-dashboard';
+import { getHrdMobileTeamAttendance } from '@/actions/hrd/mobile-dashboard';
+import { parseAttendanceStatus } from '@/components/hrd/mobile/attendance-filters';
+import { HrdReadError } from '@/components/hrd/mobile/HrdReadError';
 import { MobileDataFreshness, MobileSectionHeader } from '@/components/mobile';
 import { HrdAttendanceClient } from './attendance-client';
 
@@ -8,6 +10,7 @@ type SearchParams = {
     shift?: string;
     status?: string;
     q?: string;
+    page?: string;
 };
 
 export default async function HrdAttendancePage({
@@ -19,20 +22,28 @@ export default async function HrdAttendancePage({
     const filters = {
         date: sp.date?.trim() || undefined,
         workShiftId: sp.shift?.trim() || undefined,
-        status: (sp.status?.trim() || 'ALL') as HrdMobileTeamAttendanceFilters['status'],
+        status: parseAttendanceStatus(sp.status?.trim()),
         q: sp.q?.trim() || undefined,
+        page: sp.page?.trim() || undefined,
     };
 
     const res = await getHrdMobileTeamAttendance(filters);
-    const data = res.success ? res.data : null;
+    if (!res.success)
+        return (
+            <HrdReadError
+                title="Rekap absensi belum tersedia"
+                message={res.error}
+            />
+        );
+    const data = res.data;
 
     return (
         <div className="space-y-4">
             <MobileSectionHeader title="Rekap Absensi Karyawan" level={1} />
-            {data && <MobileDataFreshness generatedAt={data.generatedAt} />}
+            <MobileDataFreshness generatedAt={data.generatedAt} />
             <p className="text-xs text-muted-foreground">
-                View-only HRD — filter tanggal, shift, status. Koreksi tetap via
-                desktop HRD.
+                Hanya untuk dilihat: filter tanggal, shift, dan status. Koreksi
+                tetap lewat HRD desktop.
             </p>
             <HrdAttendanceClient initialData={data} initialFilters={filters} />
         </div>

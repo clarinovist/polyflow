@@ -22,11 +22,11 @@ import SelectorPage from '../mobile/page';
 import { getAvailableMobilePortals } from '@/lib/mobile/mobile-portal-decision';
 import { HrdAttendanceClient } from '../hrd/mobile/attendance/attendance-client';
 import WarehouseHome from '../warehouse/mobile/page';
-const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
+const m = vi.hoisted(() => ({ production: vi.fn(), spkList: vi.fn(), exec: vi.fn(), finance: vi.fn(), hrd: vi.fn(), health: vi.fn(), purchasing: vi.fn(), pipeline: vi.fn(), customers: vi.fn(), compliance: vi.fn(), routePlan: vi.fn(), products: vi.fn(), locations: vi.fn(), orders: vi.fn(), receivables: vi.fn(), portals: vi.fn(), warehouse: vi.fn(), refresh: vi.fn(), push: vi.fn(), redirect: vi.fn(), auth: vi.fn() }));
 vi.mock('@/actions/production/mobile-supervisor', () => ({ getProductionSupervisorOverview: m.production, getMobileSupervisorSpkList: m.spkList, getFactoryManagerExecutiveOverview: m.exec }));
 vi.mock('@/actions/production/alert-threshold-settings', () => ({ getProductionAlertThresholdsForPage: async () => ({ success: false }) }));
 vi.mock('@/actions/finance/mobile-dashboard', () => ({ getFinanceMobileOverview: m.finance }));
-vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd }));
+vi.mock('@/actions/hrd/mobile-dashboard', () => ({ getHrdMobileOverview: m.hrd, getHrdMobileHealth: m.health }));
 vi.mock('@/actions/purchasing/mobile-dashboard', () => ({ getPurchasingMobileOverview: m.purchasing }));
 vi.mock('@/actions/inventory/inventory', () => ({ getProductVariants: m.products, getLocations: m.locations }));
 vi.mock('@/actions/dashboard/warehouse-mobile-dashboard', () => ({ getWarehouseMobileDashboard: m.warehouse }));
@@ -56,7 +56,7 @@ vi.mock('../field/sales/receivables/ReceivablesListClient', () => ({ Receivables
 afterEach(cleanup);
 beforeEach(() => {
     vi.resetAllMocks();
-    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.purchasing, m.pipeline, m.customers, m.compliance, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.warehouse]) fn.mockResolvedValue({ success: false });
+    for (const fn of [m.production, m.exec, m.finance, m.hrd, m.health, m.purchasing, m.pipeline, m.customers, m.compliance, m.routePlan, m.products, m.locations, m.orders, m.receivables, m.portals, m.warehouse]) fn.mockResolvedValue({ success: false });
     m.auth.mockResolvedValue({ user: { id: 'synthetic', role: 'FINANCE' } });
 });
 describe('mobile read states', () => {
@@ -288,6 +288,7 @@ describe('mobile read states', () => {
         const overview = {
             generatedAt: '2026-10-09T00:00:00.000Z',
             workDate: '2026-10-09',
+            yesterdayWorkDate: '2026-10-08',
             health: {
                 activeHeadcount: { status: 'AVAILABLE', data: { count: 12 } },
                 attendanceToday: {
@@ -296,7 +297,12 @@ describe('mobile read states', () => {
                         present: 0,
                         absent: 2,
                         onLeave: 1,
+                        noRecord: 4,
+                        late: 3,
+                        outsideRadius: 0,
+                        noSelfie: 0,
                         overtimeHours: 1.25,
+                        isNonWorkingDay: false,
                     },
                 },
                 payrollReadiness: { status: 'NOT_CONFIGURED', data: null },
@@ -304,27 +310,32 @@ describe('mobile read states', () => {
             },
             drivers: { status: 'NOT_CONFIGURED', data: null },
         };
-        m.hrd.mockResolvedValue({ success: true, data: overview });
+        m.health.mockResolvedValue({ success: true, data: overview });
 
         render(await HrdHome());
-        expect(screen.getByText('0')).toBeTruthy();
-        expect(screen.getByText(/2 \/ 1/)).toBeTruthy();
-        expect(screen.getByText('Belum ada periode payroll OPEN')).toBeTruthy();
+        // Canonical counts are rendered as given, one card per status.
+        const valueOf = (name: RegExp) =>
+            screen.getByRole('link', { name }).textContent ?? '';
+        expect(valueOf(/Hadir/)).toContain('0');
+        expect(valueOf(/Terlambat/)).toContain('3');
+        expect(valueOf(/Alfa/)).toContain('2');
+        expect(valueOf(/Izin/)).toContain('1');
+        expect(valueOf(/Belum absen/)).toContain('4');
+        expect(screen.getByText('Belum ada periode payroll terbuka')).toBeTruthy();
         expect(
             screen.getByText('Tindak lanjut kepegawaian tidak tersedia'),
         ).toBeTruthy();
         expect(
-            screen
-                .getByRole('link', { name: /PRESENT Tercatat Hari Ini/ })
-                .getAttribute('href'),
-        ).toBe('/hrd/mobile/attendance');
+            screen.getByRole('link', { name: /Hadir/ }).getAttribute('href'),
+        ).toBe('/hrd/mobile/attendance?status=PRESENT');
         expect(overview).not.toHaveProperty('pendingLeaves');
         expect(overview).not.toHaveProperty('alerts');
+        expect(screen.queryByText(/PRESENT|NO_RECORD|ABSENT/)).toBeNull();
 
         cleanup();
         render(await HrdInsights());
-        expect(screen.getByText('Driver unit/sif belum dikonfigurasi')).toBeTruthy();
-        expect(screen.getByText(/Attendance rate, NO_RECORD/)).toBeTruthy();
+        expect(screen.getByText('Faktor per unit/shift belum dikonfigurasi')).toBeTruthy();
+        expect(screen.getByText(/Tingkat kehadiran, perputaran karyawan/)).toBeTruthy();
     });
 
     it('shows only the aggregate pending-leave count without exposing a desktop route', async () => {
@@ -448,7 +459,7 @@ describe('mobile read states', () => {
     });
     it('distinguishes absent and not-recorded and submits NO_RECORD as derived filter', () => {
         render(<HrdAttendanceClient initialFilters={{}} initialData={{ generatedAt: '', date: '2026-09-23', totalEmployees: 3, presentCount: 1, absentCount: 0, onLeaveCount: 0, noRecordCount: 2, shifts: [], records: [] }} />);
-        expect(screen.getByText('Belum tercatat')).toBeTruthy();
+        expect(screen.getByText('Belum absen', { selector: 'div' })).toBeTruthy();
         fireEvent.change(screen.getByLabelText('Status absensi'), { target: { value: 'NO_RECORD' } });
         fireEvent.click(screen.getByRole('button', { name: 'Terapkan' })); expect(m.push).toHaveBeenCalledWith('/hrd/mobile/attendance?date=2026-09-23&status=NO_RECORD');
     });
