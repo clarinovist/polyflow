@@ -147,41 +147,84 @@ describe('/api/upload/hrd-doc', () => {
     });
 
     describe('role gate', () => {
-        function validForm() {
+        function formFor(category?: string) {
             const fd = new FormData();
             fd.append('file', makeFile());
             fd.append('entityId', 'ent-1');
+            if (category) fd.append('category', category);
             return fd;
         }
 
         it.each(['SALES', 'EMPLOYEE', 'PRODUCTION'])(
-            '403 — role %s is rejected without uploading',
+            '403 — role %s is rejected for every category without uploading',
             async (role) => {
                 mockRequireAuth.mockResolvedValue(sessionWithRole(role));
 
-                const res = await POST(fakeReq(validForm()));
-
-                expect(res.status).toBe(403);
+                for (const category of ['disciplinary', 'leave', 'employee', 'loan']) {
+                    const res = await POST(fakeReq(formFor(category)));
+                    expect(res.status).toBe(403);
+                }
                 expect(mockUploadToR2).not.toHaveBeenCalled();
             },
         );
 
-        it.each(['HRD', 'FINANCE', 'ADMIN'])(
-            '200 — role %s is accepted',
-            async (role) => {
-                mockRequireAuth.mockResolvedValue(sessionWithRole(role));
+        it.each(['disciplinary', 'leave', 'employee', 'loan'])(
+            '200 — HRD is accepted for category %s',
+            async (category) => {
+                mockRequireAuth.mockResolvedValue(sessionWithRole('HRD'));
 
-                const res = await POST(fakeReq(validForm()));
+                const res = await POST(fakeReq(formFor(category)));
 
                 expect(res.status).toBe(200);
                 expect(mockUploadToR2).toHaveBeenCalledTimes(1);
             },
         );
 
+        it.each(['disciplinary', 'leave', 'employee', 'loan'])(
+            '200 — ADMIN is accepted for category %s',
+            async (category) => {
+                mockRequireAuth.mockResolvedValue(sessionWithRole('ADMIN'));
+
+                const res = await POST(fakeReq(formFor(category)));
+
+                expect(res.status).toBe(200);
+            },
+        );
+
+        it('200 — FINANCE is accepted for loan documents', async () => {
+            mockRequireAuth.mockResolvedValue(sessionWithRole('FINANCE'));
+
+            const res = await POST(fakeReq(formFor('loan')));
+
+            expect(res.status).toBe(200);
+            expect(mockUploadToR2).toHaveBeenCalledTimes(1);
+        });
+
+        it.each(['disciplinary', 'leave', 'employee'])(
+            '403 — FINANCE is rejected for category %s without uploading',
+            async (category) => {
+                mockRequireAuth.mockResolvedValue(sessionWithRole('FINANCE'));
+
+                const res = await POST(fakeReq(formFor(category)));
+
+                expect(res.status).toBe(403);
+                expect(mockUploadToR2).not.toHaveBeenCalled();
+            },
+        );
+
+        it('403 — FINANCE is rejected when the category is omitted (defaults to disciplinary)', async () => {
+            mockRequireAuth.mockResolvedValue(sessionWithRole('FINANCE'));
+
+            const res = await POST(fakeReq(formFor()));
+
+            expect(res.status).toBe(403);
+            expect(mockUploadToR2).not.toHaveBeenCalled();
+        });
+
         it('does not upload when there is no session', async () => {
             mockRequireAuth.mockRejectedValue(new Error('NEXT_REDIRECT'));
 
-            await expect(POST(fakeReq(validForm()))).resolves.toMatchObject({
+            await expect(POST(fakeReq(formFor('loan')))).resolves.toMatchObject({
                 status: 500,
             });
             expect(mockUploadToR2).not.toHaveBeenCalled();

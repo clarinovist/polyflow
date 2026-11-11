@@ -47,7 +47,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
-    setAbsent,
     correctAttendance,
     getAttendanceMonthlySummary,
     getAttendanceWeeklySummary,
@@ -326,27 +325,6 @@ export function AttendanceRecap({
         if (overtimeOnly) sp.set('ot', '1');
         return `/api/hrd/attendance/export?${sp.toString()}`;
     })();
-
-    const handleSetAbsent = async (r: AttendanceRecord) => {
-        setActionLoading(true);
-        try {
-            const res = await setAbsent(
-                r.employeeId,
-                currentDate,
-                r.workShiftId,
-            );
-            if (res.success) {
-                toast.success(`${r.employeeName} ditandai tidak hadir`);
-                router.refresh();
-            } else {
-                toast.error(res.error || 'Gagal set absent');
-            }
-        } catch {
-            toast.error('Gagal set absent');
-        } finally {
-            setActionLoading(false);
-        }
-    };
 
     const openCorrect = (r: AttendanceRecord) => {
         setCorrecting(r);
@@ -1088,20 +1066,6 @@ export function AttendanceRecap({
                                                     >
                                                         Koreksi Jam
                                                     </DropdownMenuItem>
-                                                    {r.status !== 'ABSENT' &&
-                                                        r.clockInAt ===
-                                                            null && (
-                                                            <DropdownMenuItem
-                                                                onClick={() =>
-                                                                    handleSetAbsent(
-                                                                        r,
-                                                                    )
-                                                                }
-                                                            >
-                                                                Tandai Tidak
-                                                                Hadir
-                                                            </DropdownMenuItem>
-                                                        )}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                         </TableCell>

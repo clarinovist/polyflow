@@ -4,10 +4,14 @@ import { requireAuth } from '@/lib/tools/auth-checks';
 import { getTenantPrefix, buildHrdDocKey, uploadToR2 } from '@/lib/storage/r2';
 import { requireModuleFromRequest } from '@/lib/modules/guard';
 import { hasAnyRole } from '@/lib/auth/roles';
+import {
+    HRD_DOC_FINANCE_ROLES,
+    rolesForHrdDocCategory,
+    type HrdDocCategory,
+} from '@/lib/hrd/hrd-doc-access';
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
 const ENTITY_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
-const UPLOAD_ROLES = ['ADMIN', 'FINANCE', 'HRD'] as const;
 
 /** Allowed content types and the trusted storage extension for each. */
 const EXTENSION_BY_TYPE: ReadonlyMap<string, string> = new Map([
@@ -47,9 +51,16 @@ function resolveEffectiveType(mime: string, name: string): string | null {
     return EXTENSION_BY_TYPE.has(normalised) ? normalised : null;
 }
 
-function parseCategory(raw: string): 'disciplinary' | 'leave' | 'loan' | 'employee' {
+function parseCategory(raw: string): HrdDocCategory {
     if (raw === 'leave' || raw === 'loan' || raw === 'employee') return raw;
     return 'disciplinary';
+}
+
+function forbidden() {
+    return NextResponse.json(
+        { error: 'Anda tidak memiliki akses untuk mengunggah dokumen HRD' },
+        { status: 403 },
+    );
 }
 
 function badRequest(error: string) {
@@ -63,12 +74,8 @@ export async function POST(req: NextRequest) {
         if (moduleDeny) return moduleDeny;
 
         const session = await requireAuth();
-        if (!hasAnyRole(session.user, [...UPLOAD_ROLES])) {
-            return NextResponse.json(
-                { error: 'Anda tidak memiliki akses untuk mengunggah dokumen HRD' },
-                { status: 403 },
-            );
-        }
+        // Coarse gate before parsing the body; the per-category check follows below.
+        if (!hasAnyRole(session.user, [...HRD_DOC_FINANCE_ROLES])) return forbidden();
 
         const formData = await req.formData();
         const file = formData.get('file') as File | null;
@@ -76,6 +83,10 @@ export async function POST(req: NextRequest) {
         const category = parseCategory(
             (formData.get('category') as string | null) ?? 'disciplinary',
         );
+
+        if (!hasAnyRole(session.user, [...rolesForHrdDocCategory(category)])) {
+            return forbidden();
+        }
 
         if (!file || !entityId) {
             return badRequest('file and entityId are required');

@@ -115,14 +115,14 @@ describe('GET /api/images/[...path]', () => {
     it('lets a signed-in user read their own tenant image from the apex host', async () => {
         setHost('polyflow.uk');
         mockAuth.mockResolvedValue({ user: { id: 'u2', tenantSubdomain: 'globex' } });
-        const res = await call(['globex', 'attendance', 'emp-1', 'clock_in-1.jpg']);
+        const res = await call(['globex', 'production', 'exec-1', 'a.jpg']);
         expect(res.status).toBe(200);
     });
 
     it('does not let a signed-in tenant user read another tenant image', async () => {
         setHost('polyflow.uk');
         mockAuth.mockResolvedValue({ user: { id: 'u3', tenantSubdomain: 'acme' } });
-        const res = await call(['globex', 'attendance', 'emp-1', 'clock_in-1.jpg']);
+        const res = await call(['globex', 'production', 'exec-1', 'a.jpg']);
         expect(res.status).toBe(404);
         expect(mockSend).not.toHaveBeenCalled();
     });
@@ -201,6 +201,123 @@ describe('GET /api/images/[...path]', () => {
         it('does not treat hrd-docs deeper in the path as a gated prefix', async () => {
             const res = await call(['acme', 'production', 'hrd-docs', '1.jpg']);
             expect(res.status).toBe(200);
+        });
+    });
+
+    describe('HRD documents per category', () => {
+        const userOf = (role: string, tenantSubdomain = 'acme') => ({
+            user: { id: 'u9', role, roles: [role], tenantSubdomain },
+        });
+        const docKey = (category: string) => [
+            'acme', 'hrd-docs', category, 'doc-1', '1787886860020.jpg',
+        ];
+
+        it.each(['disciplinary', 'leave', 'employee'])(
+            'serves %s documents to HRD',
+            async (category) => {
+                mockAuth.mockResolvedValue(userOf('HRD'));
+                const res = await call(docKey(category));
+                expect(res.status).toBe(200);
+            },
+        );
+
+        it.each(['disciplinary', 'leave', 'employee', 'unknown-category'])(
+            'hides %s documents from FINANCE',
+            async (category) => {
+                mockAuth.mockResolvedValue(userOf('FINANCE'));
+                const res = await call(docKey(category));
+                expect(res.status).toBe(404);
+                expect(mockSend).not.toHaveBeenCalled();
+            },
+        );
+
+        it('hides disciplinary documents from an anonymous caller on the tenant host', async () => {
+            const res = await call(docKey('disciplinary'));
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('serves loan documents to FINANCE', async () => {
+            mockAuth.mockResolvedValue(userOf('FINANCE'));
+            const res = await call(docKey('loan'));
+            expect(res.status).toBe(200);
+        });
+
+        it('serves an unknown category to HRD (approver roles by default)', async () => {
+            mockAuth.mockResolvedValue(userOf('HRD'));
+            const res = await call(docKey('unknown-category'));
+            expect(res.status).toBe(200);
+        });
+
+        it('matches the category case-insensitively', async () => {
+            mockAuth.mockResolvedValue(userOf('FINANCE'));
+            const res = await call(docKey('DISCIPLINARY'));
+            expect(res.status).toBe(404);
+        });
+
+        it('lets a super admin read any category', async () => {
+            setHost('admin.polyflow.uk');
+            mockAuth.mockResolvedValue({ user: { id: 'u1', isSuperAdmin: true } });
+            const res = await call(docKey('disciplinary'));
+            expect(res.status).toBe(200);
+        });
+    });
+
+    describe('attendance selfies', () => {
+        const selfieKey = ['acme', 'attendance', 'emp-1', 'clock_in-1.jpg'];
+        const userOf = (role: string, tenantSubdomain = 'acme') => ({
+            user: { id: 'u9', role, roles: [role], tenantSubdomain },
+        });
+
+        it('hides selfies from an anonymous caller on the matching tenant host', async () => {
+            const res = await call(selfieKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it.each(['HRD', 'FINANCE', 'ADMIN'])(
+            'serves selfies to a %s user of the same tenant',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role));
+                const res = await call(selfieKey);
+                expect(res.status).toBe(200);
+            },
+        );
+
+        it.each(['SALES', 'EMPLOYEE', 'PRODUCTION'])(
+            'hides selfies from a %s user of the same tenant',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role));
+                const res = await call(selfieKey);
+                expect(res.status).toBe(404);
+                expect(mockSend).not.toHaveBeenCalled();
+            },
+        );
+
+        it('hides selfies from an HRD user of another tenant', async () => {
+            mockAuth.mockResolvedValue(userOf('HRD', 'globex'));
+            const res = await call(selfieKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('lets a super admin read selfies of any tenant', async () => {
+            setHost('admin.polyflow.uk');
+            mockAuth.mockResolvedValue({ user: { id: 'u1', isSuperAdmin: true } });
+            const res = await call(['globex', ...selfieKey.slice(1)]);
+            expect(res.status).toBe(200);
+        });
+
+        it('matches the attendance segment case-insensitively', async () => {
+            const res = await call(['acme', 'Attendance', 'emp-1', 'a.jpg']);
+            expect(res.status).toBe(404);
+        });
+
+        it('keeps other prefixes anonymous-per-subdomain (delivery, warehouse)', async () => {
+            for (const prefix of ['production', 'delivery', 'warehouse', 'customers']) {
+                const res = await call(['acme', prefix, 'x', 'a.jpg']);
+                expect(res.status).toBe(200);
+            }
         });
     });
 

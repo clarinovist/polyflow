@@ -5,6 +5,7 @@ import { auth } from '@/auth';
 import { extractSubdomain } from '@/lib/core/subdomain';
 import { r2Client, BUCKET } from '@/lib/storage/r2';
 import { hasAnyRole } from '@/lib/auth/roles';
+import { HRD_DOC_FINANCE_ROLES, rolesForHrdDocCategory } from '@/lib/hrd/hrd-doc-access';
 
 /**
  * Proxy endpoint for R2 images.
@@ -17,8 +18,11 @@ import { hasAnyRole } from '@/lib/auth/roles';
  *    date, which previously made every tenant database downloadable without a login;
  *  - a key must belong to the tenant that owns the request host (anonymous kiosk keeps
  *    working), or to the signed-in user's own tenant; super admins may read any tenant;
- *  - HRD documents (`<tenant>/hrd-docs/...`) additionally need a signed-in ADMIN/FINANCE/HRD
- *    user of that tenant (or a super admin) — a matching host alone is not enough;
+ *  - HRD documents (`<tenant>/hrd-docs/<category>/...`) additionally need a signed-in user of
+ *    that tenant (or a super admin) whose role fits the category (ADMIN/HRD, plus FINANCE for
+ *    loans) — a matching host alone is not enough;
+ *  - employee attendance selfies (`<tenant>/attendance/...`) need a signed-in ADMIN/FINANCE/HRD
+ *    user of that tenant (or a super admin); the kiosk does not display them;
  *  - the response Content-Type comes from the key extension, never from storage metadata,
  *    and is sent with `nosniff`.
  */
@@ -31,7 +35,7 @@ const CONTENT_TYPE_BY_EXTENSION: ReadonlyMap<string, string> = new Map([
 const ALLOWED_EXTENSIONS: ReadonlySet<string> = new Set(CONTENT_TYPE_BY_EXTENSION.keys());
 
 const HRD_DOCS_SEGMENT = 'hrd-docs';
-const HRD_DOC_ROLES = ['ADMIN', 'FINANCE', 'HRD'] as const;
+const ATTENDANCE_SEGMENT = 'attendance';
 
 /** Path segments that must never be served by the image proxy. */
 const BLOCKED_SEGMENTS = new Set(['backups', 'backup', 'archive', 'dump', 'dumps', 'exports']);
@@ -66,14 +70,32 @@ function isHrdDocKey(path: string[]): boolean {
     return path[1]?.toLowerCase() === HRD_DOCS_SEGMENT;
 }
 
-/** HRD documents: a signed-in HRD-role user of the owning tenant, or a super admin. */
-async function isAllowedForHrdDocs(tenantPrefix: string): Promise<boolean> {
+function isAttendanceKey(path: string[]): boolean {
+    return path[1]?.toLowerCase() === ATTENDANCE_SEGMENT;
+}
+
+/** Signed-in user of the owning tenant (or a super admin) holding one of `roles`. */
+async function isAllowedForRoles(
+    tenantPrefix: string,
+    roles: readonly string[],
+): Promise<boolean> {
     const session = await auth().catch(() => null);
     const user = session?.user;
     if (!user) return false;
     if (user.isSuperAdmin) return true;
-    if (!hasAnyRole(user, [...HRD_DOC_ROLES])) return false;
+    if (!hasAnyRole(user, [...roles])) return false;
     return user.tenantSubdomain?.toLowerCase() === tenantPrefix;
+}
+
+/** Access check for the key's prefix; only HRD documents and selfies need a role. */
+function isAllowedForKey(path: string[], tenantPrefix: string): Promise<boolean> {
+    if (isHrdDocKey(path)) {
+        return isAllowedForRoles(tenantPrefix, rolesForHrdDocCategory(path[2]));
+    }
+    if (isAttendanceKey(path)) {
+        return isAllowedForRoles(tenantPrefix, HRD_DOC_FINANCE_ROLES);
+    }
+    return isAllowedForCaller(tenantPrefix);
 }
 
 function contentTypeForKey(key: string): string {
@@ -122,10 +144,7 @@ export async function GET(
         }
 
         const tenantPrefix = path[0].toLowerCase();
-        const isAllowed = isHrdDocKey(path)
-            ? await isAllowedForHrdDocs(tenantPrefix)
-            : await isAllowedForCaller(tenantPrefix);
-        if (!isAllowed) {
+        if (!(await isAllowedForKey(path, tenantPrefix))) {
             return notFound();
         }
 
