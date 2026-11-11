@@ -87,7 +87,7 @@ export const approveLeaveRequest = withTenant(
     async function approveLeaveRequest(id: string, reviewNotes?: string) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            await LeaveService.approve(
+            const approved = await LeaveService.approve(
                 prisma,
                 id,
                 reviewNotes,
@@ -102,7 +102,10 @@ export const approveLeaveRequest = withTenant(
                     ? `Approved leave request: ${reviewNotes}`
                     : 'Approved leave request',
             });
-            return null;
+            // Hari yang sudah punya clock-in tidak diubah; UI menampilkan infonya.
+            return {
+                preservedAttendanceCount: approved.preservedAttendanceCount,
+            };
         });
     },
 );

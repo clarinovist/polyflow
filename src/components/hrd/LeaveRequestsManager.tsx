@@ -24,6 +24,11 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Download } from 'lucide-react';
+import {
+    LeaveReviewDialog,
+    type LeaveReviewMode,
+    type LeaveReviewTarget,
+} from './LeaveReviewDialog';
 
 type LeaveType =
     | 'ANNUAL'
@@ -42,11 +47,44 @@ const TYPE_LABEL: Record<LeaveType, string> = {
     UNPAID: 'Tidak Dibayar',
     OTHER: 'Lainnya',
 };
+const STATUS_LABEL: Record<LeaveStatus, string> = {
+    PENDING: 'Menunggu',
+    APPROVED: 'Disetujui',
+    REJECTED: 'Ditolak',
+};
 const STATUS_BADGE: Record<LeaveStatus, string> = {
     PENDING: 'bg-amber-500/10 text-amber-700',
     APPROVED: 'bg-green-500/10 text-green-700',
     REJECTED: 'bg-red-500/10 text-red-700',
 };
+
+interface LeaveRow {
+    id: string;
+    employee?: { code: string; name: string };
+    type: string;
+    startDate: string | Date;
+    endDate: string | Date;
+    reason: string | null;
+    status: LeaveStatus;
+    reviewNotes: string | null;
+}
+
+interface ReviewState {
+    target: LeaveReviewTarget;
+    mode: LeaveReviewMode;
+}
+
+function statusLabel(status: string): string {
+    return STATUS_LABEL[status as LeaveStatus] ?? status;
+}
+
+/** The approve action may report how many clocked-in days were left untouched. */
+function readPreservedCount(data: unknown): number {
+    if (typeof data !== 'object' || data === null) return 0;
+    const count = (data as { preservedAttendanceCount?: unknown })
+        .preservedAttendanceCount;
+    return typeof count === 'number' ? count : 0;
+}
 
 interface LeaveRequestsManagerProps {
     initialStatus?: LeaveStatus;
@@ -60,19 +98,11 @@ export function LeaveRequestsManager({
     const [employees, setEmployees] = useState<
         { id: string; name: string; code: string }[]
     >([]);
-    const [requests, setRequests] = useState<
-        Array<{
-            id: string;
-            employee?: { code: string; name: string };
-            type: string;
-            startDate: string | Date;
-            endDate: string | Date;
-            reason: string | null;
-            status: 'PENDING' | 'APPROVED' | 'REJECTED';
-            reviewNotes: string | null;
-        }>
-    >([]);
+    const [requests, setRequests] = useState<LeaveRow[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState<string | null>(null);
+    const [review, setReview] = useState<ReviewState | null>(null);
+    const [isReviewing, setIsReviewing] = useState(false);
     const [filterStatus, setFilterStatus] = useState<
         'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'
     >(initialStatus ?? 'ALL');
@@ -121,13 +151,29 @@ export function LeaveRequestsManager({
 
     const loadRequests = useCallback(async () => {
         setLoading(true);
+        setLoadError(null);
         const filters =
             filterStatus === 'ALL'
                 ? undefined
                 : { status: filterStatus as LeaveStatus };
-        const res = await listLeaveRequests(filters);
-        setRequests(res.success ? (res.data ?? []) : []);
-        setLoading(false);
+        try {
+            const res = await listLeaveRequests(filters);
+            if (res.success) {
+                setRequests(res.data ?? []);
+            } else {
+                setRequests([]);
+                setLoadError(res.error || 'Gagal memuat daftar pengajuan');
+            }
+        } catch (err) {
+            setRequests([]);
+            setLoadError(
+                err instanceof Error
+                    ? err.message
+                    : 'Gagal memuat daftar pengajuan',
+            );
+        } finally {
+            setLoading(false);
+        }
     }, [filterStatus]);
 
     const loadRecap = useCallback(async () => {
@@ -219,32 +265,62 @@ export function LeaveRequestsManager({
         }
     };
 
-    const handleApprove = async (id: string) => {
-        const notes =
-            window.prompt('Catatan approval (opsional):') ?? undefined;
-        const res = await approveLeaveRequest(id, notes);
-        if (res.success) {
-            toast.success('Cuti disetujui');
-            loadRequests();
-        } else {
-            toast.error(res.error || 'Gagal approval');
-        }
+    const openReview = (r: LeaveRow, mode: LeaveReviewMode) => {
+        setReview({
+            mode,
+            target: {
+                id: r.id,
+                employeeName: r.employee?.name ?? 'Karyawan',
+                startDate: r.startDate,
+                endDate: r.endDate,
+            },
+        });
     };
 
-    const handleReject = async (id: string) => {
-        const notes =
-            window.prompt('Alasan penolakan (opsional):') ?? undefined;
-        const res = await rejectLeaveRequest(id, notes);
-        if (res.success) {
-            toast.success('Cuti ditolak');
+    const handleConfirmReview = async (notes: string) => {
+        if (!review || isReviewing) return;
+        const { target, mode } = review;
+        setIsReviewing(true);
+        try {
+            const res =
+                mode === 'approve'
+                    ? await approveLeaveRequest(target.id, notes || undefined)
+                    : await rejectLeaveRequest(target.id, notes);
+            if (!res.success) {
+                toast.error(res.error || 'Gagal memproses pengajuan');
+                return;
+            }
+            toast.success(
+                mode === 'approve' ? 'Cuti disetujui' : 'Cuti ditolak',
+            );
+            const preserved = readPreservedCount(res.data);
+            if (preserved > 0) {
+                toast.info(
+                    `${preserved} hari sudah punya catatan hadir dan tidak diubah`,
+                );
+            }
+            setReview(null);
             loadRequests();
-        } else {
-            toast.error(res.error || 'Gagal reject');
+        } catch (err) {
+            toast.error(
+                err instanceof Error
+                    ? err.message
+                    : 'Gagal memproses pengajuan',
+            );
+        } finally {
+            setIsReviewing(false);
         }
     };
 
     return (
         <div className="space-y-4">
+            <LeaveReviewDialog
+                target={review?.target ?? null}
+                mode={review?.mode ?? 'approve'}
+                isBusy={isReviewing}
+                onConfirm={handleConfirmReview}
+                onCancel={() => setReview(null)}
+            />
             <div className="rounded-lg border bg-card p-4 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="text-sm font-bold uppercase tracking-tight">
@@ -313,7 +389,7 @@ export function LeaveRequestsManager({
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             <div className="rounded-lg bg-muted/40 p-2 text-center">
                                 <div className="text-[10px] text-muted-foreground">
-                                    Pending
+                                    Menunggu
                                 </div>
                                 <div className="font-bold">
                                     {recap.totals.pending}
@@ -337,7 +413,7 @@ export function LeaveRequestsManager({
                             </div>
                             <div className="rounded-lg bg-muted/40 p-2 text-center">
                                 <div className="text-[10px] text-muted-foreground">
-                                    Hari approved
+                                    Hari disetujui
                                 </div>
                                 <div className="font-bold">
                                     {recap.totals.totalDaysApproved}
@@ -371,7 +447,7 @@ export function LeaveRequestsManager({
                                                     ] ?? r.type}
                                                 </td>
                                                 <td className="p-1">
-                                                    {r.status}
+                                                    {statusLabel(r.status)}
                                                 </td>
                                                 <td className="p-1 text-right">
                                                     {r.count}
@@ -525,7 +601,7 @@ export function LeaveRequestsManager({
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">Semua</SelectItem>
-                                <SelectItem value="PENDING">Pending</SelectItem>
+                                <SelectItem value="PENDING">Menunggu</SelectItem>
                                 <SelectItem value="APPROVED">
                                     Disetujui
                                 </SelectItem>
@@ -559,7 +635,26 @@ export function LeaveRequestsManager({
                                         </td>
                                     </tr>
                                 )}
-                                {!loading && requests.length === 0 && (
+                                {!loading && loadError && (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            className="p-4 text-center text-destructive"
+                                        >
+                                            <div>Gagal memuat pengajuan: {loadError}</div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="mt-2 h-7 text-xs"
+                                                onClick={() => loadRequests()}
+                                            >
+                                                Coba lagi
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                )}
+                                {!loading && !loadError && requests.length === 0 && (
                                     <tr>
                                         <td
                                             colSpan={6}
@@ -610,7 +705,7 @@ export function LeaveRequestsManager({
                                             <span
                                                 className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[r.status as LeaveStatus]}`}
                                             >
-                                                {r.status}
+                                                {statusLabel(r.status)}
                                             </span>
                                         </td>
                                         <td className="p-2 text-right space-x-1">
@@ -621,20 +716,20 @@ export function LeaveRequestsManager({
                                                         variant="outline"
                                                         className="h-7 text-xs"
                                                         onClick={() =>
-                                                            handleApprove(r.id)
+                                                            openReview(r, 'approve')
                                                         }
                                                     >
-                                                        Approve
+                                                        Setujui
                                                     </Button>
                                                     <Button
                                                         size="sm"
                                                         variant="ghost"
                                                         className="h-7 text-xs text-destructive"
                                                         onClick={() =>
-                                                            handleReject(r.id)
+                                                            openReview(r, 'reject')
                                                         }
                                                     >
-                                                        Reject
+                                                        Tolak
                                                     </Button>
                                                 </>
                                             )}

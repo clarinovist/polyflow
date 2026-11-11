@@ -3,9 +3,10 @@
  * Pure functions over a Prisma client (no 'use server').
  */
 
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import { assertSafeDocumentUrl } from '@/lib/hrd/document-url';
+import { getEffectivePlannedHours } from './shift-window';
 
 // ── Disciplinary Actions ──
 
@@ -153,6 +154,213 @@ export function leaveDayCount(start: Date, end: Date): number {
     return Math.floor((b - a) / 86_400_000) + 1;
 }
 
+/** Upper bound on days synced per leave request (guards runaway loops). */
+export const MAX_LEAVE_SYNC_DAYS = 366;
+
+type LeaveTx = Prisma.TransactionClient;
+type LeaveReviewStatus = 'APPROVED' | 'REJECTED';
+type LeaveRow = NonNullable<
+    Awaited<ReturnType<LeaveTx['leaveRequest']['findUnique']>>
+>;
+interface ShiftChoice {
+    id: string;
+    plannedHours: number;
+}
+
+async function findRequestOrThrow(
+    tx: LeaveTx,
+    id: string,
+): Promise<LeaveRow> {
+    const req = await tx.leaveRequest.findUnique({ where: { id } });
+    if (!req) throw new NotFoundError('Pengajuan cuti tidak ditemukan');
+    return req;
+}
+
+function leaveDatesOrThrow(req: LeaveRow): Date[] {
+    if (leaveDayCount(req.startDate, req.endDate) > MAX_LEAVE_SYNC_DAYS) {
+        throw new BusinessRuleError(
+            `Rentang izin terlalu panjang (maksimal ${MAX_LEAVE_SYNC_DAYS} hari)`,
+        );
+    }
+    return eachUtcDateInclusive(req.startDate, req.endDate);
+}
+
+/** Atomic PENDING -> reviewed transition; only one caller can win. */
+async function claimPendingRequest(
+    tx: LeaveTx,
+    req: LeaveRow,
+    status: LeaveReviewStatus,
+    reviewNotes: string | undefined,
+    reviewedById: string,
+): Promise<LeaveRow> {
+    const review = {
+        status,
+        reviewedAt: new Date(),
+        reviewedById,
+        reviewNotes: reviewNotes?.trim() || null,
+    };
+    const claimed = await tx.leaveRequest.updateMany({
+        where: { id: req.id, status: 'PENDING' },
+        data: review,
+    });
+    if (claimed.count !== 1) {
+        throw new BusinessRuleError('Pengajuan sudah diproses');
+    }
+    return { ...req, ...review };
+}
+
+const dayKey = (d: Date): string => d.toISOString().slice(0, 10);
+
+type AssignmentRow = {
+    effectiveFrom: Date;
+    effectiveTo: Date | null;
+    workShift: {
+        id: string;
+        status: string;
+        plannedHours: unknown;
+        startTime: string;
+        endTime: string;
+    };
+};
+
+function toShiftChoice(shift: {
+    id: string;
+    plannedHours: unknown;
+    startTime: string;
+    endTime: string;
+}): ShiftChoice {
+    const planned = shift.plannedHours == null ? null : Number(shift.plannedHours);
+    return {
+        id: shift.id,
+        plannedHours: getEffectivePlannedHours(
+            planned,
+            shift.startTime,
+            shift.endTime,
+        ),
+    };
+}
+
+/** Same semantics as EmployeeShiftAssignmentService.getActiveForDate, in memory. */
+function assignedShiftFor(
+    assignments: AssignmentRow[],
+    date: Date,
+): ShiftChoice | null {
+    const t = date.getTime();
+    const match = assignments
+        .filter(
+            (a) =>
+                a.effectiveFrom.getTime() <= t &&
+                (a.effectiveTo === null || a.effectiveTo.getTime() >= t) &&
+                a.workShift.status === 'ACTIVE',
+        )
+        .sort((a, b) => b.effectiveFrom.getTime() - a.effectiveFrom.getTime())[0];
+    return match ? toShiftChoice(match.workShift) : null;
+}
+
+async function loadAssignments(
+    tx: LeaveTx,
+    employeeId: string,
+    first: Date,
+    last: Date,
+): Promise<AssignmentRow[]> {
+    return tx.employeeShiftAssignment.findMany({
+        where: {
+            employeeId,
+            effectiveFrom: { lte: last },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: first } }],
+        },
+        select: {
+            effectiveFrom: true,
+            effectiveTo: true,
+            workShift: {
+                select: {
+                    id: true,
+                    status: true,
+                    plannedHours: true,
+                    startTime: true,
+                    endTime: true,
+                },
+            },
+        },
+    });
+}
+
+async function loadDefaultShift(tx: LeaveTx): Promise<ShiftChoice | null> {
+    const shift = await tx.workShift.findFirst({
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'asc' },
+        select: {
+            id: true,
+            plannedHours: true,
+            startTime: true,
+            endTime: true,
+        },
+    });
+    return shift ? toShiftChoice(shift) : null;
+}
+
+function buildLeaveRecord(
+    req: LeaveRow,
+    workDate: Date,
+    shift: ShiftChoice,
+): Prisma.AttendanceRecordCreateManyInput {
+    return {
+        employeeId: req.employeeId,
+        workDate,
+        workShiftId: shift.id,
+        status: 'ON_LEAVE',
+        source: 'MANUAL',
+        notes: `Auto from leave request ${req.id}`,
+        plannedHours: shift.plannedHours,
+        regularHours: 0,
+        overtimeHours: 0,
+        dailyEarnings: 0,
+        overtimeEarnings: 0,
+        totalEarnings: 0,
+    };
+}
+
+/**
+ * Sync attendance for an approved leave. Returns how many existing records
+ * were preserved because they already carry a clock-in.
+ */
+async function syncLeaveAttendance(
+    tx: LeaveTx,
+    req: LeaveRow,
+    dates: Date[],
+): Promise<number> {
+    if (dates.length === 0) return 0;
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    const range = { gte: first, lte: last };
+
+    const existing = await tx.attendanceRecord.findMany({
+        where: { employeeId: req.employeeId, workDate: range },
+        select: { workDate: true, clockInAt: true },
+    });
+    const preserved = existing.filter((r) => r.clockInAt !== null).length;
+
+    await tx.attendanceRecord.updateMany({
+        where: { employeeId: req.employeeId, workDate: range, clockInAt: null },
+        data: { status: 'ON_LEAVE', source: 'MANUAL' },
+    });
+
+    const covered = new Set(existing.map((r) => dayKey(r.workDate)));
+    const missing = dates.filter((d) => !covered.has(dayKey(d)));
+    if (missing.length === 0) return preserved;
+
+    const assignments = await loadAssignments(tx, req.employeeId, first, last);
+    const fallback = await loadDefaultShift(tx);
+    const rows = missing.flatMap((workDate) => {
+        const shift = assignedShiftFor(assignments, workDate) ?? fallback;
+        return shift ? [buildLeaveRecord(req, workDate, shift)] : [];
+    });
+    if (rows.length > 0) {
+        await tx.attendanceRecord.createMany({ data: rows, skipDuplicates: true });
+    }
+    return preserved;
+}
+
 export const LeaveService = {
     async list(
         db: PrismaClient,
@@ -261,9 +469,13 @@ export const LeaveService = {
 
     /**
      * Approve leave + sync AttendanceRecord to ON_LEAVE for the date range.
-     * - Updates existing records in range → ON_LEAVE / MANUAL
-     * - Creates one ON_LEAVE record per day (using first ACTIVE WorkShift) when missing
-     * Attendance create is best-effort if no WorkShift master exists.
+     * - The PENDING -> APPROVED claim is atomic inside the transaction, so only
+     *   one concurrent reviewer wins.
+     * - Records without a clock-in in range -> ON_LEAVE / MANUAL.
+     * - Records that already have a clock-in are kept as-is and counted in
+     *   `preservedAttendanceCount`.
+     * - Missing days get an ON_LEAVE record (assigned shift, else first ACTIVE
+     *   WorkShift). Skipped when no shift can be resolved (best-effort).
      */
     async approve(
         db: PrismaClient,
@@ -271,66 +483,22 @@ export const LeaveService = {
         reviewNotes: string | undefined,
         reviewedById: string,
     ) {
-        const req = await db.leaveRequest.findUnique({ where: { id } });
-        if (!req) throw new NotFoundError('Pengajuan cuti tidak ditemukan');
-        if (req.status !== 'PENDING')
-            throw new BusinessRuleError('Pengajuan sudah diproses');
-
         return db.$transaction(async (tx) => {
-            const updated = await tx.leaveRequest.update({
-                where: { id },
-                data: {
-                    status: 'APPROVED',
-                    reviewedAt: new Date(),
-                    reviewedById,
-                    reviewNotes: reviewNotes?.trim() || null,
-                },
-            });
-
-            // Update any existing attendance rows in range.
-            await tx.attendanceRecord.updateMany({
-                where: {
-                    employeeId: req.employeeId,
-                    workDate: { gte: req.startDate, lte: req.endDate },
-                },
-                data: { status: 'ON_LEAVE', source: 'MANUAL' },
-            });
-
-            // Create missing day records so prorata can distinguish leave vs absent.
-            const defaultShift = await tx.workShift.findFirst({
-                where: { status: 'ACTIVE' },
-                orderBy: { createdAt: 'asc' },
-                select: { id: true, plannedHours: true },
-            });
-
-            if (defaultShift) {
-                const dates = eachUtcDateInclusive(req.startDate, req.endDate);
-                for (const workDate of dates) {
-                    const existing = await tx.attendanceRecord.findFirst({
-                        where: { employeeId: req.employeeId, workDate },
-                        select: { id: true },
-                    });
-                    if (existing) continue;
-                    await tx.attendanceRecord.create({
-                        data: {
-                            employeeId: req.employeeId,
-                            workDate,
-                            workShiftId: defaultShift.id,
-                            status: 'ON_LEAVE',
-                            source: 'MANUAL',
-                            notes: `Auto from leave request ${req.id}`,
-                            plannedHours: defaultShift.plannedHours ?? 8,
-                            regularHours: 0,
-                            overtimeHours: 0,
-                            dailyEarnings: 0,
-                            overtimeEarnings: 0,
-                            totalEarnings: 0,
-                        },
-                    });
-                }
-            }
-
-            return updated;
+            const req = await findRequestOrThrow(tx, id);
+            const dates = leaveDatesOrThrow(req);
+            const updated = await claimPendingRequest(
+                tx,
+                req,
+                'APPROVED',
+                reviewNotes,
+                reviewedById,
+            );
+            const preservedAttendanceCount = await syncLeaveAttendance(
+                tx,
+                req,
+                dates,
+            );
+            return { ...updated, preservedAttendanceCount };
         });
     },
 
@@ -340,18 +508,15 @@ export const LeaveService = {
         reviewNotes: string | undefined,
         reviewedById: string,
     ) {
-        const req = await db.leaveRequest.findUnique({ where: { id } });
-        if (!req) throw new NotFoundError('Pengajuan cuti tidak ditemukan');
-        if (req.status !== 'PENDING')
-            throw new BusinessRuleError('Pengajuan sudah diproses');
-        return db.leaveRequest.update({
-            where: { id },
-            data: {
-                status: 'REJECTED',
-                reviewedAt: new Date(),
+        return db.$transaction(async (tx) => {
+            const req = await findRequestOrThrow(tx, id);
+            return claimPendingRequest(
+                tx,
+                req,
+                'REJECTED',
+                reviewNotes,
                 reviewedById,
-                reviewNotes: reviewNotes?.trim() || null,
-            },
+            );
         });
     },
 };

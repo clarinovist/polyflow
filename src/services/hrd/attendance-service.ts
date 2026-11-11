@@ -68,13 +68,15 @@ export interface AdminClockOutInput {
 export interface SelfServiceClockInInput {
     employeeId: string;
     clockInPhotoUrl: string;
-    locationEvidence: LocationEvidence;
+    /** Absent when the browser sent no position; the action rejects that only under `enforce`. */
+    locationEvidence?: LocationEvidence;
 }
 
 export interface SelfServiceClockOutInput {
     employeeId: string;
     clockOutPhotoUrl?: string;
-    locationEvidence: LocationEvidence;
+    /** Absent when the browser sent no position; the action rejects that only under `enforce`. */
+    locationEvidence?: LocationEvidence;
 }
 
 export interface AttendanceRecordResult {
@@ -610,7 +612,8 @@ function toDistanceDecimal(meters: number | null): Prisma.Decimal | null {
  * thrown on: when geofencing is off, location is an audit nicety and must not
  * block attendance.
  */
-function toStoredLocation(evidence: LocationEvidence) {
+function toStoredLocation(evidence: LocationEvidence | null | undefined) {
+    if (!evidence) return null;
     if (!isValidCoordinate(evidence.latitude, evidence.longitude)) return null;
     if (!Number.isFinite(evidence.accuracy)) return null;
     return serializeGeofenceForStorage(evidence);
@@ -662,8 +665,7 @@ export const AttendanceService = {
 
         let resolvedWorkShiftId = input.workShiftId?.trim();
         if (!resolvedWorkShiftId) {
-            const today = new Date();
-            today.setUTCHours(0, 0, 0, 0);
+            const today = wibDateFrom(new Date());
 
             const assignment = await db.employeeShiftAssignment.findFirst({
                 where: {
@@ -1243,8 +1245,7 @@ export const AttendanceService = {
 
         // Resolve active shift assignment
         const now = new Date();
-        const today = new Date(now);
-        today.setUTCHours(0, 0, 0, 0);
+        const today = wibDateFrom(now);
 
         const assignment = await db.employeeShiftAssignment.findFirst({
             where: {
@@ -1434,8 +1435,7 @@ export const AttendanceService = {
         staleDate?: string;
     }> {
         const now = new Date();
-        const todayMidnight = new Date(now);
-        todayMidnight.setUTCHours(0, 0, 0, 0);
+        const todayMidnight = wibDateFrom(now);
 
         // Find active shift assignment
         const assignment = await db.employeeShiftAssignment.findFirst({
