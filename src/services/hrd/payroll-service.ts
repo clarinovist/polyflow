@@ -57,6 +57,23 @@ export interface WeeklyPayroll {
     records: PayrollRecord[];
     pieceLines: PiecePayrollLine[];
     exceptions: PiecePayrollLine[];
+    /**
+     * DAILY only: number of distinct work dates this week with a PRESENT record that has
+     * clock-in but no clock-out and a wage of 0. Warning signal only — never feeds any
+     * earnings figure. Always 0 for PIECE/MONTHLY.
+     */
+    incompleteDays: number;
+    /** The work dates (YYYY-MM-DD, ascending) counted in `incompleteDays`. */
+    incompleteDates: string[];
+}
+
+interface AttendanceForIncomplete {
+    workDate: Date;
+    status: string;
+    clockInAt?: Date | null;
+    clockOutAt?: Date | null;
+    dailyEarnings?: { toNumber?: () => number } | number | null;
+    totalEarnings?: { toNumber?: () => number } | number | null;
 }
 
 function toNum(
@@ -70,6 +87,26 @@ function toNum(
 function dateKeyFromWorkDate(d: Date): string {
     // Attendance workDate is stored as date-only UTC midnight
     return d.toISOString().slice(0, 10);
+}
+
+function isIncompleteDay(r: AttendanceForIncomplete): boolean {
+    if (r.status !== 'PRESENT') return false;
+    if (!r.clockInAt || r.clockOutAt) return false;
+    return toNum(r.totalEarnings) === 0 && toNum(r.dailyEarnings) === 0;
+}
+
+/** Sorted, de-duplicated work dates of open (no clock-out) zero-wage DAILY records. */
+function collectIncompleteDates(
+    payType: EmployeePayType,
+    attendance: readonly AttendanceForIncomplete[],
+): string[] {
+    if (payType !== EmployeePayType.DAILY) return [];
+    const dates = new Set(
+        attendance
+            .filter(isIncompleteDay)
+            .map((r) => dateKeyFromWorkDate(r.workDate)),
+    );
+    return [...dates].sort();
 }
 
 export const PayrollService = {
@@ -237,6 +274,10 @@ export const PayrollService = {
                 ? Math.round(toNum(employee.bpjsEmployeeDeduction) * 100) / 100
                 : 0;
         const netPay = Math.round((totalEarnings - bpjsDeduction) * 100) / 100;
+        const incompleteDates = collectIncompleteDates(
+            employee.payType,
+            attendance,
+        );
 
         return {
             employeeId: employee.id,
@@ -262,6 +303,8 @@ export const PayrollService = {
             records,
             pieceLines,
             exceptions,
+            incompleteDays: incompleteDates.length,
+            incompleteDates,
         };
     },
 

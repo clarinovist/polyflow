@@ -283,3 +283,147 @@ describe('PayrollService PIECE week gate (WIB calendar boundaries)', () => {
     expect(result.pieceLines.map((l) => l.executionId)).not.toContain('prev-sun-2330-wib');
   });
 });
+
+describe('PayrollService incomplete days (clock-in without clock-out, wage 0)', () => {
+  const mockDb = {
+    employee: { findUnique: vi.fn(), findMany: vi.fn() },
+    attendanceRecord: { findMany: vi.fn() },
+    productionExecution: { findMany: vi.fn() },
+  };
+  const weekStart = new Date('2026-07-13T00:00:00.000Z');
+  const weekEnd = new Date('2026-07-19T23:59:59.999Z');
+
+  function employee(payType: string) {
+    return {
+      id: 'emp-x', name: 'Fiktif', code: 'EMP-X', payType,
+      bpjsParticipant: false, bpjsEmployeeDeduction: null,
+    } as any;
+  }
+
+  function record(
+    workDate: string,
+    opts: {
+      status?: string;
+      clockIn?: string | null;
+      clockOut?: string | null;
+      total?: number;
+      shift?: string;
+    } = {},
+  ) {
+    const total = opts.total ?? 0;
+    return {
+      workDate: new Date(workDate + 'T00:00:00.000Z'),
+      status: opts.status ?? 'PRESENT',
+      clockInAt:
+        opts.clockIn === undefined
+          ? new Date(workDate + 'T01:00:00.000Z')
+          : opts.clockIn === null
+            ? null
+            : new Date(opts.clockIn),
+      clockOutAt: opts.clockOut == null ? null : new Date(opts.clockOut),
+      actualHours: dec(0),
+      overtimeHours: dec(0),
+      dailyEarnings: dec(total),
+      overtimeEarnings: dec(0),
+      totalEarnings: dec(total),
+      workShift: { name: opts.shift ?? 'Pagi-8' },
+    };
+  }
+
+  async function run(payType: string, records: unknown[]) {
+    vi.clearAllMocks();
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue(employee(payType));
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue(records as any);
+    vi.mocked(mockDb.productionExecution.findMany).mockResolvedValue([] as any);
+    return PayrollService.getWeeklyPayroll(mockDb as any, 'emp-x', weekStart, weekEnd);
+  }
+
+  it('DAILY: counts two days without clock-out and zero wage, with their dates', async () => {
+    const result = await run('DAILY', [
+      record('2026-07-14'),
+      record('2026-07-16'),
+    ]);
+
+    expect(result.incompleteDays).toBe(2);
+    expect(result.incompleteDates).toEqual(['2026-07-14', '2026-07-16']);
+  });
+
+  it('DAILY: two open shifts on the same work date count as one day', async () => {
+    const result = await run('DAILY', [
+      record('2026-07-14', { shift: 'Pagi' }),
+      record('2026-07-14', { shift: 'Malam' }),
+    ]);
+
+    expect(result.incompleteDays).toBe(1);
+    expect(result.incompleteDates).toEqual(['2026-07-14']);
+  });
+
+  it('DAILY: a day with clock-out is not counted', async () => {
+    const result = await run('DAILY', [
+      record('2026-07-14', { clockOut: '2026-07-14T09:00:00.000Z' }),
+    ]);
+
+    expect(result.incompleteDays).toBe(0);
+    expect(result.incompleteDates).toEqual([]);
+  });
+
+  it('DAILY: a day without clock-out but with wage > 0 is not counted', async () => {
+    const result = await run('DAILY', [record('2026-07-14', { total: 100_000 })]);
+
+    expect(result.incompleteDays).toBe(0);
+    expect(result.incompleteDates).toEqual([]);
+  });
+
+  it('DAILY: ignores records without clock-in and non-PRESENT statuses', async () => {
+    const result = await run('DAILY', [
+      record('2026-07-14', { clockIn: null }),
+      record('2026-07-15', { status: 'ABSENT' }),
+    ]);
+
+    expect(result.incompleteDays).toBe(0);
+    expect(result.incompleteDates).toEqual([]);
+  });
+
+  it('PIECE and MONTHLY always report 0 / []', async () => {
+    const open = [record('2026-07-14'), record('2026-07-16')];
+
+    const piece = await run('PIECE', open);
+    const monthly = await run('MONTHLY', open);
+
+    expect(piece.incompleteDays).toBe(0);
+    expect(piece.incompleteDates).toEqual([]);
+    expect(monthly.incompleteDays).toBe(0);
+    expect(monthly.incompleteDates).toEqual([]);
+  });
+
+  it('does not change wage figures: open days stay Rp0 and netPay is the sum of paid days', async () => {
+    const result = await run('DAILY', [
+      record('2026-07-14', { total: 120_000, clockOut: '2026-07-14T09:00:00.000Z' }),
+      record('2026-07-15'),
+      record('2026-07-16'),
+    ]);
+
+    expect(result.incompleteDays).toBe(2);
+    expect(result.daysWorked).toBe(3);
+    expect(result.totalDailyEarnings).toBe(120_000);
+    expect(result.totalEarnings).toBe(120_000);
+    expect(result.bpjsDeduction).toBe(0);
+    expect(result.netPay).toBe(120_000);
+  });
+
+  it('getWeeklyPayrollForAll passes the fields through unchanged', async () => {
+    vi.clearAllMocks();
+    vi.mocked(mockDb.employee.findMany).mockResolvedValue([{ id: 'emp-x' }] as any);
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue(employee('DAILY'));
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+      record('2026-07-14'),
+    ] as any);
+
+    const [row] = await PayrollService.getWeeklyPayrollForAll(
+      mockDb as any, weekStart, weekEnd,
+    );
+
+    expect(row.incompleteDays).toBe(1);
+    expect(row.incompleteDates).toEqual(['2026-07-14']);
+  });
+});

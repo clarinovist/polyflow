@@ -22,6 +22,7 @@ import { Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getEmployeeWeeklyPayroll } from '@/actions/hrd/payroll';
 import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
 import { formatQuantity } from '@/lib/utils/utils';
+import { IncompleteDaysEmployeeNotice } from '@/components/hrd/IncompleteDaysNotice';
 
 type PayrollRecord = {
     date: Date;
@@ -68,6 +69,9 @@ type WeeklyPayroll = {
     records: PayrollRecord[];
     pieceLines: PieceLine[];
     exceptions: PieceLine[];
+    /** Optional: absent in payloads from before the warning existed. */
+    incompleteDays?: number;
+    incompleteDates?: string[];
 };
 
 function formatIdr(n: number): string {
@@ -181,6 +185,9 @@ export function Employee360PayrollWeeklyTab({
                     </div>
                 </CardHeader>
                 <CardContent>
+                    <IncompleteDaysEmployeeNotice
+                        dates={payroll.incompleteDates}
+                    />
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                         <div className="bg-muted/30 p-3 rounded-lg">
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">

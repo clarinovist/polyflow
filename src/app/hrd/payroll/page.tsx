@@ -5,6 +5,10 @@ import { Download } from 'lucide-react';
 import Link from 'next/link';
 import { UrlWeekPicker } from '@/components/common/url-week-picker';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
+import {
+    IncompleteDaysBadge,
+    IncompleteDaysSummaryNotice,
+} from '@/components/hrd/IncompleteDaysNotice';
 
 function formatIdr(n: number) {
     return new Intl.NumberFormat('id-ID', {
@@ -36,6 +40,10 @@ export default async function PayrollPage({
     const baseDate = params.date ? new Date(params.date) : new Date();
     const weekStart = rows[0]?.weekStart ?? startOfWeek(baseDate).toISOString();
     const weekEnd = rows[0]?.weekEnd ?? endOfWeek(baseDate).toISOString();
+
+    const incompleteEmployeeCount = rows.filter(
+        (r) => (r.incompleteDays ?? 0) > 0,
+    ).length;
 
     const totals = rows.reduce(
         (acc, r) => {
@@ -109,6 +117,10 @@ export default async function PayrollPage({
                 </div>
             </div>
 
+            <IncompleteDaysSummaryNotice
+                employeeCount={incompleteEmployeeCount}
+            />
+
             <Card className="bg-background/40 backdrop-blur-xl border-white/10 shadow-xl border-0 overflow-hidden">
                 <CardHeader>
                     <CardTitle className="text-base">
@@ -157,6 +169,9 @@ export default async function PayrollPage({
                                         </td>
                                         <td className="p-3">
                                             {r.employeeName}
+                                            <IncompleteDaysBadge
+                                                days={r.incompleteDays}
+                                            />
                                         </td>
                                         <td className="p-3">
                                             <span

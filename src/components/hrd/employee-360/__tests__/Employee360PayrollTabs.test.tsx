@@ -182,3 +182,41 @@ describe('Employee360PayrollWeeklyTab labels', () => {
         expectNoRawEnums(container);
     });
 });
+
+describe('Employee360PayrollWeeklyTab incomplete days warning', () => {
+    beforeEach(() => vi.resetAllMocks());
+
+    it('warns with the dates when the employee has days without clock-out', async () => {
+        vi.mocked(getEmployeeWeeklyPayroll).mockResolvedValue({
+            success: true,
+            data: weekly({
+                incompleteDays: 2,
+                incompleteDates: ['2026-05-04', '2026-05-06'],
+            }),
+        } as never);
+
+        render(<Employee360PayrollWeeklyTab employeeId="e-1" />);
+
+        await waitFor(() =>
+            expect(screen.getByText(/2 hari belum ada jam pulang/)).toBeTruthy(),
+        );
+        expect(screen.getByText(/4 Mei 2026, 6 Mei 2026/)).toBeTruthy();
+        expect(
+            screen
+                .getByRole('link', { name: /Sesi belum pulang/ })
+                .getAttribute('href'),
+        ).toBe('/hrd/attendance?status=stale');
+    });
+
+    it('shows no warning when there are no incomplete days or the field is absent', async () => {
+        vi.mocked(getEmployeeWeeklyPayroll).mockResolvedValue({
+            success: true,
+            data: weekly({ incompleteDays: 0, incompleteDates: [] }),
+        } as never);
+
+        render(<Employee360PayrollWeeklyTab employeeId="e-1" />);
+
+        await waitFor(() => expect(screen.getByText('Gaji Mingguan')).toBeTruthy());
+        expect(screen.queryByText(/belum ada jam pulang/)).toBeNull();
+    });
+});
