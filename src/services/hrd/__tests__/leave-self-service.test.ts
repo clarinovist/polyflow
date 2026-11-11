@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PrismaClient } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
-import { MyLeaveService, type MyLeaveInput } from '../leave-self-service';
+import {
+    MyLeaveService,
+    parseMyLeaveInput,
+    type MyLeaveInput,
+} from '../leave-self-service';
 
 // 2026-11-11 12:00 WIB
 const NOW = new Date('2026-11-11T05:00:00.000Z');
@@ -331,4 +335,44 @@ describe('MyLeaveService.listMine', () => {
             employeeId: 'emp-2',
         });
     });
+});
+
+describe('parseMyLeaveInput', () => {
+    it('keeps only the four whitelisted fields', () => {
+        const parsed = parseMyLeaveInput({
+            ...validInput({ note: 'Demam' }),
+            employeeId: 'emp-victim',
+            status: 'APPROVED',
+            type: 'ANNUAL',
+            documentUrl: 'http://x',
+        });
+
+        expect(Object.keys(parsed).sort()).toEqual([
+            'endDate',
+            'note',
+            'reasonCode',
+            'startDate',
+        ]);
+    });
+
+    it.each([
+        ['unknown reasonCode', { reasonCode: 'VACATION' }],
+        ['prototype reasonCode', { reasonCode: 'constructor' }],
+        ['numeric startDate', { startDate: 20261112 }],
+        ['missing endDate', { endDate: undefined }],
+        ['non-string note', { note: { $ne: null } }],
+    ])('rejects %s', (_name, override) => {
+        expect(() =>
+            parseMyLeaveInput({ ...validInput(), ...override }),
+        ).toThrow(new BusinessRuleError('Data pengajuan izin tidak valid'));
+    });
+
+    it.each([null, 'text', 42, undefined])(
+        'rejects a non-object input (%s)',
+        (bad) => {
+            expect(() => parseMyLeaveInput(bad)).toThrow(
+                'Data pengajuan izin tidak valid',
+            );
+        },
+    );
 });

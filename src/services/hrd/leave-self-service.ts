@@ -31,6 +31,40 @@ const REASON_MAP: Record<
 };
 
 const INVALID_DATE_MESSAGE = 'Tanggal izin tidak valid';
+const INVALID_INPUT_MESSAGE = 'Data pengajuan izin tidak valid';
+const REASON_CODES: readonly MyLeaveReasonCode[] = [
+    'SICK',
+    'FAMILY',
+    'PERSONAL',
+    'OTHER',
+];
+
+function isReasonCode(value: unknown): value is MyLeaveReasonCode {
+    return (
+        typeof value === 'string' &&
+        (REASON_CODES as readonly string[]).includes(value)
+    );
+}
+
+/** Whitelist 4 field dari payload client yang tidak tepercaya. */
+export function parseMyLeaveInput(raw: unknown): MyLeaveInput {
+    if (typeof raw !== 'object' || raw === null) {
+        throw new BusinessRuleError(INVALID_INPUT_MESSAGE);
+    }
+    const { startDate, endDate, reasonCode, note } = raw as Record<
+        string,
+        unknown
+    >;
+    if (
+        typeof startDate !== 'string' ||
+        typeof endDate !== 'string' ||
+        !isReasonCode(reasonCode) ||
+        (note !== undefined && typeof note !== 'string')
+    ) {
+        throw new BusinessRuleError(INVALID_INPUT_MESSAGE);
+    }
+    return { startDate, endDate, reasonCode, note };
+}
 
 function isValidCalendarDate(value: unknown): value is string {
     if (typeof value !== 'string' || !DATE_PATTERN.test(value)) return false;

@@ -18,18 +18,8 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { isNextControlFlowError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
-import { rateLimit } from '@/lib/api/rate-limit';
+import { checkKioskRateLimit } from '@/lib/hrd/kiosk-guard';
 import { logActivity } from '@/lib/tools/audit';
-import { headers } from 'next/headers';
-
-async function getClientIp(): Promise<string> {
-    const h = await headers();
-    return (
-        h.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-        h.get('x-real-ip') ||
-        '127.0.0.1'
-    );
-}
 
 // ─── PIN management ───
 
@@ -281,9 +271,6 @@ export const getAttendanceMonthlySummary = withTenant(
 // Auth failures stay generic (anti-enumeration). Operational messages are safe to surface.
 // Rate limited per (IP + employeeCode): 5 attempts per 5 minutes.
 
-const KIOSK_RATE_LIMIT = 5;
-const KIOSK_RATE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
 export async function mapKioskError(error: unknown): Promise<string> {
     if (!(error instanceof Error))
         return 'Terjadi kesalahan pada sistem absensi';
@@ -371,13 +358,7 @@ export const kioskClockIn = withTenant(async function kioskClockIn(
     locationEvidence?: KioskLocationEvidenceInput,
 ) {
     try {
-        const ip = await getClientIp();
-        const { success } = rateLimit(
-            `kiosk:${ip}:${employeeCode}`,
-            KIOSK_RATE_LIMIT,
-            KIOSK_RATE_WINDOW_MS,
-        );
-        if (!success) {
+        if (!(await checkKioskRateLimit(employeeCode))) {
             return {
                 success: false,
                 error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',
@@ -421,13 +402,7 @@ export const kioskClockOut = withTenant(async function kioskClockOut(
     locationEvidence?: KioskLocationEvidenceInput,
 ) {
     try {
-        const ip = await getClientIp();
-        const { success } = rateLimit(
-            `kiosk:${ip}:${employeeCode}`,
-            KIOSK_RATE_LIMIT,
-            KIOSK_RATE_WINDOW_MS,
-        );
-        if (!success) {
+        if (!(await checkKioskRateLimit(employeeCode))) {
             return {
                 success: false,
                 error: 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.',

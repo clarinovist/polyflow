@@ -7,7 +7,10 @@ vi.mock('@/lib/core/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/auth/employee-session', () => ({
     requireEmployeeSession: vi.fn(),
 }));
-vi.mock('@/services/hrd/leave-self-service', () => ({
+vi.mock('@/services/hrd/leave-self-service', async (importOriginal) => ({
+    ...(await importOriginal<
+        typeof import('@/services/hrd/leave-self-service')
+    >()),
     MyLeaveService: { create: vi.fn(), listMine: vi.fn() },
 }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));

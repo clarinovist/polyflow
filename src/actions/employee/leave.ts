@@ -7,8 +7,8 @@ import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
 import {
     MyLeaveService,
+    parseMyLeaveInput,
     type MyLeaveInput,
-    type MyLeaveReasonCode,
 } from '@/services/hrd/leave-self-service';
 
 /**
@@ -20,41 +20,8 @@ import {
 const DEFAULT_LIST_LIMIT = 10;
 const MIN_LIST_LIMIT = 1;
 const MAX_LIST_LIMIT = 50;
-const REASON_CODES: readonly MyLeaveReasonCode[] = [
-    'SICK',
-    'FAMILY',
-    'PERSONAL',
-    'OTHER',
-];
-const INVALID_INPUT_MESSAGE = 'Data pengajuan izin tidak valid';
 const CREATE_FAILED_MESSAGE =
     'Gagal mengirim pengajuan izin. Silakan coba lagi.';
-
-function isReasonCode(value: unknown): value is MyLeaveReasonCode {
-    return (
-        typeof value === 'string' &&
-        (REASON_CODES as readonly string[]).includes(value)
-    );
-}
-
-function parseLeaveInput(raw: unknown): MyLeaveInput {
-    if (typeof raw !== 'object' || raw === null) {
-        throw new BusinessRuleError(INVALID_INPUT_MESSAGE);
-    }
-    const { startDate, endDate, reasonCode, note } = raw as Record<
-        string,
-        unknown
-    >;
-    if (
-        typeof startDate !== 'string' ||
-        typeof endDate !== 'string' ||
-        !isReasonCode(reasonCode) ||
-        (note !== undefined && typeof note !== 'string')
-    ) {
-        throw new BusinessRuleError(INVALID_INPUT_MESSAGE);
-    }
-    return { startDate, endDate, reasonCode, note };
-}
 
 function clampLimit(limit: number | undefined): number {
     if (limit === undefined || !Number.isFinite(limit)) {
@@ -78,7 +45,7 @@ export const createMyLeaveRequest = withTenant(
         try {
             const session = await requireEmployeeSession();
             if (!session) return { success: false, error: 'Unauthorized' };
-            const safeInput = parseLeaveInput(input);
+            const safeInput = parseMyLeaveInput(input);
             const data = await MyLeaveService.create(
                 db,
                 session.employeeId,
