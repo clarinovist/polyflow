@@ -135,6 +135,7 @@ export function MyAttendanceClock() {
     const [gettingLocation, setGettingLocation] = useState(false);
     const [geofenceInfo, setGeofenceInfo] = useState<GeofenceInfo | null>(null);
     const [geofenceLoadFailed, setGeofenceLoadFailed] = useState(false);
+    const [showMap, setShowMap] = useState(false);
     const [pending, startTransition] = useTransition();
 
     const refreshStatus = useCallback(async () => {
@@ -307,11 +308,11 @@ export function MyAttendanceClock() {
 
                 const result = await selfServiceClockIn(photoUrl, location);
                 if (result.success) {
-                    toast.success('Berhasil clock-in!');
+                    toast.success('Berhasil absen masuk!');
                     setSelfieFile(null);
                     await refreshStatus();
                 } else {
-                    toast.error(result.error ?? 'Gagal clock-in');
+                    toast.error(result.error ?? 'Gagal absen masuk');
                 }
             } catch {
                 toast.error('Terjadi kesalahan');
@@ -328,10 +329,10 @@ export function MyAttendanceClock() {
         startTransition(async () => {
             const result = await selfServiceClockOut(location);
             if (result.success) {
-                toast.success('Berhasil clock-out!');
+                toast.success('Berhasil absen pulang!');
                 await refreshStatus();
             } else {
-                toast.error(result.error ?? 'Gagal clock-out');
+                toast.error(result.error ?? 'Gagal absen pulang');
             }
         });
     };
@@ -367,13 +368,18 @@ export function MyAttendanceClock() {
         },
         OPEN_STALE: {
             icon: AlertCircle,
-            label: 'Belum Clock-Out Kemarin',
+            label: 'Belum Absen Pulang Kemarin',
             color: 'text-amber-600',
             bg: 'bg-amber-50',
         },
     };
 
     const currentStatus = today?.status ?? 'NOT_CLOCKED_IN';
+    const clockInHint = !selfieFile
+        ? 'Ambil selfie dulu untuk mengaktifkan tombol Masuk.'
+        : !location
+          ? 'Menunggu lokasi terbaca.'
+          : null;
     const config = statusConfig[currentStatus];
     const StatusIcon = config.icon;
 
@@ -462,10 +468,20 @@ export function MyAttendanceClock() {
                             Coba Lagi
                         </Button>
                     )}
+                    {geofence && location && (
+                        <button
+                            type="button"
+                            aria-expanded={showMap}
+                            onClick={() => setShowMap((v) => !v)}
+                            className="text-xs text-primary hover:underline"
+                        >
+                            {showMap ? 'Sembunyikan peta' : 'Lihat peta ›'}
+                        </button>
+                    )}
                 </div>
 
                 {/* Map preview */}
-                {geofence && location && (
+                {showMap && geofence && location && (
                     <LocationMapPreview
                         latitude={geofence.latitude}
                         longitude={geofence.longitude}
@@ -491,7 +507,7 @@ export function MyAttendanceClock() {
                         <LiveSelfieCapture
                             onCapture={setSelfieFile}
                             disabled={pending}
-                            label="Selfie Clock-In (wajib)"
+                            label="Selfie Masuk (wajib)"
                         />
                         <Button
                             className="w-full h-14 text-lg font-bold uppercase"
@@ -503,8 +519,13 @@ export function MyAttendanceClock() {
                             ) : (
                                 <LogIn className="h-5 w-5 mr-2" />
                             )}
-                            Clock In
+                            Masuk
                         </Button>
+                        {clockInHint && (
+                            <p className="text-xs text-muted-foreground text-center">
+                                {clockInHint}
+                            </p>
+                        )}
                     </div>
                 )}
 
@@ -520,7 +541,7 @@ export function MyAttendanceClock() {
                         ) : (
                             <LogOut className="h-5 w-5 mr-2" />
                         )}
-                        Clock Out
+                        Pulang
                     </Button>
                 )}
 
@@ -544,7 +565,7 @@ export function MyAttendanceClock() {
                             </p>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Tombol clock-out hanya untuk sesi hari ini. Sesi
+                            Tombol absen pulang hanya untuk sesi hari ini. Sesi
                             lama tidak bisa ditutup dari sini agar tidak salah
                             tutup record lain.
                         </p>

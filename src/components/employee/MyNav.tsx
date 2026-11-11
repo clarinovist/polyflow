@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Wallet, Factory, Calendar, LogOut } from 'lucide-react';
@@ -17,6 +18,11 @@ const ITEMS = [
 export function MyNav() {
     const pathname = usePathname();
     const router = useRouter();
+    const activeRef = useRef<HTMLAnchorElement>(null);
+
+    useEffect(() => {
+        activeRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    }, [pathname]);
 
     const onLogout = async () => {
         await logoutEmployee();
@@ -35,6 +41,7 @@ export function MyNav() {
                     return (
                         <Link
                             key={it.href}
+                            ref={active ? activeRef : undefined}
                             href={it.href}
                             className={cn(
                                 'flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium whitespace-nowrap transition-colors',

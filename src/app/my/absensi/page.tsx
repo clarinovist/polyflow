@@ -1,11 +1,18 @@
 import { requireEmployeeSession } from '@/lib/auth/employee-session';
 import { redirect } from 'next/navigation';
 import { getMyAttendanceMonth } from '@/actions/employee/self';
+import { listMyLeaveRequests } from '@/actions/employee/leave';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MyAttendanceClock } from '@/components/employee/MyAttendanceClock';
+import { LeaveRequestSheet } from '@/components/employee/LeaveRequestSheet';
+import { MyLeaveRequestsCard } from '@/components/employee/MyLeaveRequestsCard';
+import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
 
 type AttendanceRes = Awaited<ReturnType<typeof getMyAttendanceMonth>>;
 type AttendanceRow = NonNullable<AttendanceRes['data']>[number];
+type LeaveRes = Awaited<ReturnType<typeof listMyLeaveRequests>>;
+
+const LEAVE_PREVIEW_LIMIT = 5;
 
 export default async function MyAbsensiPage({
     searchParams,
@@ -19,13 +26,22 @@ export default async function MyAbsensiPage({
     const year = Number(sp.year) || new Date().getFullYear();
     const month = Number(sp.month) || new Date().getMonth() + 1;
 
-    const attRes = await getMyAttendanceMonth(year, month).catch(
-        (): AttendanceRes => ({
-            success: false,
-            error: 'Gagal memuat absensi',
-        }),
-    );
+    const [attRes, leaveRes] = await Promise.all([
+        getMyAttendanceMonth(year, month).catch(
+            (): AttendanceRes => ({
+                success: false,
+                error: 'Gagal memuat absensi',
+            }),
+        ),
+        listMyLeaveRequests(LEAVE_PREVIEW_LIMIT).catch(
+            (): LeaveRes => ({
+                success: false,
+                error: 'Gagal memuat pengajuan izin',
+            }),
+        ),
+    ]);
     const records: AttendanceRow[] = attRes.data ?? [];
+    const leaveRequests = leaveRes.data ?? [];
 
     const present = records.filter((r) => r.status === 'PRESENT').length;
     const absent = records.filter((r) => r.status === 'ABSENT').length;
@@ -46,6 +62,8 @@ export default async function MyAbsensiPage({
             <h1 className="text-lg font-black">Absensi & Izin</h1>
 
             <MyAttendanceClock />
+
+            <LeaveRequestSheet />
 
             <div className="flex justify-between items-center">
                 <div className="text-sm font-semibold">
@@ -107,6 +125,8 @@ export default async function MyAbsensiPage({
                 </Card>
             </div>
 
+            <MyLeaveRequestsCard requests={leaveRequests} />
+
             <Card>
                 <CardHeader className="pb-2">
                     <CardTitle className="text-xs">Riwayat</CardTitle>
@@ -166,7 +186,7 @@ export default async function MyAbsensiPage({
                                         <div
                                             className={`text-xs px-2 py-0.5 rounded-full inline-block ${r.status === 'PRESENT' ? 'bg-emerald-100 text-emerald-700' : r.status === 'ABSENT' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'}`}
                                         >
-                                            {r.status}
+                                            {attendanceStatusLabel(r.status)}
                                         </div>
                                         <div className="text-xs mt-1">
                                             {r.actualHours != null
