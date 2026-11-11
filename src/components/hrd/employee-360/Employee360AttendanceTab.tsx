@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { CalendarDays, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
 import { listAttendanceByEmployee } from '@/actions/hrd/attendance-employee';
+import { AttendanceRowBadges } from '@/components/hrd/attendance/AttendanceRowBadges';
 
 type AttendanceRow = {
     id: string;
@@ -33,6 +34,9 @@ type AttendanceRow = {
     clockOutPhotoUrl: string | null;
     clockInDistance: number | null;
     clockOutDistance: number | null;
+    isLate?: boolean;
+    isOutsideRadius?: boolean;
+    hasValidSelfie?: boolean;
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -308,6 +312,13 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                                                               r.status,
                                                           )}
                                                 </Badge>
+                                                {r.status === 'PRESENT' && (
+                                                    <div className="mt-1">
+                                                        <AttendanceRowBadges
+                                                            record={r}
+                                                        />
+                                                    </div>
+                                                )}
                                             </TableCell>
                                             <TableCell>
                                                 <Badge

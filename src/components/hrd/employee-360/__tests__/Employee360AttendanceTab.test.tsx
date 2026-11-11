@@ -121,3 +121,81 @@ describe('Employee360AttendanceTab status labels', () => {
         expect(badges).not.toContain('HADIR');
     });
 });
+
+describe('Employee360AttendanceTab anomaly badges', () => {
+    const baseRow = {
+        workDate: '2026-05-04T00:00:00Z',
+        clockInAt: '2026-05-04T01:30:00Z',
+        clockOutAt: null,
+        actualHours: null,
+        overtimeHours: 0,
+        isOvertimeShift: false,
+        status: 'PRESENT',
+        source: 'KIOSK',
+        dailyEarnings: 0,
+        totalEarnings: 0,
+        clockInPhotoUrl: null,
+        clockOutPhotoUrl: null,
+        clockInDistance: null,
+        clockOutDistance: null,
+    };
+
+    it('shows badges only on flagged rows, in Indonesian, with no raw enums', async () => {
+        vi.resetAllMocks();
+        mockedList.mockResolvedValue({
+            success: true,
+            data: [
+                {
+                    ...baseRow,
+                    id: 'flagged',
+                    shiftName: 'Shift Flagged',
+                    isLate: true,
+                    isOutsideRadius: true,
+                    hasValidSelfie: false,
+                },
+                {
+                    ...baseRow,
+                    id: 'clean',
+                    shiftName: 'Shift Clean',
+                    isLate: false,
+                    isOutsideRadius: false,
+                    hasValidSelfie: true,
+                },
+            ],
+        } as never);
+        render(<Employee360AttendanceTab employeeId="e-1" />);
+        await waitFor(() => expect(screen.getByText('Shift Flagged')).toBeTruthy());
+
+        const rows = screen.getAllByRole('row');
+        const flaggedRow = rows.find((r) => r.textContent?.includes('Shift Flagged'))!;
+        const cleanRow = rows.find((r) => r.textContent?.includes('Shift Clean'))!;
+        expect(flaggedRow.textContent).toContain('Terlambat');
+        expect(flaggedRow.textContent).toContain('Di luar radius');
+        expect(flaggedRow.textContent).toContain('Tanpa selfie');
+        expect(cleanRow.textContent).not.toContain('Terlambat');
+        expect(cleanRow.textContent).not.toContain('Di luar radius');
+        expect(cleanRow.textContent).not.toContain('Tanpa selfie');
+        expect(document.body.textContent).not.toMatch(/\b(LATE|PRESENT|ABSENT)\b/);
+    });
+
+    it('shows no anomaly badges for absent rows', async () => {
+        vi.resetAllMocks();
+        mockedList.mockResolvedValue({
+            success: true,
+            data: [
+                {
+                    ...baseRow,
+                    id: 'abs',
+                    shiftName: 'Shift Abs',
+                    status: 'ABSENT',
+                    clockInAt: null,
+                    hasValidSelfie: false,
+                },
+            ],
+        } as never);
+        render(<Employee360AttendanceTab employeeId="e-1" />);
+        await waitFor(() => expect(screen.getByText('Shift Abs')).toBeTruthy());
+
+        expect(screen.queryByText('Tanpa selfie')).toBeNull();
+    });
+});
