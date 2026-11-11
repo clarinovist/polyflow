@@ -93,7 +93,17 @@ describe.skipIf(!db)('mobile read contracts on isolated PostgreSQL', () => {
         expect(overview.data).not.toHaveProperty('pendingLeaves');
         expect(overview.data).not.toHaveProperty('alerts');
         const attendance = await run(() => getHrdMobileTeamAttendance({ date, status: 'NO_RECORD' }));
-        expect(attendance).toMatchObject({ success: true, data: { noRecordCount: 1, absentCount: 0, records: [{ employeeId: 'mobile-e3' }] } });
+        // Summary tiles cover the whole day (one person counted once), not only the
+        // rows left after the status filter. Sunday is a non-working day: nobody is
+        // "not yet recorded", so the NO_RECORD view is empty. The fixture uses today's
+        // date, so the expectation follows the weekday instead of flaking on Sundays.
+        const isSunday = workDate.getUTCDay() === 0;
+        expect(attendance).toMatchObject({
+            success: true,
+            data: isSunday
+                ? { noRecordCount: 0, absentCount: 1, presentCount: 1, isNonWorkingDay: true, records: [] }
+                : { noRecordCount: 1, absentCount: 1, presentCount: 1, records: [{ employeeId: 'mobile-e3' }] },
+        });
         expect(await run(() => getHrdMobileTeamAttendance({ date, status: 'PRESENT' }))).toMatchObject({ success: true, data: { presentCount: 1, totalEmployees: 1 } });
     });
     it('counts all active SPKs and every overlapping downtime independently of feeds', async () => {
