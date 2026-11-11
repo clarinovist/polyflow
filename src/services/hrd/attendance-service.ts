@@ -222,7 +222,7 @@ function toNum(v: Prisma.Decimal | null | undefined): number {
  * data korup. Juga menjaga hasil hitung di bawah kapasitas kolom
  * actualHours/regularHours/overtimeHours (Decimal(5,2), max ±999,99).
  */
-const MAX_ATTENDANCE_SHIFT_HOURS = 24;
+export const MAX_ATTENDANCE_SHIFT_HOURS = 24;
 
 async function findEmployee(
     db: PrismaClient,
@@ -485,6 +485,19 @@ function buildComputedData(
         overtimeEarnings: new Prisma.Decimal(computed.overtimeEarnings),
         totalEarnings: new Prisma.Decimal(computed.totalEarnings),
     };
+}
+
+export type AttendanceRecordWithRelations = RecordWithRelations;
+export type AttendanceComputedFields = AttendanceComputedData;
+
+/**
+ * Jalur hitung jam/upah yang sama dengan correct()/clockOut() (buildComputedData),
+ * diekspor untuk alat koreksi massal agar tidak menduplikasi rumus upah.
+ */
+export function computeAttendanceFields(
+    record: AttendanceRecordWithRelations,
+): AttendanceComputedFields {
+    return buildComputedData(record);
 }
 
 function getEmployeeRateSnapshots(employee: EmployeeSelect): {
