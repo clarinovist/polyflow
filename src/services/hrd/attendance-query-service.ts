@@ -1,4 +1,6 @@
 import type { Prisma, PrismaClient } from '@prisma/client';
+import { isValidAttendancePhotoUrl } from '@/lib/media/attendance-photo-url';
+import { isLateForShift } from './shift-window';
 import type {
     AttendanceRecordResult,
     DailySummary,
@@ -7,6 +9,72 @@ import type {
     RecordWithRelations,
     WeeklyEmployeeSummary,
 } from './attendance-service';
+
+export interface AttendanceFlags {
+    /** PRESENT dan masuk lewat batas toleransi shift. */
+    isLate: boolean;
+    /** Jarak masuk melebihi radius geofence yang dikonfigurasi. */
+    isOutsideRadius: boolean;
+    /** Selfie masuk berupa path foto absensi internal yang valid. */
+    hasValidSelfie: boolean;
+}
+
+export type AttendanceRecordWithFlags = AttendanceRecordResult &
+    AttendanceFlags;
+
+export interface AttendanceFlagContext {
+    /** Hari kerja `YYYY-MM-DD` (WIB). */
+    workDate: string;
+    graceMinutes: number;
+    /** Null bila radius belum dikonfigurasi. */
+    radiusMeters: number | null;
+    /** workShiftId -> jam mulai `HH:mm`. */
+    shiftStartTimes: ReadonlyMap<string, string>;
+}
+
+/** Radius geofence dari setelan absensi; null bila kosong/tidak valid. */
+export function readConfiguredRadius(
+    settings: Record<string, string | null | undefined>,
+): number | null {
+    const radius = parseFloat(settings['attendance.radiusMeters'] ?? '');
+    return Number.isFinite(radius) && radius > 0 ? radius : null;
+}
+
+function isRecordLate(
+    record: AttendanceRecordResult,
+    context: AttendanceFlagContext,
+): boolean {
+    if (record.status !== 'PRESENT' || !record.clockInAt) return false;
+    const shiftStart = context.shiftStartTimes.get(record.workShiftId);
+    if (!shiftStart) return false;
+    return isLateForShift(
+        record.clockInAt,
+        context.workDate,
+        shiftStart,
+        context.graceMinutes,
+    );
+}
+
+function isRecordOutsideRadius(
+    record: AttendanceRecordResult,
+    radiusMeters: number | null,
+): boolean {
+    if (radiusMeters === null || record.clockInDistance == null) return false;
+    return record.clockInDistance > radiusMeters;
+}
+
+/** Tambahkan penanda turunan (terlambat / luar radius / selfie) tanpa mengubah input. */
+export function withAttendanceFlags(
+    records: AttendanceRecordResult[],
+    context: AttendanceFlagContext,
+): AttendanceRecordWithFlags[] {
+    return records.map((record) => ({
+        ...record,
+        isLate: isRecordLate(record, context),
+        isOutsideRadius: isRecordOutsideRadius(record, context.radiusMeters),
+        hasValidSelfie: isValidAttendancePhotoUrl(record.clockInPhotoUrl),
+    }));
+}
 
 type AttendanceQueryDependencies = {
     buildRecordResult: (record: RecordWithRelations) => AttendanceRecordResult;
@@ -163,6 +231,8 @@ export function createAttendanceQueries({
             );
 
             const byEmployee = new Map<string, WeeklyEmployeeSummary>();
+            // Hari hadir dihitung per tanggal unik: dua shift sehari = satu hari.
+            const presentDates = new Map<string, Set<string>>();
             for (const r of results) {
                 const key = r.employeeId;
                 const existing = byEmployee.get(key) ?? {
@@ -176,7 +246,10 @@ export function createAttendanceQueries({
                     totalOvertimeEarnings: 0,
                     totalEarnings: 0,
                 };
-                existing.daysPresent += 1;
+                const dates = presentDates.get(key) ?? new Set<string>();
+                dates.add(r.workDate.toISOString().slice(0, 10));
+                presentDates.set(key, dates);
+                existing.daysPresent = dates.size;
                 existing.totalActualHours += r.actualHours ?? 0;
                 existing.totalOvertimeHours += r.overtimeHours ?? 0;
                 existing.totalDailyEarnings += r.dailyEarnings ?? 0;

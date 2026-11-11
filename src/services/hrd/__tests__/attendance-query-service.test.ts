@@ -220,7 +220,7 @@ describe('AttendanceService query characterization', () => {
         expect(result.records.map((r) => r.id)).toEqual(['long', 'short', 'third', 'open']);
     });
 
-    it('weekly summary counts PRESENT records, not unique dates, and preserves first-seen employee order', async () => {
+    it('weekly summary counts unique PRESENT dates per employee (two shifts on one day = one day), sums hours/earnings over all records and preserves first-seen employee order', async () => {
         const rows = summaryRows();
         const { db, findMany } = createDb([rows[3], ...rows.slice(0, 3)]);
         const result = await AttendanceService.getWeeklySummary(db, from, to);
@@ -231,10 +231,22 @@ describe('AttendanceService query characterization', () => {
             { employeeId: 'employee-b', employeeCode: 'SYN-B', employeeName: 'Synthetic Beta', daysPresent: 1,
                 totalActualHours: 0, totalOvertimeHours: 0.11, totalDailyEarnings: 0.11,
                 totalOvertimeEarnings: 0.21, totalEarnings: 0.31 },
-            { employeeId: 'employee-a', employeeCode: 'SYN-A', employeeName: 'Synthetic Alpha', daysPresent: 3,
+            { employeeId: 'employee-a', employeeCode: 'SYN-A', employeeName: 'Synthetic Alpha', daysPresent: 1,
                 totalActualHours: 9.33, totalOvertimeHours: 0.33, totalDailyEarnings: 90.15,
                 totalOvertimeEarnings: 5.07, totalEarnings: 95.22 },
         ]);
+    });
+
+    it('weekly summary counts each distinct PRESENT date once, even with several shifts per date', async () => {
+        const nextDay = new Date('2024-02-29T00:00:00.000Z');
+        const { db } = createDb([
+            row({ id: 'd1-a' }),
+            row({ id: 'd1-b', isOvertimeShift: true }),
+            row({ id: 'd2-a', workDate: nextDay }),
+        ]);
+        const result = await AttendanceService.getWeeklySummary(db, from, to);
+        expect(result).toHaveLength(1);
+        expect(result[0].daysPresent).toBe(2);
     });
 
     it.each([

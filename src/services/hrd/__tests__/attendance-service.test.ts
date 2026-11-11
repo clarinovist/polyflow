@@ -1147,6 +1147,8 @@ describe('AttendanceService', () => {
         const start = new Date('2026-07-15T06:00:00Z');
         const end = new Date(start.getTime() + (actualH + otH) * 3600_000);
         r.clockInAt = start; r.clockOutAt = end;
+        // Hari kerja berbeda per record: rekap mingguan menghitung hari unik.
+        if (id === 'r2') r.workDate = new Date('2026-07-16');
         // Set snapshots so computeEarnings produces the expected dailyEarnings & OT earnings.
         // dailyRate=100000/8h → regular(8h)=100000; OT rate=18750/2h=37500.
         r.dailyRateSnapshot = dec(100000);

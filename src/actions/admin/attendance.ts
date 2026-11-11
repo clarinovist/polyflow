@@ -4,12 +4,25 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma as db } from '@/lib/core/prisma';
 import {
     AttendanceService,
+    type AttendanceRecordResult,
     type ListFilters,
 } from '@/services/hrd/attendance-service';
+import {
+    readConfiguredRadius,
+    withAttendanceFlags,
+    type AttendanceRecordWithFlags,
+} from '@/services/hrd/attendance-query-service';
+import {
+    AttendanceRosterService,
+    parseRosterDate,
+} from '@/services/hrd/attendance-roster-service';
 import { hashPin, isValidPin } from '@/services/hrd/pin-helpers';
 import { parseWibDateTime } from '@/services/hrd/shift-window';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
-import { resolveGeofenceMode } from '@/services/hrd/attendance-location';
+import {
+    getLateGraceMinutes,
+    resolveGeofenceMode,
+} from '@/services/hrd/attendance-location';
 import {
     parseKioskLocationEvidence,
     type KioskLocationEvidenceInput,
@@ -17,7 +30,6 @@ import {
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import { BusinessRuleError, isNextControlFlowError } from '@/lib/errors/errors';
-import { requireAuth } from '@/lib/tools/auth-checks';
 import { checkKioskRateLimit } from '@/lib/hrd/kiosk-guard';
 import { logActivity } from '@/lib/tools/audit';
 import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
@@ -124,7 +136,9 @@ export const setAbsent = withTenant(async function setAbsent(
     notes?: string,
 ) {
     try {
-        const session = await requireAuth();
+        const guard = await runHrdGuard(requireHrdApprover);
+        if (guard.denied) return guard.denied;
+        const session = guard.session;
         const result = await AttendanceService.setAbsent(
             db,
             employeeId,
@@ -142,7 +156,7 @@ export const setAbsent = withTenant(async function setAbsent(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
-        // requireAuth() redirect ke /login bukan kegagalan: lempar ulang.
+        // Redirect ke /login dari guard bukan kegagalan: lempar ulang.
         if (isNextControlFlowError(error)) throw error;
         logger.error('Set absent failed', {
             error,
@@ -161,7 +175,9 @@ export const correctAttendance = withTenant(async function correctAttendance(
     data: { clockInAt?: string; clockOutAt?: string; notes?: string },
 ) {
     try {
-        const session = await requireAuth();
+        const guard = await runHrdGuard(requireHrdApprover);
+        if (guard.denied) return guard.denied;
+        const session = guard.session;
         const updateData: {
             clockInAt?: Date;
             clockOutAt?: Date;
@@ -214,7 +230,7 @@ export const correctAttendance = withTenant(async function correctAttendance(
         revalidatePath('/hrd/attendance');
         return { success: true, data: result };
     } catch (error) {
-        // requireAuth() redirect ke /login bukan kegagalan: lempar ulang.
+        // Redirect ke /login dari guard bukan kegagalan: lempar ulang.
         if (isNextControlFlowError(error)) throw error;
         logger.error('Correct attendance failed', {
             error,
@@ -231,6 +247,28 @@ export const correctAttendance = withTenant(async function correctAttendance(
     }
 });
 
+/** Muat setelan + jam mulai shift SEKALI untuk semua record (bukan per record). */
+async function attachAttendanceFlags(
+    records: AttendanceRecordResult[],
+    workDate: Date,
+): Promise<AttendanceRecordWithFlags[]> {
+    if (records.length === 0) return [];
+    const shiftIds = Array.from(new Set(records.map((r) => r.workShiftId)));
+    const [settings, shifts] = await Promise.all([
+        readAttendanceSettings(db),
+        db.workShift.findMany({
+            where: { id: { in: shiftIds } },
+            select: { id: true, startTime: true },
+        }),
+    ]);
+    return withAttendanceFlags(records, {
+        workDate: workDate.toISOString().slice(0, 10),
+        graceMinutes: getLateGraceMinutes(settings),
+        radiusMeters: readConfiguredRadius(settings),
+        shiftStartTimes: new Map(shifts.map((s) => [s.id, s.startTime])),
+    });
+}
+
 export const listAttendance = withTenant(async function listAttendance(
     date: string,
     filters?: ListFilters,
@@ -238,12 +276,16 @@ export const listAttendance = withTenant(async function listAttendance(
     try {
         const guard = await runHrdGuard(requireHrdFinance);
         if (guard.denied) return guard.denied;
+        const workDate = new Date(date);
         const records = await AttendanceService.listByDate(
             db,
-            new Date(date),
+            workDate,
             filters,
         );
-        return { success: true, data: records };
+        return {
+            success: true,
+            data: await attachAttendanceFlags(records, workDate),
+        };
     } catch (error) {
         if (isNextControlFlowError(error)) throw error;
         logger.error('List attendance failed', {
@@ -254,6 +296,36 @@ export const listAttendance = withTenant(async function listAttendance(
         return { success: false, error: 'Gagal memuat data absensi' };
     }
 });
+
+/** Karyawan ACTIVE yang belum punya record pada tanggal itu (Senin–Sabtu). */
+export const listNoRecordAttendance = withTenant(
+    async function listNoRecordAttendance(date: string) {
+        try {
+            const guard = await runHrdGuard(requireHrdFinance);
+            if (guard.denied) return guard.denied;
+            const workDate = parseRosterDate(date);
+            if (!workDate) {
+                return { success: false, error: 'Tanggal tidak valid' };
+            }
+            const roster = await AttendanceRosterService.listNoRecord(
+                db,
+                workDate,
+            );
+            return { success: true, data: roster };
+        } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
+            logger.error('List no-record attendance failed', {
+                error,
+                date,
+                module: 'AttendanceActions',
+            });
+            return {
+                success: false,
+                error: 'Gagal memuat daftar belum absen',
+            };
+        }
+    },
+);
 
 export const getAttendanceSummary = withTenant(
     async function getAttendanceSummary(date: string) {

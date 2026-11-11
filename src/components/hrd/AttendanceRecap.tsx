@@ -53,10 +53,26 @@ import {
 } from '@/actions/admin/attendance';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import Link from 'next/link';
+import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
+import { AttendanceFilterBar } from './attendance/AttendanceFilterBar';
+import { AttendanceLoadError } from './attendance/AttendanceLoadError';
+import { AttendanceNoRecordPanel } from './attendance/AttendanceNoRecordPanel';
+import { AttendanceRowBadges } from './attendance/AttendanceRowBadges';
+import { AttendanceSummaryChips } from './attendance/AttendanceSummaryChips';
+import {
+    MULTI_SHIFT_LABEL,
+    buildYearOptions,
+    currentWibYear,
+    filterAttendanceRecords,
+    summarizeAttendance,
+    type StatusFilter,
+} from './attendance/attendance-recap-helpers';
+import { useNoRecordRoster } from './attendance/useNoRecordRoster';
+import { useSummaryLoader } from './attendance/useSummaryLoader';
 
 const SOURCE_LABELS: Record<string, string> = {
     KIOSK: 'Kiosk',
-    SELF_SERVICE: 'Self-Service',
+    SELF_SERVICE: 'Mandiri',
     MANUAL: 'Manual',
 };
 
@@ -92,6 +108,9 @@ interface AttendanceRecord {
     clockInLongitude?: number | null;
     clockInDistance?: number | null;
     clockOutDistance?: number | null;
+    isLate?: boolean;
+    isOutsideRadius?: boolean;
+    hasValidSelfie?: boolean;
 }
 
 interface DailySummary {
@@ -161,6 +180,10 @@ interface Props {
     currentDate: string;
     currentShift?: string;
     overtimeOnly: boolean;
+    /** Filter status awal dari URL (?status=...). */
+    initialStatus?: StatusFilter;
+    /** Pesan galat bila daftar absensi gagal dimuat di server. */
+    loadError?: string | null;
 }
 
 function formatTime(iso: Date | string | null): string {
@@ -201,6 +224,8 @@ export function AttendanceRecap({
     currentDate,
     currentShift,
     overtimeOnly,
+    initialStatus = 'all',
+    loadError = null,
 }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -237,10 +262,23 @@ export function AttendanceRecap({
         searchParams.get('month') || currentDate.slice(5, 7),
     );
 
-    const [monthlyData, setMonthlyData] = useState<MonthlySummary[]>([]);
-    const [monthlyLoading, setMonthlyLoading] = useState(false);
-    const [weeklyData, setWeeklyData] = useState<WeeklySummary[]>([]);
-    const [weeklyLoading, setWeeklyLoading] = useState(false);
+    const monthly = useSummaryLoader<MonthlySummary>('Gagal memuat rekap bulanan');
+    const weekly = useSummaryLoader<WeeklySummary>('Gagal memuat rekap mingguan');
+    const { data: monthlyData, loading: monthlyLoading } = monthly;
+    const { data: weeklyData, loading: weeklyLoading } = weekly;
+
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
+    const [query, setQuery] = useState('');
+    const roster = useNoRecordRoster(currentDate, viewMode === 'daily');
+    const rosterData = roster.state.status === 'ready' ? roster.state.data : null;
+    const visibleRecords = useMemo(
+        () => filterAttendanceRecords(records, statusFilter, query),
+        [records, statusFilter, query],
+    );
+    const summaryCounts = useMemo(
+        () => summarizeAttendance(records, rosterData?.employees.length ?? null),
+        [records, rosterData],
+    );
 
     const weekBounds = useMemo(() => {
         const base = new Date(currentDate);
@@ -271,38 +309,17 @@ export function AttendanceRecap({
         router.push(`/hrd/attendance?${sp.toString()}`);
     };
 
-    const loadMonthly = async (year: number, month: number) => {
-        setMonthlyLoading(true);
-        try {
-            const res = await getAttendanceMonthlySummary(year, month);
-            if (res.success) {
-                setMonthlyData(res.data ?? []);
-            } else {
-                toast.error(res.error || 'Gagal memuat rekap bulanan');
-            }
-        } finally {
-            setMonthlyLoading(false);
-        }
-    };
+    const loadMonthly = (year: number, month: number) =>
+        monthly.load(() => getAttendanceMonthlySummary(year, month));
 
-    const loadWeekly = async (dateStr: string) => {
-        setWeeklyLoading(true);
-        try {
-            const base = new Date(dateStr);
-            const ws = startOfWeek(base);
-            const we = endOfWeek(base);
-            const res = await getAttendanceWeeklySummary(
-                ws.toISOString(),
-                we.toISOString(),
-            );
-            if (res.success) {
-                setWeeklyData((res.data as WeeklySummary[]) ?? []);
-            } else {
-                toast.error(res.error || 'Gagal memuat rekap mingguan');
-            }
-        } finally {
-            setWeeklyLoading(false);
-        }
+    const loadWeekly = (dateStr: string) => {
+        const base = new Date(dateStr);
+        return weekly.load(() =>
+            getAttendanceWeeklySummary(
+                startOfWeek(base).toISOString(),
+                endOfWeek(base).toISOString(),
+            ),
+        );
     };
 
     useEffect(() => {
@@ -532,7 +549,7 @@ export function AttendanceRecap({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {[2025, 2026, 2027].map((y) => (
+                                {buildYearOptions(currentYear, currentWibYear()).map((y) => (
                                     <SelectItem key={y} value={String(y)}>
                                         {y}
                                     </SelectItem>
@@ -548,16 +565,16 @@ export function AttendanceRecap({
                     </div>
                 )}
 
-                <a href={exportHref} className="ml-auto">
-                    <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="gap-1"
-                    >
+                <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto gap-1"
+                >
+                    <a href={exportHref}>
                         <Download className="h-3.5 w-3.5" /> CSV
-                    </Button>
-                </a>
+                    </a>
+                </Button>
             </div>
 
             {/* Monthly summary view */}
@@ -567,6 +584,11 @@ export function AttendanceRecap({
                         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
                             Memuat…
                         </div>
+                    ) : monthly.error ? (
+                        <AttendanceLoadError
+                            message={monthly.error}
+                            onRetry={() => loadMonthly(currentYear, currentMonth)}
+                        />
                     ) : monthlyData.length === 0 ? (
                         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
                             Tidak ada data absensi untuk{' '}
@@ -587,7 +609,7 @@ export function AttendanceRecap({
                                 />
                                 <SummaryCard
                                     icon={<Clock className="h-4 w-4" />}
-                                    label="Total Absent"
+                                    label={`Total ${attendanceStatusLabel('ABSENT')}`}
                                     value={`${monthlyData.reduce((s, r) => s + r.daysAbsent, 0)} hari`}
                                     accent={monthlyData.some(
                                         (r) => r.daysAbsent > 0,
@@ -621,13 +643,13 @@ export function AttendanceRecap({
                                                 Hadir
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-center">
-                                                Absent
+                                                {attendanceStatusLabel('ABSENT')}
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-center">
-                                                Cuti
+                                                {attendanceStatusLabel('ON_LEAVE')}
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-center">
-                                                Multi-Shift
+                                                {MULTI_SHIFT_LABEL}
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-right">
                                                 Jam Aktual
@@ -701,6 +723,11 @@ export function AttendanceRecap({
                         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
                             Memuat…
                         </div>
+                    ) : weekly.error ? (
+                        <AttendanceLoadError
+                            message={weekly.error}
+                            onRetry={() => loadWeekly(currentDate)}
+                        />
                     ) : weeklyData.length === 0 ? (
                         <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
                             Tidak ada data absensi untuk minggu{' '}
@@ -717,7 +744,7 @@ export function AttendanceRecap({
                                 <SummaryCard
                                     icon={<Clock className="h-4 w-4" />}
                                     label="Total Hadir"
-                                    value={`${weeklyData.reduce((s, r) => s + r.daysPresent, 0)} shift`}
+                                    value={`${weeklyData.reduce((s, r) => s + r.daysPresent, 0)} hari`}
                                 />
                                 <SummaryCard
                                     icon={<Clock className="h-4 w-4" />}
@@ -763,7 +790,7 @@ export function AttendanceRecap({
                                                 Jam OT
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Daily
+                                                Harian
                                             </TableHead>
                                             <TableHead className="font-semibold text-muted-foreground text-right">
                                                 OT Rp
@@ -823,8 +850,45 @@ export function AttendanceRecap({
                 </div>
             )}
 
+            {/* Ringkasan chip + filter (daily only) */}
+            {viewMode === 'daily' && loadError && (
+                <AttendanceLoadError
+                    message={loadError}
+                    onRetry={() => router.refresh()}
+                />
+            )}
+            {viewMode === 'daily' && !loadError && (
+                <div className="space-y-3">
+                    <AttendanceSummaryChips
+                        counts={summaryCounts}
+                        active={statusFilter}
+                        isNonWorkingDay={rosterData?.isNonWorkingDay ?? false}
+                        onSelect={setStatusFilter}
+                    />
+                    <AttendanceFilterBar
+                        status={statusFilter}
+                        query={query}
+                        onStatusChange={setStatusFilter}
+                        onQueryChange={setQuery}
+                    />
+                </div>
+            )}
+            {viewMode === 'daily' && !loadError && statusFilter === 'norecord' && (
+                <AttendanceNoRecordPanel
+                    state={roster.state}
+                    workDate={currentDate}
+                    shifts={shifts}
+                    query={query}
+                    onRetry={roster.reload}
+                    onMarked={() => {
+                        roster.reload();
+                        router.refresh();
+                    }}
+                />
+            )}
+
             {/* Summary cards (daily only) */}
-            {viewMode === 'daily' && summary && (
+            {viewMode === 'daily' && !loadError && summary && (
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <SummaryCard
                         icon={<Users className="h-4 w-4" />}
@@ -833,12 +897,12 @@ export function AttendanceRecap({
                     />
                     <SummaryCard
                         icon={<ArrowUpDown className="h-4 w-4" />}
-                        label="Record"
+                        label="Catatan"
                         value={`${summary.totalRecords} shift`}
                     />
                     <SummaryCard
                         icon={<Clock className="h-4 w-4" />}
-                        label="Multi-Shift"
+                        label={MULTI_SHIFT_LABEL}
                         value={`${summary.multiShiftCount} orang`}
                         accent={summary.multiShiftCount > 0}
                     />
@@ -857,7 +921,7 @@ export function AttendanceRecap({
             )}
 
             {/* Table (daily only) */}
-            {viewMode === 'daily' && (
+            {viewMode === 'daily' && !loadError && statusFilter !== 'norecord' && (
                 <div className="bg-card rounded-xl border overflow-x-auto">
                     <Table>
                         <TableHeader className="bg-muted/50">
@@ -890,10 +954,10 @@ export function AttendanceRecap({
                                     OT
                                 </TableHead>
                                 <TableHead className="font-semibold text-muted-foreground">
-                                    Multi-OT
+                                    {MULTI_SHIFT_LABEL}
                                 </TableHead>
                                 <TableHead className="font-semibold text-muted-foreground">
-                                    Source
+                                    Sumber
                                 </TableHead>
                                 <TableHead className="font-semibold text-muted-foreground w-10">
                                     Aksi
@@ -901,17 +965,19 @@ export function AttendanceRecap({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {records.length === 0 ? (
+                            {visibleRecords.length === 0 ? (
                                 <TableRow>
                                     <TableCell
                                         colSpan={12}
                                         className="h-32 text-center text-muted-foreground"
                                     >
-                                        Tidak ada data absensi untuk tanggal ini
+                                        {records.length === 0
+                                            ? 'Tidak ada data absensi untuk tanggal ini'
+                                            : 'Tidak ada data yang cocok dengan filter'}
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                records.map((r) => (
+                                visibleRecords.map((r) => (
                                     <TableRow
                                         key={r.id}
                                         className="hover:bg-muted/50"
@@ -919,10 +985,14 @@ export function AttendanceRecap({
                                         <TableCell className="font-medium">
                                             {r.employeeCode}
                                         </TableCell>
-                                        <TableCell>{r.employeeName}</TableCell>
+                                        <TableCell>
+                                            <div>{r.employeeName}</div>
+                                            <AttendanceRowBadges record={r} />
+                                        </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-1">
-                                                {r.clockInPhotoUrl ? (
+                                                {r.clockInPhotoUrl &&
+                                                r.hasValidSelfie !== false ? (
                                                     <button
                                                         type="button"
                                                         className="h-9 w-9 rounded-md overflow-hidden border border-border hover:ring-2 hover:ring-primary/40"
@@ -933,13 +1003,14 @@ export function AttendanceRecap({
                                                             })
                                                         }
                                                         title="Selfie masuk"
+                                                        aria-label={`Lihat selfie masuk ${r.employeeName}`}
                                                     >
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img
                                                             src={
                                                                 r.clockInPhotoUrl
                                                             }
-                                                            alt=""
+                                                            alt={`Selfie masuk ${r.employeeName}`}
                                                             className="h-full w-full object-cover"
                                                         />
                                                     </button>
@@ -959,13 +1030,14 @@ export function AttendanceRecap({
                                                             })
                                                         }
                                                         title="Selfie pulang"
+                                                        aria-label={`Lihat selfie pulang ${r.employeeName}`}
                                                     >
                                                         {/* eslint-disable-next-line @next/next/no-img-element */}
                                                         <img
                                                             src={
                                                                 r.clockOutPhotoUrl
                                                             }
-                                                            alt=""
+                                                            alt={`Selfie pulang ${r.employeeName}`}
                                                             className="h-full w-full object-cover"
                                                         />
                                                     </button>
@@ -1005,7 +1077,7 @@ export function AttendanceRecap({
                                         <TableCell>
                                             {r.isOvertimeShift && (
                                                 <Badge className="bg-orange-500/10 text-orange-600 text-xs">
-                                                    YA
+                                                    Ya
                                                 </Badge>
                                             )}
                                         </TableCell>

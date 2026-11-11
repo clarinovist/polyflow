@@ -4,6 +4,7 @@ import {
 } from '@/actions/admin/attendance';
 import { getWorkShifts } from '@/actions/admin/work-shifts';
 import { AttendanceRecap } from '@/components/hrd/AttendanceRecap';
+import { parseStatusFilter } from '@/components/hrd/attendance/attendance-recap-helpers';
 import { CalendarCheck, Settings } from 'lucide-react';
 import { todayWibDateString } from '@/services/hrd/shift-window';
 import Link from 'next/link';
@@ -12,7 +13,12 @@ import { Button } from '@/components/ui/button';
 export default async function AttendancePage({
     searchParams,
 }: {
-    searchParams: Promise<{ date?: string; shift?: string; ot?: string }>;
+    searchParams: Promise<{
+        date?: string;
+        shift?: string;
+        ot?: string;
+        status?: string;
+    }>;
 }) {
     const params = await searchParams;
     const dateStr = params.date || todayWibDateString();
@@ -29,6 +35,10 @@ export default async function AttendancePage({
     const records = attendanceResult.success
         ? (attendanceResult.data ?? [])
         : [];
+    // Gagal memuat bukan data kosong: teruskan pesan supaya UI menampilkan galat.
+    const loadError = attendanceResult.success
+        ? null
+        : (attendanceResult.error ?? 'Gagal memuat data absensi');
     const summary = summaryResult.success ? (summaryResult.data ?? null) : null;
     const shifts = shiftsResult.success ? (shiftsResult.data ?? []) : [];
 
@@ -48,12 +58,12 @@ export default async function AttendancePage({
                         </p>
                     </div>
                 </div>
-                <Link href="/dashboard/settings?tab=attendance">
-                    <Button variant="outline" size="sm" className="gap-2">
+                <Button asChild variant="outline" size="sm" className="gap-2">
+                    <Link href="/dashboard/settings?tab=attendance">
                         <Settings className="h-4 w-4" />
                         Pengaturan Absensi
-                    </Button>
-                </Link>
+                    </Link>
+                </Button>
             </div>
 
             <AttendanceRecap
@@ -63,6 +73,8 @@ export default async function AttendancePage({
                 currentDate={dateStr}
                 currentShift={params.shift}
                 overtimeOnly={params.ot === '1'}
+                initialStatus={parseStatusFilter(params.status)}
+                loadError={loadError}
             />
         </div>
     );

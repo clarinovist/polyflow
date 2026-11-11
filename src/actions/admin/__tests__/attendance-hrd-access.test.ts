@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
     setEmployeePin,
     clearEmployeePin,
+    setAbsent,
+    correctAttendance,
     listAttendance,
+    listNoRecordAttendance,
     getAttendanceSummary,
     getAttendanceWeeklySummary,
     getAttendanceMonthlySummary,
@@ -11,11 +14,15 @@ import {
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { logActivity } from '@/lib/tools/audit';
 import { AttendanceService } from '@/services/hrd/attendance-service';
+import { AttendanceRosterService } from '@/services/hrd/attendance-roster-service';
 import { logger } from '@/lib/config/logger';
 
 const mocks = vi.hoisted(() => ({
     employeeUpdate: vi.fn(),
     employeeFindMany: vi.fn(),
+    settingFindMany: vi.fn(),
+    shiftFindMany: vi.fn(),
+    recordFindUnique: vi.fn(),
 }));
 
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
@@ -25,6 +32,9 @@ vi.mock('@/lib/core/prisma', () => ({
             update: mocks.employeeUpdate,
             findMany: mocks.employeeFindMany,
         },
+        appSetting: { findMany: mocks.settingFindMany },
+        workShift: { findMany: mocks.shiftFindMany },
+        attendanceRecord: { findUnique: mocks.recordFindUnique },
     },
 }));
 vi.mock('@/auth', () => ({ auth: vi.fn() }));
@@ -46,7 +56,15 @@ vi.mock('@/services/hrd/attendance-service', () => ({
         getSummary: vi.fn(),
         getWeeklySummary: vi.fn(),
         getMonthlySummary: vi.fn(),
+        setAbsent: vi.fn(),
+        correct: vi.fn(),
     },
+}));
+vi.mock('@/services/hrd/attendance-roster-service', async (importOriginal) => ({
+    ...(await importOriginal<
+        typeof import('@/services/hrd/attendance-roster-service')
+    >()),
+    AttendanceRosterService: { listNoRecord: vi.fn() },
 }));
 
 const VALID_PIN = '482913';
@@ -68,6 +86,10 @@ type ActionCall = { name: string; call: () => Promise<unknown> };
 const listingActions: ActionCall[] = [
     { name: 'listAttendance', call: () => listAttendance('2026-11-10') },
     {
+        name: 'listNoRecordAttendance',
+        call: () => listNoRecordAttendance('2026-11-10'),
+    },
+    {
         name: 'getAttendanceSummary',
         call: () => getAttendanceSummary('2026-11-10'),
     },
@@ -86,11 +108,25 @@ const pinActions: ActionCall[] = [
     { name: 'clearEmployeePin', call: () => clearEmployeePin('emp-1') },
 ];
 
+const writeActions: ActionCall[] = [
+    {
+        name: 'setAbsent',
+        call: () => setAbsent('emp-1', '2026-11-10', 'shift-1'),
+    },
+    {
+        name: 'correctAttendance',
+        call: () => correctAttendance('rec-1', { notes: 'koreksi' }),
+    },
+];
+
 function expectNoDataTouched() {
+    expect(AttendanceService.setAbsent).not.toHaveBeenCalled();
+    expect(AttendanceService.correct).not.toHaveBeenCalled();
     expect(AttendanceService.listByDate).not.toHaveBeenCalled();
     expect(AttendanceService.getSummary).not.toHaveBeenCalled();
     expect(AttendanceService.getWeeklySummary).not.toHaveBeenCalled();
     expect(AttendanceService.getMonthlySummary).not.toHaveBeenCalled();
+    expect(AttendanceRosterService.listNoRecord).not.toHaveBeenCalled();
     expect(mocks.employeeUpdate).not.toHaveBeenCalled();
     expect(logActivity).not.toHaveBeenCalled();
 }
@@ -106,10 +142,23 @@ describe('attendance actions — akses HRD', () => {
         vi.mocked(AttendanceService.getMonthlySummary).mockResolvedValue(
             [] as never,
         );
+        vi.mocked(AttendanceRosterService.listNoRecord).mockResolvedValue({
+            isNonWorkingDay: false,
+            employees: [],
+        });
+        mocks.settingFindMany.mockResolvedValue([]);
+        mocks.shiftFindMany.mockResolvedValue([]);
         mocks.employeeUpdate.mockResolvedValue({ id: 'emp-1' });
+        mocks.recordFindUnique.mockResolvedValue(null);
+        vi.mocked(AttendanceService.setAbsent).mockResolvedValue({
+            id: 'rec-1',
+        } as never);
+        vi.mocked(AttendanceService.correct).mockResolvedValue({
+            id: 'rec-1',
+        } as never);
     });
 
-    describe.each([...listingActions, ...pinActions])(
+    describe.each([...listingActions, ...pinActions, ...writeActions])(
         '$name — penolakan',
         ({ call }) => {
             it.each(DENIED_ROLES)('menolak peran %s', async (role) => {
@@ -158,6 +207,26 @@ describe('attendance actions — akses HRD', () => {
 
             expect(res).toEqual({ success: false, error: DENIED_ERROR });
             expect(mocks.employeeUpdate).not.toHaveBeenCalled();
+        });
+    });
+
+    describe.each(writeActions)('$name — penerimaan', ({ call }) => {
+        it.each(APPROVER_ROLES)('menerima peran %s', async (role) => {
+            vi.mocked(requireAuth).mockResolvedValue(sessionFor(role));
+
+            const res = (await call()) as { success: boolean };
+
+            expect(res.success).toBe(true);
+            expect(logActivity).toHaveBeenCalledTimes(1);
+        });
+
+        it('menolak FINANCE (bukan approver)', async () => {
+            vi.mocked(requireAuth).mockResolvedValue(sessionFor('FINANCE'));
+
+            const res = await call();
+
+            expect(res).toEqual({ success: false, error: DENIED_ERROR });
+            expectNoDataTouched();
         });
     });
 
