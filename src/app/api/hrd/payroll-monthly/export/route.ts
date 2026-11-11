@@ -61,7 +61,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         'Gross',
         'BPJS',
         'Kasbon',
-        'Prorata',
+        'PotonganAbsensi',
         'PotonganLain',
         'TotalPotongan',
         'NetPay',

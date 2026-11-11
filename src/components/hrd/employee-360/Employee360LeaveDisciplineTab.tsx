@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Gavel } from 'lucide-react';
+import { isSafeDocumentUrl } from '@/lib/hrd/document-url';
 import {
     listDisciplinaryActions,
     listLeaveRequests,
@@ -176,16 +177,21 @@ export function Employee360LeaveDisciplineTab({ employeeId }: Props) {
                                     <div className="text-xs text-muted-foreground mt-0.5">
                                         {d.reason}
                                     </div>
-                                    {d.documentUrl && (
-                                        <a
-                                            href={d.documentUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-xs underline text-primary"
-                                        >
-                                            Lihat dokumen
-                                        </a>
-                                    )}
+                                    {d.documentUrl &&
+                                        (isSafeDocumentUrl(d.documentUrl) ? (
+                                            <a
+                                                href={d.documentUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="text-xs underline text-primary"
+                                            >
+                                                Lihat dokumen
+                                            </a>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">
+                                                Tautan tidak valid
+                                            </span>
+                                        ))}
                                 </div>
                             ))}
                         </div>

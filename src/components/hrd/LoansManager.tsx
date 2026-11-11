@@ -201,11 +201,11 @@ export function LoansManager() {
     };
 
     const handleDefaulted = async (id: string, loanNumber: string) => {
-        if (!confirm(`Tandai kasbon ${loanNumber} sebagai DEFAULTED (macet)?`))
+        if (!confirm(`Tandai kasbon ${loanNumber} sebagai macet?`))
             return;
         const res = await markLoanDefaulted(id);
         if (res.success) {
-            toast.success('Kasbon ditandai DEFAULTED');
+            toast.success('Kasbon ditandai macet');
             load();
         } else {
             toast.error(res.error || 'Gagal');
@@ -635,7 +635,7 @@ export function LoansManager() {
                                                             )
                                                         }
                                                     >
-                                                        Defaulted
+                                                        Macet
                                                     </Button>
                                                 )}
                                             </td>

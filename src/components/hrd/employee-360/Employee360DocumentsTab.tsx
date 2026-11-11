@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { SafeDocumentLink } from '@/components/hrd/SafeDocumentLink';
 import {
     listEmployeeDocuments,
     createEmployeeDocument,
@@ -253,14 +254,12 @@ export function Employee360DocumentsTab({ employeeId }: Props) {
                             </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
-                            <a
-                                href={d.fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
+                            <SafeDocumentLink
+                                url={d.fileUrl}
                                 className="text-xs underline text-primary"
                             >
                                 Buka
-                            </a>
+                            </SafeDocumentLink>
                             {d.status === 'ACTIVE' ? (
                                 <button
                                     type="button"

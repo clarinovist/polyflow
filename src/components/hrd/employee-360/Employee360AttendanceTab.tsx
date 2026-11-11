@@ -13,6 +13,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
+import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
 import { listAttendanceByEmployee } from '@/actions/hrd/attendance-employee';
 
 type AttendanceRow = {
@@ -90,6 +91,13 @@ function monthRange(base: Date) {
     };
 }
 
+/** Month navigation anchored on day 1 so day-31 bases never overflow. */
+export function shiftMonthBase(base: Date, delta: number): Date {
+    return new Date(
+        Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + delta, 1),
+    );
+}
+
 interface Props {
     employeeId: string;
 }
@@ -97,22 +105,33 @@ interface Props {
 export function Employee360AttendanceTab({ employeeId }: Props) {
     const [records, setRecords] = useState<AttendanceRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [baseDate, setBaseDate] = useState(new Date());
     const [photoModal, setPhotoModal] = useState<string | null>(null);
 
     const load = useCallback(
         async (base: Date) => {
             setLoading(true);
+            setLoadFailed(false);
             const { from, to } = monthRange(base);
-            const res = await listAttendanceByEmployee(
-                employeeId,
-                from.toISOString(),
-                to.toISOString(),
-            );
-            setRecords(
-                res.success ? ((res.data ?? []) as unknown as AttendanceRow[]) : [],
-            );
-            setLoading(false);
+            try {
+                const res = await listAttendanceByEmployee(
+                    employeeId,
+                    from.toISOString(),
+                    to.toISOString(),
+                );
+                if (!res.success) {
+                    setRecords([]);
+                    setLoadFailed(true);
+                } else {
+                    setRecords((res.data ?? []) as unknown as AttendanceRow[]);
+                }
+            } catch {
+                setRecords([]);
+                setLoadFailed(true);
+            } finally {
+                setLoading(false);
+            }
         },
         [employeeId],
     );
@@ -121,16 +140,8 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
         load(baseDate);
     }, [baseDate, load]);
 
-    const prevMonth = () => {
-        const d = new Date(baseDate);
-        d.setUTCMonth(d.getUTCMonth() - 1);
-        setBaseDate(d);
-    };
-    const nextMonth = () => {
-        const d = new Date(baseDate);
-        d.setUTCMonth(d.getUTCMonth() + 1);
-        setBaseDate(d);
-    };
+    const prevMonth = () => setBaseDate(shiftMonthBase(baseDate, -1));
+    const nextMonth = () => setBaseDate(shiftMonthBase(baseDate, 1));
 
     const { label } = monthRange(baseDate);
     const daysPresent = records.filter((r) => r.status === 'PRESENT').length;
@@ -158,6 +169,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="Bulan sebelumnya"
                                 onClick={prevMonth}
                             >
                                 <ChevronLeft className="h-4 w-4" />
@@ -165,6 +177,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                             <Button
                                 variant="ghost"
                                 size="icon"
+                                aria-label="Bulan berikutnya"
                                 onClick={nextMonth}
                             >
                                 <ChevronRight className="h-4 w-4" />
@@ -184,7 +197,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                         </div>
                         <div className="bg-rose-500/5 p-3 rounded-lg border border-rose-500/10">
                             <div className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                                Absen
+                                Alfa
                             </div>
                             <div className="text-xl font-bold">
                                 {daysAbsent}
@@ -192,7 +205,7 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                         </div>
                         <div className="bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
                             <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                                Cuti/Izin
+                                Izin
                             </div>
                             <div className="text-xl font-bold">
                                 {daysOnLeave}
@@ -212,6 +225,19 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                         <p className="text-xs text-muted-foreground text-center py-8">
                             Memuat…
                         </p>
+                    ) : loadFailed ? (
+                        <div className="text-center py-8 space-y-2">
+                            <p className="text-xs text-destructive">
+                                Gagal memuat data kehadiran. Coba lagi.
+                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => load(baseDate)}
+                            >
+                                Coba lagi
+                            </Button>
+                        </div>
                     ) : records.length === 0 ? (
                         <p className="text-xs text-muted-foreground text-center py-8">
                             Tidak ada data kehadiran bulan ini.
@@ -277,13 +303,10 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                                                     }`}
                                                 >
                                                     {r.isOvertimeShift
-                                                        ? 'LEMBUR'
-                                                        : r.status === 'PRESENT'
-                                                          ? 'HADIR'
-                                                          : r.status ===
-                                                              'ABSENT'
-                                                            ? 'ALFA'
-                                                            : 'CUTI'}
+                                                        ? 'Lembur'
+                                                        : attendanceStatusLabel(
+                                                              r.status,
+                                                          )}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>

@@ -81,3 +81,16 @@ describe('payroll-monthly export access', () => {
         expect(res.headers.get('Content-Type')).toContain('text/csv');
     });
 });
+
+describe('payroll-monthly export header', () => {
+    it('labels the attendance deduction column without the old "Prorata" name', async () => {
+        mocks.auth.mockResolvedValue(sessionFor('HRD'));
+        const res = await call('?periodId=p1');
+        const header = (await res.text()).replace(/^\uFEFF/, '').split(/\r?\n/)[0];
+        const columns = header.split(',');
+
+        expect(columns).not.toContain('Prorata');
+        expect(columns[columns.indexOf('Kasbon') + 1]).toBe('PotonganAbsensi');
+        expect(columns).toHaveLength(15);
+    });
+});

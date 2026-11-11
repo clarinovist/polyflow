@@ -82,6 +82,11 @@ const MONTHS = [
     'November',
     'Desember',
 ];
+const PAYSLIP_STATUS_LABELS: Record<string, string> = {
+    DRAFT: 'Draf',
+    FINALIZED: 'Difinalisasi',
+    PAID: 'Dibayar',
+};
 const STATUS_BADGE: Record<string, string> = {
     DRAFT: 'bg-amber-500/10 text-amber-700',
     FINALIZED: 'bg-blue-500/10 text-blue-700',
@@ -189,7 +194,7 @@ export function Employee360PayrollMonthlyTab({ employeeId }: Props) {
                                             Kasbon
                                         </TableHead>
                                         <TableHead className="text-right">
-                                            Prorata
+                                            Potongan absensi
                                         </TableHead>
                                         <TableHead className="text-right">
                                             Net Pay
@@ -236,7 +241,7 @@ export function Employee360PayrollMonthlyTab({ employeeId }: Props) {
                                                 <span
                                                     className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[p.status] || ''}`}
                                                 >
-                                                    {p.status}
+                                                    {PAYSLIP_STATUS_LABELS[p.status] ?? p.status}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">

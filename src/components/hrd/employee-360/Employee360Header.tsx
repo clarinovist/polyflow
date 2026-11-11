@@ -14,6 +14,7 @@ import {
     Shield,
 } from 'lucide-react';
 import type { Employee } from '@prisma/client';
+import { urgencyBadge as directoryUrgencyBadge } from '@/lib/hrd/employee-directory-helpers';
 
 const PAY_TYPE_LABELS: Record<string, string> = {
     DAILY: 'Harian',
@@ -51,40 +52,32 @@ function fmt(d: Date | string | null | undefined): string {
     }).format(new Date(d));
 }
 
-function daysUntil(d: Date | string | null | undefined): number | null {
-    if (!d) return null;
-    return Math.ceil(
-        (new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-    );
-}
+const URGENCY_KIND_LABELS: Record<string, string> = {
+    PROBATION: 'Probation',
+    CONTRACT: 'Kontrak',
+};
 
-function urgencyBadge(emp: {
+function headerUrgency(emp: {
+    status: string;
     probationEndDate?: Date | null;
     contractEndDate?: Date | null;
     employmentStatus?: string;
 }) {
-    if (
-        emp.employmentStatus === 'RESIGNED' ||
-        emp.employmentStatus === 'TERMINATED'
-    )
-        return null;
-    const pDays = daysUntil(emp.probationEndDate);
-    const cDays = daysUntil(emp.contractEndDate);
-    if (pDays !== null && pDays >= 0 && pDays <= 30) {
-        return {
-            variant:
-                pDays <= 7 ? ('destructive' as const) : ('outline' as const),
-            text: `Probation H-${pDays}`,
-        };
-    }
-    if (cDays !== null && cDays >= 0 && cDays <= 30) {
-        return {
-            variant:
-                cDays <= 7 ? ('destructive' as const) : ('outline' as const),
-            text: `Kontrak H-${cDays}`,
-        };
-    }
-    return null;
+    const badge = directoryUrgencyBadge({
+        status: emp.status,
+        employmentStatus: emp.employmentStatus ?? '',
+        probationEndDate: emp.probationEndDate ?? null,
+        contractEndDate: emp.contractEndDate ?? null,
+    });
+    if (!badge) return null;
+    const kind = URGENCY_KIND_LABELS[emp.employmentStatus ?? ''] ?? '';
+    return {
+        variant:
+            badge.variant === 'red'
+                ? ('destructive' as const)
+                : ('outline' as const),
+        text: `${kind} ${badge.text.replace(/ hr$/, ' hari')}`.trim(),
+    };
 }
 
 interface Props {
@@ -101,7 +94,7 @@ export function Employee360Header({ employee }: Props) {
         maritalStatus?: string | null;
         photoUrl?: string | null;
     };
-    const badge = urgencyBadge(emp);
+    const badge = headerUrgency(emp);
     const isPiece = emp.payType === 'PIECE';
     const isMonthly = emp.payType === 'MONTHLY';
 

@@ -237,7 +237,7 @@ export function Employee360ProductionTab({ employeeId }: Props) {
                                                             variant="outline"
                                                             className="text-[10px] bg-rose-500/10 text-rose-600 border-rose-500/10"
                                                         >
-                                                            Rate Missing
+                                                            Tarif belum diatur
                                                         </Badge>
                                                     )}
                                                 </TableCell>

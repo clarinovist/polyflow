@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Wallet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getEmployeeWeeklyPayroll } from '@/actions/hrd/payroll';
+import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
 import { formatQuantity } from '@/lib/utils/utils';
 
 type PayrollRecord = {
@@ -241,7 +242,7 @@ export function Employee360PayrollWeeklyTab({
                                 {payroll.totalKgUnpaid > 0 && (
                                     <div className="bg-rose-500/5 p-3 rounded-lg border border-rose-500/10">
                                         <div className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                                            Kg Exception
+                                            Kg Belum Dibayar
                                         </div>
                                         <div className="text-lg font-bold text-rose-700 dark:text-rose-400">
                                             {formatQuantity(
@@ -355,7 +356,7 @@ export function Employee360PayrollWeeklyTab({
                                                         {line.reason ===
                                                         'NO_ATTENDANCE'
                                                             ? 'Tanpa Absen'
-                                                            : 'Rate Missing'}
+                                                            : 'Tarif belum diatur'}
                                                     </Badge>
                                                 )}
                                             </TableCell>
@@ -421,7 +422,7 @@ export function Employee360PayrollWeeklyTab({
                                                                   : 'bg-amber-500/10 text-amber-600 border-amber-500/10'
                                                         }`}
                                                     >
-                                                        {r.status}
+                                                        {attendanceStatusLabel(r.status)}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right font-mono text-sm">

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeDocumentLink } from '@/components/hrd/SafeDocumentLink';
 import { useCallback, useEffect, useState } from 'react';
 import {
     listDisciplinaryActions,
@@ -329,14 +330,9 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                 {a.reason}
                             </div>
                             {a.documentUrl && (
-                                <a
-                                    href={a.documentUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs underline"
-                                >
+                                <SafeDocumentLink url={a.documentUrl} className="text-xs underline">
                                     Lihat dokumen
-                                </a>
+                                </SafeDocumentLink>
                             )}
                         </div>
                     ))}
@@ -694,14 +690,9 @@ export function EmployeeHrHistory({ employeeId }: { employeeId: string }) {
                                 </div>
                             </div>
                             <div className="flex gap-1 shrink-0">
-                                <a
-                                    href={d.fileUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs underline text-primary"
-                                >
+                                <SafeDocumentLink url={d.fileUrl} className="text-xs underline text-primary">
                                     Buka
-                                </a>
+                                </SafeDocumentLink>
                                 {d.status === 'ACTIVE' ? (
                                     <button
                                         type="button"

@@ -142,3 +142,44 @@ describe('urgencyBadge', () => {
     expect(result).toEqual({ text: 'Habis 10 hr', variant: 'amber' });
   });
 });
+
+describe('daysUntil (hari WIB)', () => {
+  it('uses the WIB calendar day, not the server timezone', () => {
+    // 18 Jul 18:00 UTC == 19 Jul 01:00 WIB; target 19 Jul (date-only, UTC midnight)
+    const asOf = new Date('2026-07-18T18:00:00Z');
+    expect(daysUntil(new Date('2026-07-19T00:00:00Z'), asOf)).toBe(0);
+  });
+
+  it('counts a past date in whole WIB days', () => {
+    const asOf = new Date('2026-08-15T01:00:00Z');
+    expect(daysUntil(new Date('2026-08-10T00:00:00Z'), asOf)).toBe(-5);
+  });
+});
+
+describe('urgencyBadge boundaries', () => {
+  const asOf = new Date('2026-07-19T03:00:00Z');
+  const probation = (iso: string) =>
+    emp({ employmentStatus: 'PROBATION', probationEndDate: new Date(iso) });
+
+  it('is amber "Habis 0 hr" on the end day itself', () => {
+    expect(urgencyBadge(probation('2026-07-19T00:00:00Z'), asOf)).toEqual({
+      text: 'Habis 0 hr',
+      variant: 'amber',
+    });
+  });
+
+  it('is red "Lewat 1 hr" the day after the end date', () => {
+    expect(urgencyBadge(probation('2026-07-18T00:00:00Z'), asOf)).toEqual({
+      text: 'Lewat 1 hr',
+      variant: 'red',
+    });
+  });
+
+  it('still shows at exactly 30 days and hides at 31', () => {
+    expect(urgencyBadge(probation('2026-08-18T00:00:00Z'), asOf)).toEqual({
+      text: 'Habis 30 hr',
+      variant: 'amber',
+    });
+    expect(urgencyBadge(probation('2026-08-19T00:00:00Z'), asOf)).toBeNull();
+  });
+});

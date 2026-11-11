@@ -3,6 +3,11 @@
  * Unit-testable, no side effects.
  */
 
+import { wibDateStringFrom } from '@/services/hrd/shift-window';
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const URGENCY_WINDOW_DAYS = 30;
+
 export interface EmployeeRecord {
     id: string;
     name: string;
@@ -63,8 +68,13 @@ export function salarySummaryText(emp: EmployeeRecord): string {
     return '—';
 }
 
+export type EmploymentEndSource = Pick<
+    EmployeeRecord,
+    'status' | 'employmentStatus' | 'probationEndDate' | 'contractEndDate'
+>;
+
 /** Get the end date for urgency badge based on employment status. */
-function getEndDate(emp: EmployeeRecord): Date | null {
+function getEndDate(emp: EmploymentEndSource): Date | null {
     if (emp.employmentStatus === 'PROBATION' && emp.probationEndDate) {
         return new Date(emp.probationEndDate);
     }
@@ -74,18 +84,13 @@ function getEndDate(emp: EmployeeRecord): Date | null {
     return null;
 }
 
-/** Calculate days remaining from today to a target date. */
+function wibDayNumber(date: Date): number {
+    return Date.parse(`${wibDateStringFrom(date)}T00:00:00.000Z`) / MS_PER_DAY;
+}
+
+/** Whole WIB calendar days from asOf (default: now) to a target date. */
 export function daysUntil(targetDate: Date, asOf?: Date): number {
-    const now = asOf ?? new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const target = new Date(
-        targetDate.getFullYear(),
-        targetDate.getMonth(),
-        targetDate.getDate(),
-    );
-    return Math.round(
-        (target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    return wibDayNumber(targetDate) - wibDayNumber(asOf ?? new Date());
 }
 
 export interface UrgencyBadge {
@@ -95,14 +100,14 @@ export interface UrgencyBadge {
 
 /** Get urgency badge for probation/contract end date. Returns null if no urgency. */
 export function urgencyBadge(
-    emp: EmployeeRecord,
+    emp: EmploymentEndSource,
     asOf?: Date,
 ): UrgencyBadge | null {
     if (emp.status !== 'ACTIVE') return null;
     const endDate = getEndDate(emp);
     if (!endDate) return null;
     const days = daysUntil(endDate, asOf);
-    if (days > 30) return null;
+    if (days > URGENCY_WINDOW_DAYS) return null;
     if (days >= 0) return { text: `Habis ${days} hr`, variant: 'amber' };
     return { text: `Lewat ${Math.abs(days)} hr`, variant: 'red' };
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { SafeDocumentLink } from '@/components/hrd/SafeDocumentLink';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -448,14 +449,9 @@ export function DisciplinaryManager() {
                                                 {a.documentUrl ? (
                                                     <>
                                                         {' · '}
-                                                        <a
-                                                            href={a.documentUrl}
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="underline"
-                                                        >
+                                                        <SafeDocumentLink url={a.documentUrl} className="underline">
                                                             Dokumen
-                                                        </a>
+                                                        </SafeDocumentLink>
                                                     </>
                                                 ) : null}
                                             </td>
