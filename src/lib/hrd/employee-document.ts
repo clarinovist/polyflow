@@ -5,6 +5,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { assertSafeDocumentUrl } from '@/lib/hrd/document-url';
 
 export interface CreateDocumentInput {
     employeeId: string;
@@ -32,6 +33,7 @@ export const EmployeeDocumentService = {
         if (!title) throw new BusinessRuleError('Judul dokumen wajib diisi');
         if (!data.fileUrl?.trim())
             throw new BusinessRuleError('File dokumen wajib diunggah');
+        assertSafeDocumentUrl(data.fileUrl);
         const employee = await db.employee.findUnique({
             where: { id: data.employeeId },
             select: { id: true },

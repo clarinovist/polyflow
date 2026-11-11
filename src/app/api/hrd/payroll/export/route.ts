@@ -5,20 +5,17 @@ import { prisma } from '@/lib/core/prisma';
 import { PayrollService } from '@/services/hrd/payroll-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_FINANCE_ROLES);
+    if (forbidden) return forbidden;
 
     const dateStr = req.nextUrl.searchParams.get('date');
     const baseDate = dateStr ? new Date(dateStr) : new Date();
@@ -48,7 +45,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         'Minggu BPJS',
     ];
     const lines = rows.map((r) =>
-        [
+        csvRow([
             r.employeeCode,
             r.employeeName,
             r.payType === 'PIECE'
@@ -67,9 +64,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             r.bpjsDeduction,
             r.netPay,
             r.isBpjsWeek ? 'Ya' : 'Tidak',
-        ]
-            .map(csvEscape)
-            .join(','),
+        ]),
     );
     const csv = [header.join(','), ...lines].join('\n');
 

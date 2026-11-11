@@ -8,20 +8,17 @@ import {
 } from '@/services/hrd/disciplinary-leave-service';
 import { todayWibDateString } from '@/services/hrd/shift-window';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_APPROVER_ROLES } from '@/lib/hrd/export-guard';
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_APPROVER_ROLES);
+    if (forbidden) return forbidden;
 
     const yearStr = req.nextUrl.searchParams.get('year');
     const monthStr = req.nextUrl.searchParams.get('month');
@@ -44,7 +41,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         'Alasan',
     ];
     const lines = recap.rows.map((r) =>
-        [
+        csvRow([
             r.employee.code,
             r.employee.name,
             r.type,
@@ -53,9 +50,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             leaveDayCount(r.startDate, r.endDate),
             r.status,
             r.reason ?? '',
-        ]
-            .map(csvEscape)
-            .join(','),
+        ]),
     );
     const body = '\uFEFF' + [header.join(','), ...lines].join('\n');
     return new Response(body, {

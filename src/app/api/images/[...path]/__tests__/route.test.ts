@@ -143,4 +143,85 @@ describe('GET /api/images/[...path]', () => {
         const res = await call(photoKey);
         expect(res.status).toBe(404);
     });
+
+    describe('HRD documents', () => {
+        const hrdKey = ['acme', 'hrd-docs', 'loan', 'doc-1', '1787886860020.jpg'];
+        const userOf = (role: string, tenantSubdomain = 'acme') => ({
+            user: { id: 'u9', role, roles: [role], tenantSubdomain },
+        });
+
+        it('hides hrd-docs from an anonymous caller on the tenant host', async () => {
+            const res = await call(hrdKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it.each(['HRD', 'FINANCE', 'ADMIN'])(
+            'serves hrd-docs to a %s user of the same tenant',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role));
+                const res = await call(hrdKey);
+                expect(res.status).toBe(200);
+                expect(mockSend).toHaveBeenCalledTimes(1);
+            },
+        );
+
+        it.each(['SALES', 'EMPLOYEE', 'PRODUCTION'])(
+            'hides hrd-docs from a %s user of the same tenant',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role));
+                const res = await call(hrdKey);
+                expect(res.status).toBe(404);
+                expect(mockSend).not.toHaveBeenCalled();
+            },
+        );
+
+        it('hides hrd-docs from an HRD user of another tenant', async () => {
+            mockAuth.mockResolvedValue(userOf('HRD', 'globex'));
+            const res = await call(hrdKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('matches the hrd-docs segment case-insensitively', async () => {
+            const res = await call(['acme', 'HRD-Docs', 'loan', 'd', '1.jpg']);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('lets a super admin read hrd-docs of any tenant', async () => {
+            setHost('admin.polyflow.uk');
+            mockAuth.mockResolvedValue({
+                user: { id: 'u1', isSuperAdmin: true },
+            });
+            const res = await call(['globex', ...hrdKey.slice(1)]);
+            expect(res.status).toBe(200);
+        });
+
+        it('does not treat hrd-docs deeper in the path as a gated prefix', async () => {
+            const res = await call(['acme', 'production', 'hrd-docs', '1.jpg']);
+            expect(res.status).toBe(200);
+        });
+    });
+
+    describe('response headers', () => {
+        it('sets nosniff', async () => {
+            const res = await call(photoKey);
+            expect(res.headers?.['X-Content-Type-Options']).toBe('nosniff');
+        });
+
+        it.each([
+            ['a.jpg', 'image/jpeg'],
+            ['a.JPEG', 'image/jpeg'],
+            ['a.png', 'image/png'],
+            ['a.webp', 'image/webp'],
+        ])('derives Content-Type from the key extension (%s)', async (file, expected) => {
+            mockSend.mockResolvedValue({
+                Body: { transformToWebStream: () => 'stream' },
+                ContentType: 'text/html',
+            });
+            const res = await call(['acme', 'production', 'exec-1', file]);
+            expect(res.headers?.['Content-Type']).toBe(expected);
+        });
+    });
 });

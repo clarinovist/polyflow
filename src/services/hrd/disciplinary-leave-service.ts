@@ -5,6 +5,7 @@
 
 import type { PrismaClient } from '@prisma/client';
 import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { assertSafeDocumentUrl } from '@/lib/hrd/document-url';
 
 // ── Disciplinary Actions ──
 
@@ -68,6 +69,7 @@ export const DisciplinaryService = {
     async create(db: PrismaClient, data: DisciplinaryInput) {
         if (!data.reason.trim())
             throw new BusinessRuleError('Alasan sanksi wajib diisi');
+        assertSafeDocumentUrl(data.documentUrl);
         const employee = await db.employee.findUnique({
             where: { id: data.employeeId },
             select: { id: true, name: true, code: true },
@@ -233,6 +235,7 @@ export const LeaveService = {
     },
 
     async create(db: PrismaClient, data: LeaveRequestInput) {
+        assertSafeDocumentUrl(data.documentUrl);
         if (data.endDate < data.startDate) {
             throw new BusinessRuleError(
                 'Tanggal selesai tidak boleh sebelum tanggal mulai',

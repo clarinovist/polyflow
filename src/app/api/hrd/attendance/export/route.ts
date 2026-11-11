@@ -7,22 +7,14 @@ import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { todayWibDateString } from '@/services/hrd/shift-window';
 import { formatWIB } from '@/lib/utils/timezone';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
 type CsvRow = (string | number)[];
 function csvResponse(filename: string, header: string[], lines: CsvRow[]) {
     const body =
         '\uFEFF' +
-        [
-            header.join(','),
-            ...lines.map((r) => r.map(csvEscape).join(',')),
-        ].join('\n');
+        [header.join(','), ...lines.map((r) => csvRow(r))].join('\n');
     return new Response(body, {
         status: 200,
         headers: {
@@ -32,17 +24,55 @@ function csvResponse(filename: string, header: string[], lines: CsvRow[]) {
     });
 }
 
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const YEAR_PATTERN = /^\d{4}$/;
+const MONTH_PATTERN = /^\d{1,2}$/;
+const MIN_YEAR = 2000;
+const MAX_YEAR = 2100;
+const MAX_MONTH = 12;
+const INVALID_PARAMS_MESSAGE = 'Invalid date/year/month';
+const BAD_REQUEST_STATUS = 400;
+
+function invalidParams(): Response {
+    return new Response(INVALID_PARAMS_MESSAGE, { status: BAD_REQUEST_STATUS });
+}
+
+/** Strict YYYY-MM-DD that also round-trips as a real calendar date. */
+function isValidDateString(value: string): boolean {
+    if (!DATE_PATTERN.test(value)) return false;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return (
+        !Number.isNaN(parsed.getTime()) &&
+        parsed.toISOString().slice(0, 10) === value
+    );
+}
+
+function parseYear(value: string): number | null {
+    if (!YEAR_PATTERN.test(value)) return null;
+    const year = Number(value);
+    return year >= MIN_YEAR && year <= MAX_YEAR ? year : null;
+}
+
+function parseMonth(value: string): number | null {
+    if (!MONTH_PATTERN.test(value)) return null;
+    const month = Number(value);
+    return month >= 1 && month <= MAX_MONTH ? month : null;
+}
+
 export const GET = withTenantRoute(async (req: NextRequest) => {
     // ── Module entitlement guard ──
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_FINANCE_ROLES);
+    if (forbidden) return forbidden;
 
     const mode = req.nextUrl.searchParams.get('mode') || 'daily';
     const dateStr =
         req.nextUrl.searchParams.get('date') || todayWibDateString();
+    if (!isValidDateString(dateStr)) return invalidParams();
 
     if (mode === 'weekly') {
         const base = new Date(dateStr);
@@ -78,17 +108,13 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
     }
 
     if (mode === 'monthly') {
-        const year = parseInt(
+        const year = parseYear(
             req.nextUrl.searchParams.get('year') || dateStr.slice(0, 4),
-            10,
         );
-        const month = parseInt(
+        const month = parseMonth(
             req.nextUrl.searchParams.get('month') || dateStr.slice(5, 7),
-            10,
         );
-        if (isNaN(year) || isNaN(month) || month < 1 || month > 12) {
-            return new Response('Invalid year/month', { status: 400 });
-        }
+        if (year === null || month === null) return invalidParams();
         const rows = await AttendanceService.getMonthlySummary(
             prisma,
             year,

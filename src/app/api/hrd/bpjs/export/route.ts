@@ -5,20 +5,17 @@ import { prisma } from '@/lib/core/prisma';
 import { BpjsRecapService } from '@/services/hrd/bpjs-recap-service';
 import { todayWibDateString } from '@/services/hrd/shift-window';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_FINANCE_ROLES);
+    if (forbidden) return forbidden;
 
     const today = todayWibDateString();
     const year = parseInt(
@@ -47,7 +44,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         'Sumber',
     ];
     const lines = recap.rows.map((r) =>
-        [
+        csvRow([
             r.employeeCode,
             r.employeeName,
             r.payType,
@@ -58,9 +55,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             r.employerCostMaster,
             r.actualDeducted,
             r.source,
-        ]
-            .map(csvEscape)
-            .join(','),
+        ]),
     );
     const body = '\uFEFF' + [header.join(','), ...lines].join('\n');
     return new Response(body, {

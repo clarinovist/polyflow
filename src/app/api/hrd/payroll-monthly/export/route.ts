@@ -3,15 +3,9 @@ import { auth } from '@/auth';
 import { withTenantRoute } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { PayrollMonthlyService } from '@/services/hrd/payroll-monthly-service';
-import { hasAnyRole } from '@/lib/auth/roles';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
 const toN = (v: number | { toNumber(): number } | null | undefined): number => {
     if (v == null) return 0;
@@ -23,10 +17,9 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
-    if (!hasAnyRole(session.user, ['ADMIN', 'FINANCE', 'HRD'])) {
-        return new Response('Forbidden', { status: 403 });
-    }
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_FINANCE_ROLES);
+    if (forbidden) return forbidden;
 
     const periodId = req.nextUrl.searchParams.get('periodId');
     const yearStr = req.nextUrl.searchParams.get('year');
@@ -79,7 +72,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         const allowances = p.allowances
             .map((a) => `${a.name}: ${toN(a.amount)}`)
             .join('; ');
-        return [
+        return csvRow([
             `${period.year}-${String(period.month).padStart(2, '0')}`,
             p.employee.code,
             p.employee.name,
@@ -95,9 +88,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             toN(p.deductionTotal),
             toN(p.netPay),
             p.notes ?? '',
-        ]
-            .map(csvEscape)
-            .join(',');
+        ]);
     });
 
     const csv = [header.join(','), ...lines].join('\n');

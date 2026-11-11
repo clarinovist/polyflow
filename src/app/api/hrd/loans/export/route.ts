@@ -4,20 +4,17 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { EmployeeLoanService } from '@/services/hrd/payroll-monthly-service';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_FINANCE_ROLES);
+    if (forbidden) return forbidden;
 
     const status = req.nextUrl.searchParams.get('status');
     const filters =
@@ -39,7 +36,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
         'Alasan',
     ];
     const lines = rows.map((r) =>
-        [
+        csvRow([
             r.loanNumber,
             r.employee.code,
             r.employee.name,
@@ -50,9 +47,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             r.installmentAmount != null ? Number(r.installmentAmount) : '',
             r.status,
             r.reason ?? '',
-        ]
-            .map(csvEscape)
-            .join(','),
+        ]),
     );
     const body = '\uFEFF' + [header.join(','), ...lines].join('\n');
     return new Response(body, {

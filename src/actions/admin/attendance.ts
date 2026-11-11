@@ -16,10 +16,38 @@ import {
 } from '@/services/hrd/kiosk-location-evidence';
 import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
-import { isNextControlFlowError } from '@/lib/errors/errors';
+import { BusinessRuleError, isNextControlFlowError } from '@/lib/errors/errors';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { checkKioskRateLimit } from '@/lib/hrd/kiosk-guard';
 import { logActivity } from '@/lib/tools/audit';
+import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
+
+// ─── Access guard ───
+
+const ACCESS_DENIED_ERROR = 'Anda tidak memiliki akses untuk aksi ini';
+
+type HrdSession = Awaited<ReturnType<typeof requireHrdFinance>>;
+type HrdGuard = () => Promise<HrdSession>;
+type GuardResult =
+    | { session: HrdSession; denied?: undefined }
+    | { session?: undefined; denied: { success: false; error: string } };
+
+/**
+ * Jalankan guard peran HRD. Redirect login dilempar ulang; penolakan peran
+ * menjadi balikan gagal generik (tanpa detail peran); error lain dilempar
+ * ke catch pemanggil supaya dicatat.
+ */
+async function runHrdGuard(guard: HrdGuard): Promise<GuardResult> {
+    try {
+        return { session: await guard() };
+    } catch (error) {
+        if (isNextControlFlowError(error)) throw error;
+        if (error instanceof BusinessRuleError) {
+            return { denied: { success: false, error: ACCESS_DENIED_ERROR } };
+        }
+        throw error;
+    }
+}
 
 // ─── PIN management ───
 
@@ -28,6 +56,8 @@ export const setEmployeePin = withTenant(async function setEmployeePin(
     pin: string,
 ) {
     try {
+        const guard = await runHrdGuard(requireHrdApprover);
+        if (guard.denied) return guard.denied;
         if (!isValidPin(pin)) {
             return { success: false, error: 'PIN harus 4-6 digit angka' };
         }
@@ -36,9 +66,18 @@ export const setEmployeePin = withTenant(async function setEmployeePin(
             where: { id: employeeId },
             data: { pinHash },
         });
+        // Jangan pernah mencatat PIN atau hash di audit.
+        await logActivity({
+            userId: guard.session.user.id,
+            action: 'EMPLOYEE_PIN_SET',
+            entityType: 'Employee',
+            entityId: employeeId,
+            details: `PIN karyawan diatur: employee=${employeeId}`,
+        });
         revalidatePath('/dashboard/employees');
         return { success: true };
     } catch (error) {
+        if (isNextControlFlowError(error)) throw error;
         logger.error('Failed to set employee PIN', {
             error,
             employeeId,
@@ -52,13 +91,23 @@ export const clearEmployeePin = withTenant(async function clearEmployeePin(
     employeeId: string,
 ) {
     try {
+        const guard = await runHrdGuard(requireHrdApprover);
+        if (guard.denied) return guard.denied;
         await db.employee.update({
             where: { id: employeeId },
             data: { pinHash: null },
         });
+        await logActivity({
+            userId: guard.session.user.id,
+            action: 'EMPLOYEE_PIN_CLEARED',
+            entityType: 'Employee',
+            entityId: employeeId,
+            details: `PIN karyawan dihapus: employee=${employeeId}`,
+        });
         revalidatePath('/dashboard/employees');
         return { success: true };
     } catch (error) {
+        if (isNextControlFlowError(error)) throw error;
         logger.error('Failed to clear employee PIN', {
             error,
             employeeId,
@@ -67,6 +116,7 @@ export const clearEmployeePin = withTenant(async function clearEmployeePin(
         return { success: false, error: 'Gagal menghapus PIN' };
     }
 });
+
 export const setAbsent = withTenant(async function setAbsent(
     employeeId: string,
     workDate: string,
@@ -186,6 +236,8 @@ export const listAttendance = withTenant(async function listAttendance(
     filters?: ListFilters,
 ) {
     try {
+        const guard = await runHrdGuard(requireHrdFinance);
+        if (guard.denied) return guard.denied;
         const records = await AttendanceService.listByDate(
             db,
             new Date(date),
@@ -193,6 +245,7 @@ export const listAttendance = withTenant(async function listAttendance(
         );
         return { success: true, data: records };
     } catch (error) {
+        if (isNextControlFlowError(error)) throw error;
         logger.error('List attendance failed', {
             error,
             date,
@@ -205,12 +258,15 @@ export const listAttendance = withTenant(async function listAttendance(
 export const getAttendanceSummary = withTenant(
     async function getAttendanceSummary(date: string) {
         try {
+            const guard = await runHrdGuard(requireHrdFinance);
+            if (guard.denied) return guard.denied;
             const summary = await AttendanceService.getSummary(
                 db,
                 new Date(date),
             );
             return { success: true, data: summary };
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Get summary failed', {
                 error,
                 date,
@@ -226,6 +282,8 @@ export const getAttendanceWeeklySummary = withTenant(
         weekEnd: string,
     ) {
         try {
+            const guard = await runHrdGuard(requireHrdFinance);
+            if (guard.denied) return guard.denied;
             const summary = await AttendanceService.getWeeklySummary(
                 db,
                 new Date(weekStart),
@@ -233,6 +291,7 @@ export const getAttendanceWeeklySummary = withTenant(
             );
             return { success: true, data: summary };
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Get weekly summary failed', {
                 error,
                 weekStart,
@@ -249,6 +308,8 @@ export const getAttendanceWeeklySummary = withTenant(
 export const getAttendanceMonthlySummary = withTenant(
     async function getAttendanceMonthlySummary(year: number, month: number) {
         try {
+            const guard = await runHrdGuard(requireHrdFinance);
+            if (guard.denied) return guard.denied;
             const summary = await AttendanceService.getMonthlySummary(
                 db,
                 year,
@@ -256,6 +317,7 @@ export const getAttendanceMonthlySummary = withTenant(
             );
             return { success: true, data: summary };
         } catch (error) {
+            if (isNextControlFlowError(error)) throw error;
             logger.error('Get monthly summary failed', {
                 error,
                 year,

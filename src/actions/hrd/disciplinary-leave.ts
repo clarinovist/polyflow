@@ -36,10 +36,8 @@ export const createDisciplinaryAction = withTenant(
     async function createDisciplinaryAction(data: DisciplinaryInput) {
         return safeAction(async () => {
             const session = await requireHrdApprover();
-            const withIssuer = {
-                ...data,
-                issuedById: data.issuedById ?? session.user.id,
-            };
+            // The issuer is always the signed-in approver; a client value is ignored.
+            const withIssuer = { ...data, issuedById: session.user.id };
             const result = await DisciplinaryService.create(prisma, withIssuer);
             await logActivity({
                 userId: session.user.id,

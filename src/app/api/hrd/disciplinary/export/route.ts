@@ -4,20 +4,17 @@ import { withTenantRoute } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { DisciplinaryService } from '@/services/hrd/disciplinary-leave-service';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
-
-function csvEscape(val: string | number): string {
-    const s = String(val);
-    return s.includes(',') || s.includes('"') || s.includes('\n')
-        ? `"${s.replace(/"/g, '""')}"`
-        : s;
-}
+import { csvRow } from '@/lib/hrd/csv';
+import { denyUnlessRoles, HRD_APPROVER_ROLES } from '@/lib/hrd/export-guard';
 
 export const GET = withTenantRoute(async (req: NextRequest) => {
     const denied = await requireModuleOrNextResponse('HRD');
     if (denied) return denied;
 
     const session = await auth();
-    if (!session) return new Response('Unauthorized', { status: 401 });
+    if (!session?.user) return new Response('Unauthorized', { status: 401 });
+    const forbidden = denyUnlessRoles(session.user, HRD_APPROVER_ROLES);
+    if (forbidden) return forbidden;
 
     const yearStr = req.nextUrl.searchParams.get('year');
     const monthStr = req.nextUrl.searchParams.get('month');
@@ -51,7 +48,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
     ];
     const lines = rows.map((r) => {
         const active = !r.expiryDate || r.expiryDate >= now;
-        return [
+        return csvRow([
             r.employee.code,
             r.employee.name,
             r.type,
@@ -59,9 +56,7 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
             r.expiryDate ? r.expiryDate.toISOString().slice(0, 10) : '',
             active ? 'Aktif' : 'Hangus',
             r.reason,
-        ]
-            .map(csvEscape)
-            .join(',');
+        ]);
     });
     const body = '\uFEFF' + [header.join(','), ...lines].join('\n');
     return new Response(body, {

@@ -6,12 +6,51 @@ import { MachineType } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { logger } from '@/lib/config/logger';
+import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
+import { logActivity } from '@/lib/tools/audit';
 
 const ALL_MACHINE_TYPES = Object.values(MachineType);
+
+type RateStatus = 'ACTIVE' | 'INACTIVE';
+
+/** Upsert tarif + audit (rate lama -> baru) dalam satu transaksi. */
+async function upsertRateWithAudit(
+    userId: string,
+    machineType: MachineType,
+    ratePerKg: number,
+    status: RateStatus,
+) {
+    return prisma.$transaction(async (tx) => {
+        const before = await tx.processPieceRate.findUnique({
+            where: { machineType },
+        });
+        const saved = await tx.processPieceRate.upsert({
+            where: { machineType },
+            create: { machineType, ratePerKg, status },
+            update: { ratePerKg, status },
+        });
+        const oldRate = before ? Number(before.ratePerKg) : null;
+        await logActivity({
+            userId,
+            action: 'PIECE_RATE_UPSERTED',
+            entityType: 'ProcessPieceRate',
+            entityId: saved.id,
+            details: `Tarif borongan ${machineType}: ${oldRate ?? 'baru'} -> ${ratePerKg} /kg`,
+            changes: {
+                machineType,
+                ratePerKg: { from: oldRate, to: ratePerKg },
+                status: { from: before?.status ?? null, to: status },
+            },
+            tx,
+        });
+        return saved;
+    });
+}
 
 export const listProcessPieceRates = withTenant(
     async function listProcessPieceRates() {
         return safeAction(async () => {
+            await requireHrdFinance();
             const rows = await prisma.processPieceRate.findMany({
                 orderBy: { machineType: 'asc' },
             });
@@ -33,9 +72,10 @@ export const upsertProcessPieceRate = withTenant(
     async function upsertProcessPieceRate(input: {
         machineType: MachineType;
         ratePerKg: number;
-        status?: 'ACTIVE' | 'INACTIVE';
+        status?: RateStatus;
     }) {
         return safeAction(async () => {
+            const session = await requireHrdApprover();
             try {
                 if (!ALL_MACHINE_TYPES.includes(input.machineType)) {
                     throw new BusinessRuleError('Tipe mesin tidak valid');
@@ -46,18 +86,12 @@ export const upsertProcessPieceRate = withTenant(
                 const status =
                     input.status ??
                     (input.ratePerKg > 0 ? 'ACTIVE' : 'INACTIVE');
-                const row = await prisma.processPieceRate.upsert({
-                    where: { machineType: input.machineType },
-                    create: {
-                        machineType: input.machineType,
-                        ratePerKg: input.ratePerKg,
-                        status,
-                    },
-                    update: {
-                        ratePerKg: input.ratePerKg,
-                        status,
-                    },
-                });
+                const row = await upsertRateWithAudit(
+                    session.user.id,
+                    input.machineType,
+                    input.ratePerKg,
+                    status,
+                );
                 revalidatePath('/hrd/piece-rates');
                 return {
                     id: row.id,
