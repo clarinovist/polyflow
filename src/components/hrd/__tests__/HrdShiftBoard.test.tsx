@@ -27,6 +27,7 @@ const data: HrdShiftBoard = {
             noSelfie: 0,
             overtimeHours: 2.25,
             isNonWorkingDay: false,
+            staleOpen: 0,
         }),
         payrollReadiness: section({
             year: 2026,
@@ -123,6 +124,7 @@ describe('HrdShiftBoardComponent', () => {
                     noSelfie: 0,
                     overtimeHours: 0,
                     isNonWorkingDay: false,
+                    staleOpen: 0,
                 }),
                 payrollReadiness: section({
                     year: 2026,

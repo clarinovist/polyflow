@@ -1,10 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     readAttendanceTodaySnapshot,
     resolveAnomalyRadiusMeters,
     summarizeAttendanceToday,
     type AttendanceTodayRecord,
 } from '../hrd-dashboard-attendance';
+
+// Contract of the T1 helper (stale-session.ts): cutoff = now - 20h.
+vi.mock('@/services/hrd/stale-session', () => ({
+    STALE_SESSION_HOURS: 20,
+    staleSessionCutoff: (now: Date) =>
+        new Date(now.getTime() - 20 * 60 * 60 * 1000),
+}));
 
 const WORK_DATE = '2026-10-10'; // Saturday
 const SUNDAY = '2026-10-11';
@@ -34,6 +41,7 @@ function summarize(
         workDate: WORK_DATE,
         graceMinutes: 0,
         radiusMeters: null,
+        staleOpen: 0,
         ...overrides,
     });
 }
@@ -210,7 +218,15 @@ describe('summarizeAttendanceToday', () => {
             noSelfie: 0,
             overtimeHours: 0,
             isNonWorkingDay: false,
+            staleOpen: 0,
         });
+    });
+
+    it('passes the staleOpen input through unchanged, also on Sunday', () => {
+        expect(summarize([], { staleOpen: 4 }).staleOpen).toBe(4);
+        expect(
+            summarize([], { staleOpen: 2, workDate: SUNDAY }).staleOpen,
+        ).toBe(2);
     });
 });
 
@@ -256,7 +272,7 @@ describe('resolveAnomalyRadiusMeters', () => {
 describe('readAttendanceTodaySnapshot', () => {
     const db = {
         employee: { count: vi.fn() },
-        attendanceRecord: { findMany: vi.fn() },
+        attendanceRecord: { findMany: vi.fn(), groupBy: vi.fn() },
         appSetting: { findMany: vi.fn() },
     };
 
@@ -264,6 +280,7 @@ describe('readAttendanceTodaySnapshot', () => {
         vi.resetAllMocks();
         db.employee.count.mockResolvedValue(5);
         db.attendanceRecord.findMany.mockResolvedValue([]);
+        db.attendanceRecord.groupBy.mockResolvedValue([]);
         db.appSetting.findMany.mockResolvedValue([
             { key: 'attendance.lateGraceMinutes', value: '10' },
             { key: 'attendance.geofenceMode', value: 'observe' },
@@ -350,5 +367,78 @@ describe('readAttendanceTodaySnapshot', () => {
                 new Date('2026-10-10T00:00:00.000Z'),
             ),
         ).rejects.toThrow('settings down');
+    });
+
+    describe('staleOpen', () => {
+        const NOW = new Date('2026-10-10T05:00:00.000Z');
+        const DAY = new Date('2026-10-10T00:00:00.000Z');
+
+        beforeEach(() => {
+            vi.useFakeTimers();
+            vi.setSystemTime(NOW);
+        });
+
+        afterEach(() => {
+            vi.useRealTimers();
+        });
+
+        it('counts distinct employees: two stale sessions of one person count once', async () => {
+            db.attendanceRecord.groupBy.mockResolvedValue([
+                { employeeId: 'a' },
+                { employeeId: 'b' },
+            ]);
+
+            const result = await readAttendanceTodaySnapshot(db as never, DAY);
+
+            expect(result.staleOpen).toBe(2);
+        });
+
+        it('uses exactly one extra query, grouped by employee', async () => {
+            await readAttendanceTodaySnapshot(db as never, DAY);
+
+            expect(db.attendanceRecord.groupBy).toHaveBeenCalledTimes(1);
+            expect(db.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
+            expect(db.attendanceRecord.groupBy.mock.calls[0][0].by).toEqual([
+                'employeeId',
+            ]);
+        });
+
+        it('filters open sessions older than 20 hours within the last 60 days', async () => {
+            await readAttendanceTodaySnapshot(db as never, DAY);
+
+            const { where } = db.attendanceRecord.groupBy.mock.calls[0][0];
+            expect(where.clockOutAt).toBeNull();
+            expect(where.clockInAt.not).toBeNull();
+            // 20 hours before "now": the exact boundary is excluded (lt).
+            expect(where.clockInAt.lt).toEqual(
+                new Date('2026-10-09T09:00:00.000Z'),
+            );
+            expect(where.workDate.gte).toEqual(
+                new Date('2026-08-11T00:00:00.000Z'),
+            );
+        });
+
+        it('does not filter by the displayed day and still counts on Sunday', async () => {
+            db.attendanceRecord.groupBy.mockResolvedValue([
+                { employeeId: 'a' },
+            ]);
+
+            const result = await readAttendanceTodaySnapshot(
+                db as never,
+                new Date('2026-10-11T00:00:00.000Z'),
+            );
+
+            expect(result.isNonWorkingDay).toBe(true);
+            expect(result.staleOpen).toBe(1);
+            expect(db.attendanceRecord.groupBy).toHaveBeenCalledTimes(1);
+        });
+
+        it('rejects instead of falling back to zero when the stale query fails', async () => {
+            db.attendanceRecord.groupBy.mockRejectedValue(new Error('stale down'));
+
+            await expect(
+                readAttendanceTodaySnapshot(db as never, DAY),
+            ).rejects.toThrow('stale down');
+        });
     });
 });

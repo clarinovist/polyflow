@@ -5,6 +5,7 @@ import {
     resolveGeofenceMode,
 } from '@/services/hrd/attendance-location';
 import { readAttendanceSettings } from '@/services/hrd/attendance-settings-reader';
+import { staleSessionCutoff } from '@/services/hrd/stale-session';
 import { isLateForShift } from '@/services/hrd/shift-window';
 
 export interface HrdAttendanceToday {
@@ -18,6 +19,8 @@ export interface HrdAttendanceToday {
     noSelfie: number;
     overtimeHours: number;
     isNonWorkingDay: boolean;
+    /** Employees with >= 1 open session older than the stale cutoff (60 days). */
+    staleOpen: number;
 }
 
 export interface AttendanceTodayRecord {
@@ -39,10 +42,13 @@ interface SummarizeInput {
     workDate: string;
     graceMinutes: number;
     radiusMeters: number | null;
+    /** Distinct employees with a stale open session (computed by the reader). */
+    staleOpen: number;
 }
 
 const SUNDAY = 0;
 const HOURS_PRECISION = 100;
+const STALE_LOOKBACK_DAYS = 60;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STATUS_PRIORITY = { PRESENT: 3, ON_LEAVE: 2, ABSENT: 1 } as const;
 
@@ -159,6 +165,7 @@ export function summarizeAttendanceToday(
         ),
         overtimeHours: roundHours(overtime),
         isNonWorkingDay,
+        staleOpen: input.staleOpen,
     };
 }
 
@@ -185,8 +192,31 @@ async function countEligibleEmployees(
 }
 
 /**
- * One record query, one headcount query (skipped on Sunday) and one settings
- * query; everything else is computed in memory. Any failed read rejects so the
+ * Distinct employees holding an open session past the stale cutoff within the
+ * lookback window. Historical, so it ignores the displayed day and Sundays.
+ */
+async function countStaleOpenEmployees(
+    db: PrismaClient,
+    workDate: Date,
+    now: Date,
+): Promise<number> {
+    const earliestWorkDate = new Date(
+        workDate.getTime() - STALE_LOOKBACK_DAYS * MS_PER_DAY,
+    );
+    const groups = await db.attendanceRecord.groupBy({
+        by: ['employeeId'],
+        where: {
+            workDate: { gte: earliestWorkDate },
+            clockInAt: { not: null, lt: staleSessionCutoff(now) },
+            clockOutAt: null,
+        },
+    });
+    return groups.length;
+}
+
+/**
+ * One record query, one headcount query (skipped on Sunday), one stale-session
+ * group query and one settings query; everything else is computed in memory. Any failed read rejects so the
  * caller can mark the section UNAVAILABLE instead of showing zeroes.
  */
 export async function readAttendanceTodaySnapshot(
@@ -194,7 +224,7 @@ export async function readAttendanceTodaySnapshot(
     workDate: Date,
 ): Promise<HrdAttendanceToday> {
     const workDateString = workDate.toISOString().slice(0, 10);
-    const [records, eligibleHeadcount, settings] = await Promise.all([
+    const [records, eligibleHeadcount, staleOpen, settings] = await Promise.all([
         db.attendanceRecord.findMany({
             where: { workDate },
             select: {
@@ -210,6 +240,7 @@ export async function readAttendanceTodaySnapshot(
         isSunday(workDateString)
             ? Promise.resolve(0)
             : countEligibleEmployees(db, workDateString),
+        countStaleOpenEmployees(db, workDate, new Date()),
         readAttendanceSettings(db),
     ]);
 
@@ -219,5 +250,6 @@ export async function readAttendanceTodaySnapshot(
         workDate: workDateString,
         graceMinutes: getLateGraceMinutes(settings),
         radiusMeters: resolveAnomalyRadiusMeters(settings),
+        staleOpen,
     });
 }

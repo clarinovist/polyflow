@@ -106,6 +106,7 @@ describe('readHrdDashboardAggregate', () => {
                 noSelfie: 0,
                 overtimeHours: 0,
                 isNonWorkingDay: false,
+                staleOpen: 0,
             },
         });
         expect(result.health.payrollReadiness).toEqual({
@@ -155,6 +156,7 @@ describe('readHrdDashboardAggregate', () => {
                 noSelfie: 0,
                 overtimeHours: 3.34,
                 isNonWorkingDay: false,
+                staleOpen: 0,
             },
         });
         expect(db.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
@@ -463,6 +465,7 @@ describe('readHrdDashboardAggregate', () => {
                 noSelfie: 0,
                 overtimeHours: 0,
                 isNonWorkingDay: false,
+                staleOpen: 0,
             }),
             readPayrollAttention: async () => ({
                 openPeriods: 0,
@@ -630,7 +633,12 @@ describe('readHrdDashboardHealth', () => {
         expect(db.employeeLoan.aggregate).not.toHaveBeenCalled();
         expect(db.notification.count).not.toHaveBeenCalled();
         expect(db.payrollPeriod.count).not.toHaveBeenCalled();
-        expect(db.attendanceRecord.groupBy).not.toHaveBeenCalled();
+        // Only the stale-session count (health) groupBy may run; the
+        // recorded-absence-yesterday attention groupBy must not.
+        const absenceGroupBys = db.attendanceRecord.groupBy.mock.calls.filter(
+            ([args]) => args.where.status === 'ABSENT',
+        );
+        expect(absenceGroupBys).toHaveLength(0);
         const bpjsQueries = db.employee.count.mock.calls.filter(
             ([args]) => args.where.bpjsParticipant !== undefined,
         );

@@ -26,6 +26,10 @@ interface TileRow {
 }
 
 const HOLIDAY_LABEL = 'Hari libur (Minggu)';
+const STALE_HREF = '/hrd/attendance?status=stale';
+const STALE_LABEL = 'Sesi belum pulang';
+const STALE_HINT =
+    'Upah hari itu Rp0 sampai jam pulang dikoreksi di Rekap Absensi.';
 
 function recapHref(workDate: string, filter?: TileRow['filter']): string {
     const status = filter ? 'status=' + filter + '&' : '';
@@ -124,6 +128,26 @@ function TileRowLink({ row, workDate }: { row: TileRow; workDate: string }) {
     );
 }
 
+function StaleSessionRow({ count }: { count: number }) {
+    return (
+        <li>
+            <Link
+                href={STALE_HREF}
+                title={STALE_HINT}
+                className="flex min-h-11 items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm text-amber-700 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400"
+            >
+                <span className="min-w-0">
+                    {STALE_LABEL}
+                    <span className="ml-1 block text-xs text-muted-foreground">
+                        {count} karyawan belum pulang lebih dari 20 jam. {STALE_HINT}
+                    </span>
+                </span>
+                <span className="font-semibold tabular-nums">{count}</span>
+            </Link>
+        </li>
+    );
+}
+
 function HolidayRow() {
     return (
         <li className="flex min-h-11 items-center px-2 py-1.5 text-sm text-muted-foreground">
@@ -202,6 +226,9 @@ export function AttendanceTodayTile({
                         />
                     ))}
                     {data.isNonWorkingDay && <HolidayRow />}
+                    {data.staleOpen > 0 && (
+                        <StaleSessionRow count={data.staleOpen} />
+                    )}
                 </ul>
                 <p className="text-xs text-muted-foreground">
                     {formatHours(data.overtimeHours)} jam lembur pada catatan

@@ -24,6 +24,7 @@ function available(overrides: Partial<NonNullable<Section['data']>> = {}): Secti
             noSelfie: 0,
             overtimeHours: 2.25,
             isNonWorkingDay: false,
+            staleOpen: 0,
             ...overrides,
         },
     };
@@ -162,5 +163,36 @@ describe('AttendanceTodayTile', () => {
 
         expect(screen.getByText('Belum disiapkan')).toBeTruthy();
         expect(screen.queryByRole('button', { name: 'Coba lagi' })).toBeNull();
+    });
+
+    it('hides the stale-session row when staleOpen is 0', () => {
+        render(<AttendanceTodayTile section={available()} workDate={WORK_DATE} />);
+
+        expect(screen.queryByText(/Sesi belum pulang/)).toBeNull();
+    });
+
+    it('shows the stale-session row linking to the stale filter when staleOpen > 0', () => {
+        render(
+            <AttendanceTodayTile
+                section={available({ staleOpen: 3 })}
+                workDate={WORK_DATE}
+            />,
+        );
+
+        const link = screen.getByRole('link', { name: /Sesi belum pulang/ });
+        expect(link.getAttribute('href')).toBe('/hrd/attendance?status=stale');
+        expect(link.textContent).toContain('3 karyawan belum pulang lebih dari 20 jam');
+        expect(link.getAttribute('title')).toContain('Rp0');
+    });
+
+    it('shows the stale-session row on a non-working day too', () => {
+        render(
+            <AttendanceTodayTile
+                section={available({ staleOpen: 1, isNonWorkingDay: true })}
+                workDate={WORK_DATE}
+            />,
+        );
+
+        expect(screen.getByRole('link', { name: /Sesi belum pulang/ })).toBeTruthy();
     });
 });
