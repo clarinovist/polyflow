@@ -1,177 +1,49 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
-    Clock,
-    Users,
-    ArrowUpDown,
-    MoreHorizontal,
-    Download,
-    MapPin,
-    ExternalLink,
-} from 'lucide-react';
-import { googleMapsUrl } from '@/lib/utils/maps';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useState, useEffect, useMemo } from 'react';
-import { toast } from 'sonner';
-import {
-    correctAttendance,
     getAttendanceMonthlySummary,
     getAttendanceWeeklySummary,
 } from '@/actions/admin/attendance';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
-import Link from 'next/link';
-import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
+import { AttendanceDailySummaryCards } from './attendance/AttendanceDailySummaryCards';
+import { AttendanceDailyTable } from './attendance/AttendanceDailyTable';
 import { AttendanceFilterBar } from './attendance/AttendanceFilterBar';
 import { AttendanceLoadError } from './attendance/AttendanceLoadError';
+import { AttendanceMonthlyView } from './attendance/AttendanceMonthlyView';
 import { AttendanceNoRecordPanel } from './attendance/AttendanceNoRecordPanel';
-import { AttendanceRowBadges } from './attendance/AttendanceRowBadges';
+import { AttendanceRecapToolbar } from './attendance/AttendanceRecapToolbar';
 import { AttendanceSummaryChips } from './attendance/AttendanceSummaryChips';
+import { AttendanceWeeklyView } from './attendance/AttendanceWeeklyView';
+import { CorrectAttendanceDialog } from './attendance/CorrectAttendanceDialog';
+import { SelfieLightbox } from './attendance/SelfieLightbox';
 import {
-    MULTI_SHIFT_LABEL,
-    buildYearOptions,
-    currentWibYear,
     filterAttendanceRecords,
     summarizeAttendance,
     type StatusFilter,
 } from './attendance/attendance-recap-helpers';
+import { weekLabel } from './attendance/attendance-format';
+import {
+    ATTENDANCE_PATH,
+    buildExportHref,
+    parseViewMode,
+    withParam,
+    withPeriod,
+    withViewMode,
+} from './attendance/attendance-recap-nav';
+import type {
+    AttendanceRecord,
+    DailySummary,
+    MonthlySummary,
+    PhotoPreview,
+    ViewMode,
+    WeeklySummary,
+    WorkShift,
+} from './attendance/attendance-recap-types';
+import { useCorrectAttendance } from './attendance/useCorrectAttendance';
 import { useNoRecordRoster } from './attendance/useNoRecordRoster';
 import { useSummaryLoader } from './attendance/useSummaryLoader';
-
-const SOURCE_LABELS: Record<string, string> = {
-    KIOSK: 'Kiosk',
-    SELF_SERVICE: 'Mandiri',
-    MANUAL: 'Manual',
-};
-
-function sourceBadgeClass(source: string): string {
-    switch (source) {
-        case 'SELF_SERVICE':
-            return 'bg-blue-500/10 text-blue-600';
-        case 'MANUAL':
-            return 'bg-amber-500/10 text-amber-600';
-        default:
-            return 'bg-emerald-500/10 text-emerald-600';
-    }
-}
-
-interface AttendanceRecord {
-    id: string;
-    employeeId: string;
-    workShiftId: string;
-    employeeCode: string;
-    employeeName: string;
-    shiftName: string;
-    plannedHours: number;
-    clockInAt: Date | string | null;
-    clockOutAt: Date | string | null;
-    actualHours: number | null;
-    overtimeHours: number;
-    isOvertimeShift: boolean;
-    status: string;
-    source: string;
-    clockInPhotoUrl?: string | null;
-    clockOutPhotoUrl?: string | null;
-    clockInLatitude?: number | null;
-    clockInLongitude?: number | null;
-    clockInDistance?: number | null;
-    clockOutDistance?: number | null;
-    isLate?: boolean;
-    isOutsideRadius?: boolean;
-    hasValidSelfie?: boolean;
-}
-
-interface DailySummary {
-    totalEmployees: number;
-    totalRecords: number;
-    multiShiftCount: number;
-    totalActualHours: number;
-    totalOvertimeHours: number;
-}
-
-interface WorkShift {
-    id: string;
-    name: string;
-    startTime: string;
-    endTime: string;
-    status?: string;
-}
-
-type ViewMode = 'daily' | 'weekly' | 'monthly';
-
-interface MonthlySummary {
-    employeeId: string;
-    employeeCode: string;
-    employeeName: string;
-    daysPresent: number;
-    daysAbsent: number;
-    daysOnLeave: number;
-    totalActualHours: number;
-    totalOvertimeHours: number;
-    multiShiftDays: number;
-}
-
-interface WeeklySummary {
-    employeeId: string;
-    employeeCode: string;
-    employeeName: string;
-    daysPresent: number;
-    totalActualHours: number;
-    totalOvertimeHours: number;
-    totalDailyEarnings: number;
-    totalOvertimeEarnings: number;
-    totalEarnings: number;
-}
-
-function formatIdr(n: number) {
-    return new Intl.NumberFormat('id-ID', {
-        style: 'currency',
-        currency: 'IDR',
-        maximumFractionDigits: 0,
-    }).format(n);
-}
-
-function weekLabel(start: Date, end: Date) {
-    const opts: Intl.DateTimeFormatOptions = {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        timeZone: 'UTC',
-    };
-    return `${start.toLocaleDateString('id-ID', opts)} – ${end.toLocaleDateString('id-ID', opts)}`;
-}
 
 interface Props {
     records: AttendanceRecord[];
@@ -186,37 +58,6 @@ interface Props {
     loadError?: string | null;
 }
 
-function formatTime(iso: Date | string | null): string {
-    if (!iso) return '-';
-    const d = typeof iso === 'string' ? new Date(iso) : iso;
-    return d.toLocaleTimeString('id-ID', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Jakarta',
-    });
-}
-
-function formatHours(h: number | null): string {
-    if (h == null) return '-';
-    return `${h.toFixed(1)}j`;
-}
-
-const MONTH_NAMES = [
-    'Januari',
-    'Februari',
-    'Maret',
-    'April',
-    'Mei',
-    'Juni',
-    'Juli',
-    'Agustus',
-    'September',
-    'Oktober',
-    'November',
-    'Desember',
-];
-
 export function AttendanceRecap({
     records,
     summary,
@@ -229,31 +70,11 @@ export function AttendanceRecap({
 }: Props) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const [correcting, setCorrecting] = useState<AttendanceRecord | null>(null);
-    const [correctData, setCorrectData] = useState({
-        clockInAt: '',
-        clockOutAt: '',
-        notes: '',
-    });
-    const [correctInitial, setCorrectInitial] = useState({
-        clockInAt: '',
-        clockOutAt: '',
-        notes: '',
-    });
-    const [actionLoading, setActionLoading] = useState(false);
-    const [photoPreview, setPhotoPreview] = useState<{
-        url: string;
-        title: string;
-    } | null>(null);
+    const correction = useCorrectAttendance(() => router.refresh());
+    const [photoPreview, setPhotoPreview] = useState<PhotoPreview | null>(null);
 
     const modeParam = searchParams.get('mode');
-    const [viewMode, setViewMode] = useState<ViewMode>(
-        modeParam === 'monthly'
-            ? 'monthly'
-            : modeParam === 'weekly'
-              ? 'weekly'
-              : 'daily',
-    );
+    const [viewMode, setViewMode] = useState<ViewMode>(parseViewMode(modeParam));
 
     const currentYear = Number(
         searchParams.get('year') || currentDate.slice(0, 4),
@@ -285,42 +106,39 @@ export function AttendanceRecap({
         return { start: startOfWeek(base), end: endOfWeek(base) };
     }, [currentDate]);
 
-    const updateParam = (key: string, value: string | null) => {
-        const sp = new URLSearchParams(searchParams.toString());
-        if (value) sp.set(key, value);
-        else sp.delete(key);
-        router.push(`/hrd/attendance?${sp.toString()}`);
-    };
+    const pushParams = (sp: URLSearchParams) =>
+        router.push(`${ATTENDANCE_PATH}?${sp.toString()}`);
+
+    const updateParam = (key: string, value: string | null) =>
+        pushParams(withParam(searchParams, key, value));
 
     const switchMode = (mode: ViewMode) => {
         setViewMode(mode);
-        const sp = new URLSearchParams(searchParams.toString());
-        sp.set('mode', mode);
-        if (mode === 'daily') {
-            sp.delete('year');
-            sp.delete('month');
-        } else if (mode === 'weekly') {
-            sp.delete('year');
-            sp.delete('month');
-        } else if (mode === 'monthly') {
-            sp.set('year', String(currentYear));
-            sp.set('month', String(currentMonth));
-        }
-        router.push(`/hrd/attendance?${sp.toString()}`);
+        pushParams(withViewMode(searchParams, mode, currentYear, currentMonth));
     };
 
-    const loadMonthly = (year: number, month: number) =>
-        monthly.load(() => getAttendanceMonthlySummary(year, month));
+    // `load` stabil (useCallback), jadi pemuat di bawah tidak memicu muat ulang.
+    const { load: runMonthlyLoad } = monthly;
+    const { load: runWeeklyLoad } = weekly;
 
-    const loadWeekly = (dateStr: string) => {
-        const base = new Date(dateStr);
-        return weekly.load(() =>
-            getAttendanceWeeklySummary(
-                startOfWeek(base).toISOString(),
-                endOfWeek(base).toISOString(),
-            ),
-        );
-    };
+    const loadMonthly = useCallback(
+        (year: number, month: number) =>
+            runMonthlyLoad(() => getAttendanceMonthlySummary(year, month)),
+        [runMonthlyLoad],
+    );
+
+    const loadWeekly = useCallback(
+        (dateStr: string) => {
+            const base = new Date(dateStr);
+            return runWeeklyLoad(() =>
+                getAttendanceWeeklySummary(
+                    startOfWeek(base).toISOString(),
+                    endOfWeek(base).toISOString(),
+                ),
+            );
+        },
+        [runWeeklyLoad],
+    );
 
     useEffect(() => {
         if (viewMode === 'monthly') {
@@ -328,526 +146,70 @@ export function AttendanceRecap({
         } else if (viewMode === 'weekly') {
             loadWeekly(currentDate);
         }
-    }, [viewMode, currentYear, currentMonth, currentDate]);
+    }, [viewMode, currentYear, currentMonth, currentDate, loadMonthly, loadWeekly]);
 
-    const exportHref = (() => {
-        if (viewMode === 'monthly') {
-            return `/api/hrd/attendance/export?mode=monthly&year=${currentYear}&month=${currentMonth}`;
-        }
-        if (viewMode === 'weekly') {
-            return `/api/hrd/attendance/export?mode=weekly&date=${currentDate}`;
-        }
-        const sp = new URLSearchParams({ mode: 'daily', date: currentDate });
-        if (currentShift) sp.set('shift', currentShift);
-        if (overtimeOnly) sp.set('ot', '1');
-        return `/api/hrd/attendance/export?${sp.toString()}`;
-    })();
-
-    const openCorrect = (r: AttendanceRecord) => {
-        setCorrecting(r);
-        const initial = {
-            clockInAt: r.clockInAt ? toWibInput(r.clockInAt) : '',
-            clockOutAt: r.clockOutAt ? toWibInput(r.clockOutAt) : '',
-            notes: '',
-        };
-        setCorrectData(initial);
-        setCorrectInitial(initial);
-    };
-
-    const handleCorrect = async () => {
-        if (!correcting) return;
-        setActionLoading(true);
-        try {
-            // Kirim hanya yang benar-benar diubah — field yang lolos apa adanya
-            // akan kehilangan detik dan menimpa jam yang sudah benar.
-            const payload: {
-                clockInAt?: string;
-                clockOutAt?: string;
-                notes?: string;
-            } = {};
-            if (
-                correctData.clockInAt !== correctInitial.clockInAt &&
-                correctData.clockInAt
-            ) {
-                payload.clockInAt = correctData.clockInAt;
-            }
-            if (
-                correctData.clockOutAt !== correctInitial.clockOutAt &&
-                correctData.clockOutAt
-            ) {
-                payload.clockOutAt = correctData.clockOutAt;
-            }
-            if (correctData.notes) {
-                payload.notes = correctData.notes;
-            }
-            const res = await correctAttendance(correcting.id, payload);
-            if (res.success) {
-                toast.success('Koreksi tersimpan');
-                setCorrecting(null);
-                router.refresh();
-            } else {
-                toast.error(res.error || 'Gagal koreksi');
-            }
-        } catch {
-            toast.error('Gagal koreksi');
-        } finally {
-            setActionLoading(false);
-        }
-    };
+    const exportHref = buildExportHref({
+        viewMode,
+        year: currentYear,
+        month: currentMonth,
+        date: currentDate,
+        shift: currentShift,
+        overtimeOnly,
+    });
 
     return (
         <div className="space-y-4">
-            {/* Filters */}
-            <div className="flex flex-wrap gap-3 items-center bg-card p-4 rounded-xl border">
-                <div className="flex items-center bg-muted rounded-lg p-0.5">
-                    {(['daily', 'weekly', 'monthly'] as ViewMode[]).map((m) => (
-                        <button
-                            key={m}
-                            type="button"
-                            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                                viewMode === m
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            }`}
-                            onClick={() => switchMode(m)}
-                        >
-                            {m === 'daily'
-                                ? 'Harian'
-                                : m === 'weekly'
-                                  ? 'Mingguan'
-                                  : 'Bulanan'}
-                        </button>
-                    ))}
-                </div>
+            <AttendanceRecapToolbar
+                viewMode={viewMode}
+                currentDate={currentDate}
+                currentShift={currentShift}
+                overtimeOnly={overtimeOnly}
+                shifts={shifts}
+                year={currentYear}
+                month={currentMonth}
+                weekRangeLabel={weekLabel(weekBounds.start, weekBounds.end)}
+                exportHref={exportHref}
+                onSwitchMode={switchMode}
+                onParamChange={updateParam}
+                onMonthChange={(v) =>
+                    pushParams(
+                        withPeriod(
+                            searchParams,
+                            ['month', v],
+                            ['year', String(currentYear)],
+                        ),
+                    )
+                }
+                onYearChange={(v) =>
+                    pushParams(
+                        withPeriod(
+                            searchParams,
+                            ['year', v],
+                            ['month', String(currentMonth)],
+                        ),
+                    )
+                }
+            />
 
-                {viewMode === 'daily' && (
-                    <>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">
-                                Tanggal
-                            </label>
-                            <Input
-                                type="date"
-                                value={currentDate}
-                                onChange={(e) =>
-                                    updateParam('date', e.target.value)
-                                }
-                                className="w-[180px]"
-                            />
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-muted-foreground">
-                                Shift
-                            </label>
-                            <Select
-                                value={currentShift || '__all__'}
-                                onValueChange={(v) =>
-                                    updateParam(
-                                        'shift',
-                                        v === '__all__' ? null : v,
-                                    )
-                                }
-                            >
-                                <SelectTrigger className="w-[160px]">
-                                    <SelectValue placeholder="Semua shift" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="__all__">
-                                        Semua shift
-                                    </SelectItem>
-                                    {shifts
-                                        .filter((s) => s.status === 'ACTIVE')
-                                        .map((s) => (
-                                            <SelectItem key={s.id} value={s.id}>
-                                                {s.name}
-                                            </SelectItem>
-                                        ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <Button
-                            variant={overtimeOnly ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() =>
-                                updateParam('ot', overtimeOnly ? null : '1')
-                            }
-                            className="gap-1"
-                        >
-                            <ArrowUpDown className="h-3.5 w-3.5" />
-                            {overtimeOnly ? 'Lembur ON' : 'Filter Lembur'}
-                        </Button>
-                    </>
-                )}
-
-                {viewMode === 'weekly' && (
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Minggu
-                        </label>
-                        <Input
-                            type="date"
-                            value={currentDate}
-                            onChange={(e) =>
-                                updateParam('date', e.target.value)
-                            }
-                            className="w-[180px]"
-                        />
-                        <span className="text-xs text-muted-foreground">
-                            {weekLabel(weekBounds.start, weekBounds.end)}
-                        </span>
-                        <Link
-                            href={`/hrd/payroll?date=${currentDate}`}
-                            className="text-xs text-muted-foreground hover:underline ml-1"
-                        >
-                            → Gaji Mingguan
-                        </Link>
-                    </div>
-                )}
-
-                {viewMode === 'monthly' && (
-                    <div className="flex items-center gap-2">
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Periode
-                        </label>
-                        <Select
-                            value={String(currentMonth)}
-                            onValueChange={(v) => {
-                                const sp = new URLSearchParams(
-                                    searchParams.toString(),
-                                );
-                                sp.set('month', v);
-                                sp.set('year', String(currentYear));
-                                router.push(`/hrd/attendance?${sp.toString()}`);
-                            }}
-                        >
-                            <SelectTrigger className="w-[140px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {MONTH_NAMES.map((name, i) => (
-                                    <SelectItem
-                                        key={i + 1}
-                                        value={String(i + 1)}
-                                    >
-                                        {name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={String(currentYear)}
-                            onValueChange={(v) => {
-                                const sp = new URLSearchParams(
-                                    searchParams.toString(),
-                                );
-                                sp.set('year', v);
-                                sp.set('month', String(currentMonth));
-                                router.push(`/hrd/attendance?${sp.toString()}`);
-                            }}
-                        >
-                            <SelectTrigger className="w-[100px]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {buildYearOptions(currentYear, currentWibYear()).map((y) => (
-                                    <SelectItem key={y} value={String(y)}>
-                                        {y}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Link
-                            href={`/hrd/payroll-monthly`}
-                            className="text-xs text-muted-foreground hover:underline ml-2"
-                        >
-                            → Gaji Bulanan
-                        </Link>
-                    </div>
-                )}
-
-                <Button
-                    asChild
-                    size="sm"
-                    variant="outline"
-                    className="ml-auto gap-1"
-                >
-                    <a href={exportHref}>
-                        <Download className="h-3.5 w-3.5" /> CSV
-                    </a>
-                </Button>
-            </div>
-
-            {/* Monthly summary view */}
             {viewMode === 'monthly' && (
-                <div className="space-y-4">
-                    {monthlyLoading ? (
-                        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
-                            Memuat…
-                        </div>
-                    ) : monthly.error ? (
-                        <AttendanceLoadError
-                            message={monthly.error}
-                            onRetry={() => loadMonthly(currentYear, currentMonth)}
-                        />
-                    ) : monthlyData.length === 0 ? (
-                        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
-                            Tidak ada data absensi untuk{' '}
-                            {MONTH_NAMES[currentMonth - 1]} {currentYear}
-                        </div>
-                    ) : (
-                        <>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                <SummaryCard
-                                    icon={<Users className="h-4 w-4" />}
-                                    label="Karyawan"
-                                    value={`${monthlyData.length} orang`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total Hadir"
-                                    value={`${monthlyData.reduce((s, r) => s + r.daysPresent, 0)} hari`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label={`Total ${attendanceStatusLabel('ABSENT')}`}
-                                    value={`${monthlyData.reduce((s, r) => s + r.daysAbsent, 0)} hari`}
-                                    accent={monthlyData.some(
-                                        (r) => r.daysAbsent > 0,
-                                    )}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total Jam"
-                                    value={`${monthlyData.reduce((s, r) => s + r.totalActualHours, 0).toFixed(1)}j`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total OT"
-                                    value={`${monthlyData.reduce((s, r) => s + r.totalOvertimeHours, 0).toFixed(1)}j`}
-                                    accent={monthlyData.some(
-                                        (r) => r.totalOvertimeHours > 0,
-                                    )}
-                                />
-                            </div>
-                            <div className="bg-card rounded-xl border overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-muted/50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-muted-foreground">
-                                                Kode
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground">
-                                                Nama
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-center">
-                                                Hadir
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-center">
-                                                {attendanceStatusLabel('ABSENT')}
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-center">
-                                                {attendanceStatusLabel('ON_LEAVE')}
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-center">
-                                                {MULTI_SHIFT_LABEL}
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Jam Aktual
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Jam OT
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {monthlyData.map((r) => (
-                                            <TableRow
-                                                key={r.employeeId}
-                                                className="hover:bg-muted/50"
-                                            >
-                                                <TableCell className="font-medium">
-                                                    {r.employeeCode}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {r.employeeName}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {r.daysPresent}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {r.daysAbsent > 0 ? (
-                                                        <Badge
-                                                            variant="destructive"
-                                                            className="text-xs"
-                                                        >
-                                                            {r.daysAbsent}
-                                                        </Badge>
-                                                    ) : (
-                                                        <span className="text-muted-foreground">
-                                                            0
-                                                        </span>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {r.daysOnLeave}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {r.multiShiftDays}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {r.totalActualHours.toFixed(
-                                                        1,
-                                                    )}
-                                                    j
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {r.totalOvertimeHours.toFixed(
-                                                        1,
-                                                    )}
-                                                    j
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <AttendanceMonthlyView
+                    data={monthlyData}
+                    loading={monthlyLoading}
+                    error={monthly.error}
+                    year={currentYear}
+                    month={currentMonth}
+                    onRetry={() => loadMonthly(currentYear, currentMonth)}
+                />
             )}
 
-            {/* Weekly summary view */}
             {viewMode === 'weekly' && (
-                <div className="space-y-4">
-                    {weeklyLoading ? (
-                        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
-                            Memuat…
-                        </div>
-                    ) : weekly.error ? (
-                        <AttendanceLoadError
-                            message={weekly.error}
-                            onRetry={() => loadWeekly(currentDate)}
-                        />
-                    ) : weeklyData.length === 0 ? (
-                        <div className="bg-card rounded-xl border p-8 text-center text-muted-foreground">
-                            Tidak ada data absensi untuk minggu{' '}
-                            {weekLabel(weekBounds.start, weekBounds.end)}
-                        </div>
-                    ) : (
-                        <>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                <SummaryCard
-                                    icon={<Users className="h-4 w-4" />}
-                                    label="Karyawan"
-                                    value={`${weeklyData.length} orang`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total Hadir"
-                                    value={`${weeklyData.reduce((s, r) => s + r.daysPresent, 0)} hari`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total Jam"
-                                    value={`${weeklyData.reduce((s, r) => s + r.totalActualHours, 0).toFixed(1)}j`}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Total OT"
-                                    value={`${weeklyData.reduce((s, r) => s + r.totalOvertimeHours, 0).toFixed(1)}j`}
-                                    accent={weeklyData.some(
-                                        (r) => r.totalOvertimeHours > 0,
-                                    )}
-                                />
-                                <SummaryCard
-                                    icon={<Clock className="h-4 w-4" />}
-                                    label="Est. Upah"
-                                    value={formatIdr(
-                                        weeklyData.reduce(
-                                            (s, r) => s + r.totalEarnings,
-                                            0,
-                                        ),
-                                    )}
-                                />
-                            </div>
-                            <div className="bg-card rounded-xl border overflow-x-auto">
-                                <Table>
-                                    <TableHeader className="bg-muted/50">
-                                        <TableRow>
-                                            <TableHead className="font-semibold text-muted-foreground">
-                                                Kode
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground">
-                                                Nama
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-center">
-                                                Hadir
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Jam Aktual
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Jam OT
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Harian
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                OT Rp
-                                            </TableHead>
-                                            <TableHead className="font-semibold text-muted-foreground text-right">
-                                                Total
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {weeklyData.map((r) => (
-                                            <TableRow
-                                                key={r.employeeId}
-                                                className="hover:bg-muted/50"
-                                            >
-                                                <TableCell className="font-medium">
-                                                    {r.employeeCode}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {r.employeeName}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    {r.daysPresent}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {r.totalActualHours.toFixed(
-                                                        1,
-                                                    )}
-                                                    j
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {r.totalOvertimeHours.toFixed(
-                                                        1,
-                                                    )}
-                                                    j
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatIdr(
-                                                        r.totalDailyEarnings,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {formatIdr(
-                                                        r.totalOvertimeEarnings,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right font-semibold">
-                                                    {formatIdr(r.totalEarnings)}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </>
-                    )}
-                </div>
+                <AttendanceWeeklyView
+                    data={weeklyData}
+                    loading={weeklyLoading}
+                    error={weekly.error}
+                    rangeLabel={weekLabel(weekBounds.start, weekBounds.end)}
+                    onRetry={() => loadWeekly(currentDate)}
+                />
             )}
 
             {/* Ringkasan chip + filter (daily only) */}
@@ -887,402 +249,33 @@ export function AttendanceRecap({
                 />
             )}
 
-            {/* Summary cards (daily only) */}
             {viewMode === 'daily' && !loadError && summary && (
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                    <SummaryCard
-                        icon={<Users className="h-4 w-4" />}
-                        label="Hadir"
-                        value={`${summary.totalEmployees} orang`}
-                    />
-                    <SummaryCard
-                        icon={<ArrowUpDown className="h-4 w-4" />}
-                        label="Catatan"
-                        value={`${summary.totalRecords} shift`}
-                    />
-                    <SummaryCard
-                        icon={<Clock className="h-4 w-4" />}
-                        label={MULTI_SHIFT_LABEL}
-                        value={`${summary.multiShiftCount} orang`}
-                        accent={summary.multiShiftCount > 0}
-                    />
-                    <SummaryCard
-                        icon={<Clock className="h-4 w-4" />}
-                        label="Total Jam"
-                        value={`${summary.totalActualHours.toFixed(1)}j`}
-                    />
-                    <SummaryCard
-                        icon={<Clock className="h-4 w-4" />}
-                        label="Total OT"
-                        value={`${summary.totalOvertimeHours.toFixed(1)}j`}
-                        accent={summary.totalOvertimeHours > 0}
-                    />
-                </div>
+                <AttendanceDailySummaryCards summary={summary} />
             )}
 
-            {/* Table (daily only) */}
             {viewMode === 'daily' && !loadError && statusFilter !== 'norecord' && (
-                <div className="bg-card rounded-xl border overflow-x-auto">
-                    <Table>
-                        <TableHeader className="bg-muted/50">
-                            <TableRow>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Kode
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Nama
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Foto
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Shift
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Rencana
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Masuk
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Pulang
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Aktual
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    OT
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    {MULTI_SHIFT_LABEL}
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground">
-                                    Sumber
-                                </TableHead>
-                                <TableHead className="font-semibold text-muted-foreground w-10">
-                                    Aksi
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {visibleRecords.length === 0 ? (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={12}
-                                        className="h-32 text-center text-muted-foreground"
-                                    >
-                                        {records.length === 0
-                                            ? 'Tidak ada data absensi untuk tanggal ini'
-                                            : 'Tidak ada data yang cocok dengan filter'}
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                visibleRecords.map((r) => (
-                                    <TableRow
-                                        key={r.id}
-                                        className="hover:bg-muted/50"
-                                    >
-                                        <TableCell className="font-medium">
-                                            {r.employeeCode}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div>{r.employeeName}</div>
-                                            <AttendanceRowBadges record={r} />
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                {r.clockInPhotoUrl &&
-                                                r.hasValidSelfie !== false ? (
-                                                    <button
-                                                        type="button"
-                                                        className="h-9 w-9 rounded-md overflow-hidden border border-border hover:ring-2 hover:ring-primary/40"
-                                                        onClick={() =>
-                                                            setPhotoPreview({
-                                                                url: r.clockInPhotoUrl!,
-                                                                title: `${r.employeeName} — Masuk`,
-                                                            })
-                                                        }
-                                                        title="Selfie masuk"
-                                                        aria-label={`Lihat selfie masuk ${r.employeeName}`}
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={
-                                                                r.clockInPhotoUrl
-                                                            }
-                                                            alt={`Selfie masuk ${r.employeeName}`}
-                                                            className="h-full w-full object-cover"
-                                                        />
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-muted-foreground text-xs">
-                                                        -
-                                                    </span>
-                                                )}
-                                                {r.clockOutPhotoUrl && (
-                                                    <button
-                                                        type="button"
-                                                        className="h-9 w-9 rounded-md overflow-hidden border border-border hover:ring-2 hover:ring-primary/40 opacity-90"
-                                                        onClick={() =>
-                                                            setPhotoPreview({
-                                                                url: r.clockOutPhotoUrl!,
-                                                                title: `${r.employeeName} — Pulang`,
-                                                            })
-                                                        }
-                                                        title="Selfie pulang"
-                                                        aria-label={`Lihat selfie pulang ${r.employeeName}`}
-                                                    >
-                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                        <img
-                                                            src={
-                                                                r.clockOutPhotoUrl
-                                                            }
-                                                            alt={`Selfie pulang ${r.employeeName}`}
-                                                            className="h-full w-full object-cover"
-                                                        />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{r.shiftName}</TableCell>
-                                        <TableCell>
-                                            {formatHours(r.plannedHours)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {formatTime(r.clockInAt)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {formatTime(r.clockOutAt)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {formatHours(r.actualHours)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {r.overtimeHours > 0 ? (
-                                                <Badge
-                                                    variant="destructive"
-                                                    className="text-xs"
-                                                >
-                                                    +
-                                                    {formatHours(
-                                                        r.overtimeHours,
-                                                    )}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">
-                                                    -
-                                                </span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {r.isOvertimeShift && (
-                                                <Badge className="bg-orange-500/10 text-orange-600 text-xs">
-                                                    Ya
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap items-center gap-1">
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-xs ${sourceBadgeClass(r.source)}`}
-                                                >
-                                                    {SOURCE_LABELS[r.source] ??
-                                                        r.source}
-                                                </Badge>
-                                                {r.clockInDistance != null &&
-                                                    r.clockInDistance > 0 && (
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            {r.clockInDistance <
-                                                            1000
-                                                                ? `${Math.round(r.clockInDistance)}m`
-                                                                : `${(r.clockInDistance / 1000).toFixed(1)}km`}
-                                                        </span>
-                                                    )}
-                                                {r.clockInLatitude != null &&
-                                                    r.clockInLongitude !=
-                                                        null && (
-                                                        <a
-                                                            href={googleMapsUrl(
-                                                                r.clockInLatitude,
-                                                                r.clockInLongitude,
-                                                            )}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-0.5 text-[10px] text-primary hover:underline ml-1"
-                                                            title={`${r.clockInLatitude}, ${r.clockInLongitude}`}
-                                                        >
-                                                            <MapPin className="h-3 w-3" />
-                                                            <ExternalLink className="h-2.5 w-2.5" />
-                                                        </a>
-                                                    )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-7 w-7 p-0"
-                                                        disabled={actionLoading}
-                                                    >
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem
-                                                        onClick={() =>
-                                                            openCorrect(r)
-                                                        }
-                                                    >
-                                                        Koreksi Jam
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
+                <AttendanceDailyTable
+                    records={visibleRecords}
+                    totalCount={records.length}
+                    actionsDisabled={correction.loading}
+                    onPreview={setPhotoPreview}
+                    onCorrect={correction.open}
+                />
             )}
 
-            {/* Selfie lightbox */}
-            <Dialog
-                open={!!photoPreview}
-                onOpenChange={(open) => !open && setPhotoPreview(null)}
-            >
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {photoPreview?.title ?? 'Selfie'}
-                        </DialogTitle>
-                    </DialogHeader>
-                    {photoPreview && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                            src={photoPreview.url}
-                            alt={photoPreview.title}
-                            className="w-full max-h-[70vh] object-contain rounded-lg bg-black"
-                        />
-                    )}
-                </DialogContent>
-            </Dialog>
+            <SelfieLightbox
+                preview={photoPreview}
+                onClose={() => setPhotoPreview(null)}
+            />
 
-            {/* Correct Attendance Dialog */}
-            <Dialog
-                open={!!correcting}
-                onOpenChange={(open) => !open && setCorrecting(null)}
-            >
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>
-                            Koreksi Absensi — {correcting?.employeeName}
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-2">
-                            <Label htmlFor="clockIn">Jam Masuk</Label>
-                            <Input
-                                id="clockIn"
-                                type="datetime-local"
-                                value={correctData.clockInAt}
-                                onChange={(e) =>
-                                    setCorrectData({
-                                        ...correctData,
-                                        clockInAt: e.target.value,
-                                    })
-                                }
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="clockOut">Jam Pulang</Label>
-                            <Input
-                                id="clockOut"
-                                type="datetime-local"
-                                value={correctData.clockOutAt}
-                                onChange={(e) =>
-                                    setCorrectData({
-                                        ...correctData,
-                                        clockOutAt: e.target.value,
-                                    })
-                                }
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="notes">Catatan</Label>
-                            <Textarea
-                                id="notes"
-                                value={correctData.notes}
-                                onChange={(e) =>
-                                    setCorrectData({
-                                        ...correctData,
-                                        notes: e.target.value,
-                                    })
-                                }
-                                placeholder="Alasan koreksi..."
-                                rows={2}
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setCorrecting(null)}
-                        >
-                            Batal
-                        </Button>
-                        <Button
-                            onClick={handleCorrect}
-                            disabled={actionLoading}
-                        >
-                            {actionLoading ? 'Menyimpan...' : 'Simpan Koreksi'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
-}
-
-const WIB_OFFSET_MS = 7 * 60 * 60 * 1000;
-
-/**
- * Render a timestamp as a `datetime-local` value in WIB, whatever the device
- * timezone is. The server reads it back as WIB (parseWibDateTime), so both ends
- * must agree on Asia/Jakarta — not on how the HRD laptop happens to be set.
- */
-function toWibInput(d: Date | string): string {
-    const date = typeof d === 'string' ? new Date(d) : d;
-    return new Date(date.getTime() + WIB_OFFSET_MS).toISOString().slice(0, 16);
-}
-
-function SummaryCard({
-    icon,
-    label,
-    value,
-    accent,
-}: {
-    icon: React.ReactNode;
-    label: string;
-    value: string;
-    accent?: boolean;
-}) {
-    return (
-        <div
-            className={`rounded-xl border p-3 ${accent ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}
-        >
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium mb-1">
-                {icon}
-                {label}
-            </div>
-            <p
-                className={`text-lg font-bold ${accent ? 'text-primary' : 'text-foreground'}`}
-            >
-                {value}
-            </p>
+            <CorrectAttendanceDialog
+                record={correction.correcting}
+                form={correction.form}
+                loading={correction.loading}
+                onFieldChange={correction.setField}
+                onClose={correction.close}
+                onSubmit={correction.submit}
+            />
         </div>
     );
 }
