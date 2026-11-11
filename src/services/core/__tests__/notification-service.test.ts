@@ -3,6 +3,7 @@ import { NotificationService } from '../notification-service';
 
 const mockFindMany = vi.fn();
 const mockCreateMany = vi.fn();
+const mockUpdateMany = vi.fn();
 
 vi.mock('@/lib/core/prisma', () => ({
     get prisma() {
@@ -12,7 +13,7 @@ vi.mock('@/lib/core/prisma', () => ({
                 createMany: mockCreateMany,
                 create: vi.fn().mockResolvedValue({ id: 'n1' }),
                 update: vi.fn().mockResolvedValue({}),
-                updateMany: vi.fn().mockResolvedValue({}),
+                updateMany: mockUpdateMany,
                 count: vi.fn().mockResolvedValue(0),
             },
             user: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -156,5 +157,53 @@ describe('NotificationService.createBulkNotificationsThrottled', () => {
         expect(Math.abs(cutoff.getTime() - expected.getTime())).toBeLessThan(
             1000,
         );
+    });
+});
+
+describe('NotificationService.markAsRead', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockUpdateMany.mockResolvedValue({ count: 1 });
+    });
+
+    it('scopes the update to the owning user', async () => {
+        await NotificationService.markAsRead('n1', 'u1');
+        expect(mockUpdateMany).toHaveBeenCalledWith({
+            where: { id: 'n1', userId: 'u1' },
+            data: { isRead: true },
+        });
+    });
+
+    it('returns count 0 when another user owns the notification', async () => {
+        mockUpdateMany.mockResolvedValue({ count: 0 });
+        const result = await NotificationService.markAsRead('n1', 'intruder');
+        expect(result.count).toBe(0);
+    });
+});
+
+describe('NotificationService.markAllAsRead', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockUpdateMany.mockResolvedValue({ count: 2 });
+    });
+
+    it('limits the update to the given types for that user only', async () => {
+        await NotificationService.markAllAsRead('u1', ['HRD_CONTRACT_EXPIRING']);
+        expect(mockUpdateMany).toHaveBeenCalledWith({
+            where: {
+                userId: 'u1',
+                isRead: false,
+                type: { in: ['HRD_CONTRACT_EXPIRING'] },
+            },
+            data: { isRead: true },
+        });
+    });
+
+    it('keeps the old behaviour when no types are given', async () => {
+        await NotificationService.markAllAsRead('u1');
+        expect(mockUpdateMany).toHaveBeenCalledWith({
+            where: { userId: 'u1', isRead: false },
+            data: { isRead: true },
+        });
     });
 });

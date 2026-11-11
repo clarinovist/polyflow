@@ -2,33 +2,53 @@
  * Employment reminder service — scan for expiring probation/contracts
  * and dispatch notifications. Gelombang B1.
  *
- * Window: 30 days (including overdue).
+ * Window: REMINDER_PAST_DAYS back to REMINDER_AHEAD_DAYS ahead (WIB calendar
+ * days), so a contract that lapsed long ago stops generating new alerts.
  * Recipients: ADMIN + FINANCE + HRD.
- * Idempotent: 1 notification per user+type+entity+day(WIB).
+ * Idempotent: 1 notification per user+type+entity+day(WIB), de-duplicated
+ * with a single batch lookup.
  */
 
-import type { PrismaClient } from '@prisma/client';
-import { daysUntil } from './employee-directory-helpers';
+import type { NotificationType, PrismaClient } from '@prisma/client';
+import { wibDateFrom, wibDateStringFrom } from '@/services/hrd/shift-window';
 
-const REMINDER_WINDOW_DAYS = 30;
+export const REMINDER_PAST_DAYS = 30;
+export const REMINDER_AHEAD_DAYS = 30;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const HR_ALERT_TYPES: NotificationType[] = [
+    'HRD_PROBATION_ENDING',
+    'HRD_CONTRACT_EXPIRING',
+];
 
 interface ExpiringEmployee {
     id: string;
     name: string;
     code: string;
     employmentStatus: string;
-    probationEndDate: Date | null;
-    contractEndDate: Date | null;
+    endDate: Date;
+    days: number;
 }
 
-/** Find ACTIVE employees with PROBATION/CONTRACT ending within window (including overdue). */
+/** Whole WIB calendar days from `asOf` to `target` (negative = overdue). */
+function wibDaysUntil(target: Date, asOf: Date): number {
+    return Math.round(
+        (wibDateFrom(target).getTime() - wibDateFrom(asOf).getTime()) /
+            MS_PER_DAY,
+    );
+}
+
+function reminderTypeFor(employmentStatus: string): NotificationType {
+    return employmentStatus === 'PROBATION'
+        ? 'HRD_PROBATION_ENDING'
+        : 'HRD_CONTRACT_EXPIRING';
+}
+
+/** Find ACTIVE employees with PROBATION/CONTRACT ending inside the window. */
 async function findExpiringEmployees(
     db: PrismaClient,
+    now: Date,
 ): Promise<ExpiringEmployee[]> {
-    const now = new Date();
-    const cutoff = new Date(now);
-    cutoff.setDate(cutoff.getDate() + REMINDER_WINDOW_DAYS);
-
     const employees = await db.employee.findMany({
         where: {
             status: 'ACTIVE',
@@ -44,53 +64,68 @@ async function findExpiringEmployees(
         },
     });
 
-    return employees.filter((emp) => {
+    return employees.flatMap((emp) => {
         const endDate =
             emp.employmentStatus === 'PROBATION'
                 ? emp.probationEndDate
                 : emp.contractEndDate;
-        if (!endDate) return false;
-        const days = daysUntil(new Date(endDate), now);
-        return days <= REMINDER_WINDOW_DAYS;
-    });
-}
-
-/** Get today's date key in WIB (Asia/Jakarta) for idempotency. */
-function todayWibKey(): string {
-    return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }); // YYYY-MM-DD
-}
-
-/** Check if notification already sent today for this user+type+entity. */
-async function alreadyNotified(
-    db: PrismaClient,
-    userId: string,
-    type: string,
-    entityId: string,
-): Promise<boolean> {
-    const todayKey = todayWibKey();
-    const existing = await db.notification.findFirst({
-        where: {
-            userId,
-            type: type as never,
-            entityId,
-            createdAt: {
-                gte: new Date(`${todayKey}T00:00:00+07:00`),
-                lt: new Date(`${todayKey}T23:59:59+07:00`),
+        if (!endDate) return [];
+        const days = wibDaysUntil(new Date(endDate), now);
+        if (days < -REMINDER_PAST_DAYS || days > REMINDER_AHEAD_DAYS) {
+            return [];
+        }
+        return [
+            {
+                id: emp.id,
+                name: emp.name,
+                code: emp.code,
+                employmentStatus: emp.employmentStatus,
+                endDate: new Date(endDate),
+                days,
             },
-        },
-        select: { id: true },
+        ];
     });
-    return !!existing;
+}
+
+/** Keys (user:type:entity) of reminders already created today (WIB). */
+async function findNotifiedToday(
+    db: PrismaClient,
+    now: Date,
+    userIds: string[],
+    entityIds: string[],
+): Promise<Set<string>> {
+    const dayStart = new Date(`${wibDateStringFrom(now)}T00:00:00+07:00`);
+    const nextDayStart = new Date(dayStart.getTime() + MS_PER_DAY);
+    const existing = await db.notification.findMany({
+        where: {
+            userId: { in: userIds },
+            type: { in: HR_ALERT_TYPES },
+            entityId: { in: entityIds },
+            createdAt: { gte: dayStart, lt: nextDayStart },
+        },
+        select: { userId: true, type: true, entityId: true },
+    });
+    return new Set(
+        existing.map((n) => `${n.userId}:${n.type}:${n.entityId}`),
+    );
+}
+
+function buildMessage(emp: ExpiringEmployee): string {
+    const statusText =
+        emp.days >= 0
+            ? `habis ${emp.days} hari`
+            : `sudah lewat ${Math.abs(emp.days)} hari`;
+    return `Kontrak/probation ${emp.code} — ${emp.name} ${statusText}.`;
 }
 
 /** Dispatch reminders for expiring employees. Returns count of notifications created. */
 export async function dispatchReminders(
     db: PrismaClient,
 ): Promise<{ scanned: number; created: number }> {
-    const expiring = await findExpiringEmployees(db);
+    const now = new Date();
+    const expiring = await findExpiringEmployees(db, now);
     if (expiring.length === 0) return { scanned: 0, created: 0 };
 
-    // Find ADMIN + FINANCE + HRD users
     const recipients = await db.user.findMany({
         where: {
             isActive: true,
@@ -105,52 +140,36 @@ export async function dispatchReminders(
         },
         select: { id: true },
     });
+    if (recipients.length === 0) return { scanned: expiring.length, created: 0 };
 
-    let created = 0;
-    for (const emp of expiring) {
-        const endDate =
-            emp.employmentStatus === 'PROBATION'
-                ? emp.probationEndDate
-                : emp.contractEndDate;
-        if (!endDate) continue;
-        const days = daysUntil(new Date(endDate));
-        const type =
-            emp.employmentStatus === 'PROBATION'
-                ? 'HRD_PROBATION_ENDING'
-                : 'HRD_CONTRACT_EXPIRING';
-        const statusText =
-            days >= 0
-                ? `habis ${days} hari`
-                : `sudah lewat ${Math.abs(days)} hari`;
+    const notified = await findNotifiedToday(
+        db,
+        now,
+        recipients.map((r) => r.id),
+        expiring.map((e) => e.id),
+    );
+
+    const data = expiring.flatMap((emp) => {
+        const type = reminderTypeFor(emp.employmentStatus);
         const title =
-            emp.employmentStatus === 'PROBATION'
+            type === 'HRD_PROBATION_ENDING'
                 ? 'Probation Berakhir'
                 : 'Kontrak Berakhir';
-        const message = `Kontrak/probation ${emp.code} — ${emp.name} ${statusText}.`;
-
-        for (const recipient of recipients) {
-            const exists = await alreadyNotified(
-                db,
-                recipient.id,
+        const message = buildMessage(emp);
+        return recipients
+            .filter((r) => !notified.has(`${r.id}:${type}:${emp.id}`))
+            .map((r) => ({
+                userId: r.id,
                 type,
-                emp.id,
-            );
-            if (exists) continue;
+                title,
+                message,
+                link: `/dashboard/employees/${emp.id}/edit`,
+                entityType: 'Employee',
+                entityId: emp.id,
+            }));
+    });
 
-            await db.notification.create({
-                data: {
-                    userId: recipient.id,
-                    type: type as never,
-                    title,
-                    message,
-                    link: `/dashboard/employees/${emp.id}/edit`,
-                    entityType: 'Employee',
-                    entityId: emp.id,
-                },
-            });
-            created++;
-        }
-    }
-
-    return { scanned: expiring.length, created };
+    if (data.length === 0) return { scanned: expiring.length, created: 0 };
+    const result = await db.notification.createMany({ data });
+    return { scanned: expiring.length, created: result.count };
 }

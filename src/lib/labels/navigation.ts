@@ -25,7 +25,6 @@ export const mainNavLabels = {
 
 export const hrdSidebarLabels = {
     homeBoard: 'Hari Ini',
-    dashboard: 'Dashboard HRD',
     attendance: 'Rekap Kehadiran',
     payrollWeekly: 'Gaji Mingguan (Borongan)',
     pieceRates: 'Tarif Borongan',
@@ -34,7 +33,7 @@ export const hrdSidebarLabels = {
     loans: 'Kasbon Karyawan',
     leave: 'Cuti & Izin',
     disciplinary: 'Sanksi Disiplin',
-    alerts: 'Alert HR',
+    alerts: 'Peringatan HR',
     employees: 'Karyawan',
 } as const;
 

@@ -11,7 +11,7 @@ export default async function HrdTasksPage() {
     const { generatedAt, attention } = response.data;
     return (
         <div className="space-y-4">
-            <MobileSectionHeader title="Pengajuan Cuti Pending" level={1} />
+            <MobileSectionHeader title="Pengajuan Cuti & Izin Menunggu" level={1} />
             <MobileDataFreshness generatedAt={generatedAt} />
             {attention.pendingLeave.status === 'AVAILABLE' ? (
                 <section className="space-y-3 rounded-xl border bg-card p-4">

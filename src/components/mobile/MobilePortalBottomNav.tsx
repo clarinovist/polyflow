@@ -31,7 +31,7 @@ const portalConfig = {
         items: [
             { href: '/hrd/mobile', label: 'Hari Ini', icon: Home },
             { href: '/hrd/mobile/attendance', label: 'Absensi', icon: Users },
-            { href: '/hrd/mobile/tasks', label: 'Cuti', icon: CheckSquare },
+            { href: '/hrd/mobile/tasks', label: 'Cuti & Izin', icon: CheckSquare },
             {
                 href: '/hrd/mobile/insights',
                 label: 'Insight',

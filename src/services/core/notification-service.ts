@@ -108,18 +108,24 @@ export class NotificationService {
     }
 
     /**
-     * Toggle read state
+     * Mark one notification read. Scoped to the owner: a notification that
+     * belongs to another user is left untouched (returns count 0).
      */
-    static async markAsRead(id: string) {
-        return await prisma.notification.update({
-            where: { id },
+    static async markAsRead(id: string, userId: string) {
+        return await prisma.notification.updateMany({
+            where: { id, userId },
             data: { isRead: true },
         });
     }
 
-    static async markAllAsRead(userId: string) {
+    /** Mark all of a user's unread notifications read, optionally limited to some types. */
+    static async markAllAsRead(userId: string, types?: NotificationType[]) {
         return await prisma.notification.updateMany({
-            where: { userId, isRead: false },
+            where: {
+                userId,
+                isRead: false,
+                ...(types ? { type: { in: types } } : {}),
+            },
             data: { isRead: true },
         });
     }

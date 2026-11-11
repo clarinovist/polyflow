@@ -347,7 +347,7 @@ export const MOBILE_PORTAL_REGISTRY = [
                 label: 'Absensi',
                 path: '/hrd/mobile/attendance',
             },
-            { id: 'leave', label: 'Cuti', path: '/hrd/mobile/tasks' },
+            { id: 'leave', label: 'Cuti & Izin', path: '/hrd/mobile/tasks' },
             { id: 'insights', label: 'Insight', path: '/hrd/mobile/insights' },
         ],
         icon: 'Users',
