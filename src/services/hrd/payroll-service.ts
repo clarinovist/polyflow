@@ -167,11 +167,13 @@ export const PayrollService = {
                 orderBy: { startTime: 'asc' },
             });
 
+            // Week bounds are UTC calendar dates (Mon..Sun); do not shift by WIB offset.
+            const weekStartKey = weekStart.toISOString().slice(0, 10);
+            const weekEndKey = weekEnd.toISOString().slice(0, 10);
+
             for (const ex of executions) {
                 const dateKey = wibDateStringFrom(ex.startTime);
                 // Gate: only count executions whose WIB date falls within the actual week
-                const weekStartKey = wibDateStringFrom(weekStart);
-                const weekEndKey = wibDateStringFrom(weekEnd);
                 if (dateKey < weekStartKey || dateKey > weekEndKey) continue;
 
                 const qty = toNum(ex.quantityProduced);

@@ -206,3 +206,80 @@ describe('PayrollService dual pay', () => {
     expect(result.exceptions.map((e) => e.reason).sort()).toEqual(['NO_ATTENDANCE', 'RATE_MISSING']);
   });
 });
+
+describe('PayrollService PIECE week gate (WIB calendar boundaries)', () => {
+  const mockDb = {
+    employee: { findUnique: vi.fn(), findMany: vi.fn() },
+    attendanceRecord: { findMany: vi.fn() },
+    productionExecution: { findMany: vi.fn() },
+  };
+  // Mon 13 Jul – Sun 19 Jul 2026 (UTC calendar bounds, as startOfWeek/endOfWeek)
+  const weekStart = new Date('2026-07-13T00:00:00.000Z');
+  const weekEnd = new Date('2026-07-19T23:59:59.999Z');
+
+  function execution(id: string, startTime: string, kg: number) {
+    return {
+      id,
+      startTime: new Date(startTime),
+      quantityProduced: dec(kg),
+      pieceRateSnapshot: dec(100),
+      pieceEarnings: dec(kg * 100),
+      pieceMachineType: 'EXTRUDER',
+    };
+  }
+
+  function presentOn(date: string) {
+    return {
+      workDate: new Date(date + 'T00:00:00.000Z'),
+      status: 'PRESENT',
+      actualHours: dec(8),
+      overtimeHours: dec(0),
+      dailyEarnings: dec(0),
+      overtimeEarnings: dec(0),
+      totalEarnings: dec(0),
+      workShift: { name: 'Pagi-8' },
+    };
+  }
+
+  async function runWeek() {
+    vi.clearAllMocks();
+    vi.mocked(mockDb.employee.findUnique).mockResolvedValue({
+      id: 'emp-p', name: 'Ani', code: 'EMP-P', payType: 'PIECE',
+      bpjsParticipant: false, bpjsEmployeeDeduction: null,
+    } as any);
+    vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue(
+      ['2026-07-13', '2026-07-19'].map(presentOn) as any,
+    );
+    vi.mocked(mockDb.productionExecution.findMany).mockResolvedValue([
+      execution('prev-sun-2330-wib', '2026-07-12T16:30:00.000Z', 1), // Sun 12 Jul 23:30 WIB (last week)
+      execution('mon-0030-wib', '2026-07-12T17:30:00.000Z', 10), // Mon 13 Jul 00:30 WIB
+      execution('mon-0800-wib', '2026-07-13T01:00:00.000Z', 20), // Mon 13 Jul 08:00 WIB
+      execution('sun-2330-wib', '2026-07-19T16:30:00.000Z', 30), // Sun 19 Jul 23:30 WIB
+      execution('next-mon-0030-wib', '2026-07-19T17:30:00.000Z', 40), // Mon 20 Jul 00:30 WIB (next week)
+    ] as any);
+    return PayrollService.getWeeklyPayroll(mockDb as any, 'emp-p', weekStart, weekEnd);
+  }
+
+  it('excludes an execution dated the following Monday (WIB) from this week', async () => {
+    const result = await runWeek();
+
+    const ids = result.pieceLines.map((l) => l.executionId);
+    expect(ids).not.toContain('next-mon-0030-wib');
+    expect(result.exceptions.map((e) => e.executionId)).not.toContain('next-mon-0030-wib');
+    expect(result.totalKgUnpaid).toBe(0);
+  });
+
+  it('includes Sunday 23:30 WIB, Monday 00:30 WIB and Monday 08:00 WIB of this week', async () => {
+    const result = await runWeek();
+
+    const ids = result.pieceLines.map((l) => l.executionId).sort();
+    expect(ids).toEqual(['mon-0030-wib', 'mon-0800-wib', 'sun-2330-wib']);
+    expect(result.totalKgPaid).toBe(60);
+  });
+
+  it('excludes the previous Sunday 23:30 WIB execution', async () => {
+    const result = await runWeek();
+
+    expect(result.pieceLines.map((l) => l.executionId)).not.toContain('prev-sun-2330-wib');
+  });
+});

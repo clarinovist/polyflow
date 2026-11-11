@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextRequest } from 'next/server';
 
 const mocks = vi.hoisted(() => ({
@@ -96,5 +96,39 @@ describe('payroll export access', () => {
         const row = body.split('\n')[1];
         expect(row).toContain("'=cmd|calc");
         expect(row).toContain(',-50,');
+    });
+});
+
+describe('payroll export default week (WIB)', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        mocks.auth.mockResolvedValue(sessionFor('HRD'));
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it.each([
+        ['Monday 05:00 WIB (Sunday 22:00Z)', '2026-07-13', '2026-07-12T22:00:00.000Z'],
+        ['Monday 08:00 WIB', '2026-07-13', '2026-07-13T01:00:00.000Z'],
+        ['Sunday 23:30 WIB', '2026-07-13', '2026-07-19T16:30:00.000Z'],
+    ])('without date at %s starts the week on %s', async (_label, expected, now) => {
+        vi.setSystemTime(new Date(now));
+
+        const res = await call();
+
+        const weekStart = mocks.weekly.mock.calls[0][1] as Date;
+        expect(weekStart.toISOString().slice(0, 10)).toBe(expected);
+        expect(res.headers.get('Content-Disposition')).toContain(`gaji-${expected}.csv`);
+    });
+
+    it('explicit date is unchanged', async () => {
+        vi.setSystemTime(new Date('2026-07-12T22:00:00.000Z'));
+
+        await call('?date=2026-07-01');
+
+        const weekStart = mocks.weekly.mock.calls[0][1] as Date;
+        expect(weekStart.toISOString().slice(0, 10)).toBe('2026-06-29');
     });
 });

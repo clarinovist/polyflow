@@ -5,6 +5,7 @@ import { prisma } from '@/lib/core/prisma';
 import { PayrollService } from '@/services/hrd/payroll-service';
 import { startOfWeek, endOfWeek } from '@/services/hrd/week-range';
 import { requireModuleOrNextResponse } from '@/lib/modules/guard';
+import { todayWibDateString } from '@/services/hrd/shift-window';
 import { csvRow } from '@/lib/hrd/csv';
 import { denyUnlessRoles, HRD_FINANCE_ROLES } from '@/lib/hrd/export-guard';
 
@@ -18,7 +19,9 @@ export const GET = withTenantRoute(async (req: NextRequest) => {
     if (forbidden) return forbidden;
 
     const dateStr = req.nextUrl.searchParams.get('date');
-    const baseDate = dateStr ? new Date(dateStr) : new Date();
+    const baseDate = dateStr
+        ? new Date(dateStr)
+        : new Date(`${todayWibDateString()}T00:00:00.000Z`);
     const weekStart = startOfWeek(baseDate);
     const weekEnd = endOfWeek(baseDate);
 
