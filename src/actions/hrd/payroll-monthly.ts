@@ -190,6 +190,31 @@ function auditClosePeriod(userId: string, periodId: string) {
     };
 }
 
+function auditRecomputeProration(userId: string, payslipId: string) {
+    return async (tx: Tx, facts: Facts): Promise<void> => {
+        const op = 'hitung ulang potongan absensi';
+        const employeeId = factString(facts, 'employeeId', op);
+        const absentDays = factNumber(facts, 'absentDays', op);
+        const deductibleLeaveDays = factNumber(facts, 'deductibleLeaveDays', op);
+        const previousProration = factNumber(facts, 'previousProration', op);
+        const prorationDeduction = factNumber(facts, 'prorationDeduction', op);
+        await logActivity({
+            userId,
+            action: 'PAYSLIP_PRORATION_RECOMPUTED',
+            entityType: 'Payslip',
+            entityId: payslipId,
+            details: `Recomputed attendance proration for employee=${employeeId}: ${previousProration} -> ${prorationDeduction} (absent=${absentDays}, unpaidLeave=${deductibleLeaveDays})`,
+            changes: {
+                previousProration,
+                prorationDeduction,
+                absentDays,
+                deductibleLeaveDays,
+            },
+            tx,
+        });
+    };
+}
+
 // ─── KASBON ───
 
 export const getLoanPortfolioSummary = withTenant(
@@ -356,6 +381,40 @@ export const updateDraftPayslip = withTenant(async function updateDraftPayslip(
         return slip;
     });
 });
+
+export const getPayslipAttendanceBasis = withTenant(
+    async function getPayslipAttendanceBasis(payslipId: string) {
+        return safeAction(async () => {
+            await requireHrdFinance();
+            return serializeData(
+                await PayrollMonthlyService.getAttendanceBasis(
+                    prisma,
+                    payslipId,
+                ),
+            );
+        });
+    },
+);
+
+export const recomputePayslipProration = withTenant(
+    async function recomputePayslipProration(payslipId: string) {
+        return safeAction(async () => {
+            const session = await requireHrdApprover();
+            return serializeData(
+                await PayrollMonthlyService.recomputeDraftProration(
+                    prisma,
+                    payslipId,
+                    {
+                        onCommit: auditRecomputeProration(
+                            session.user.id,
+                            payslipId,
+                        ),
+                    },
+                ),
+            );
+        });
+    },
+);
 
 export const finalizePayslip = withTenant(async function finalizePayslip(
     payslipId: string,

@@ -18,8 +18,11 @@ import {
 } from './payroll-monthly-math';
 import {
     generateDraftsInTx,
+    readPayslipAttendanceBasis,
+    recomputeProrationInTx,
     upsertPeriod,
     type GeneratePayslipsInput,
+    type GenerateDraftsResult,
 } from './payroll-draft-generation';
 import {
     assertLoanDeductionAllowed,
@@ -37,7 +40,12 @@ export {
     yearMonthKey,
 } from './payroll-monthly-math';
 export type { ComputePayslipInput } from './payroll-monthly-math';
-export type { GeneratePayslipsInput } from './payroll-draft-generation';
+export type {
+    GeneratePayslipsInput,
+    GenerateDraftsResult,
+    DraftWarning,
+    PayslipAttendanceBasis as AttendanceBasis,
+} from './payroll-draft-generation';
 export type { UpdateDraftPayslipInput } from './payroll-draft-validation';
 export type { PayrollTxOptions } from './payroll-tx-options';
 export {
@@ -384,14 +392,15 @@ export const PayrollMonthlyService = {
      * All-or-nothing: one transaction; a concurrent double click hits the unique
      * (period, employee) constraint and is reported instead of leaving half a batch.
      *
-     * Proration: only explicit AttendanceRecord.status = ABSENT counts.
-     * Days with no record are NOT treated as absent (admin must mark alpa).
+     * Proration follows the attendance basis (payroll-attendance-basis.ts): alpa and
+     * approved unpaid-type leave are deducted; days with no record only produce a
+     * warning (`warnings`), never a deduction.
      */
     async generateDrafts(
         db: PrismaClient,
         input: GeneratePayslipsInput,
         options?: PayrollTxOptions,
-    ): Promise<{ created: number; skipped: number; periodId: string }> {
+    ): Promise<GenerateDraftsResult> {
         try {
             return await db.$transaction(
                 (tx) => generateDraftsInTx(tx, input, options),
@@ -405,6 +414,36 @@ export const PayrollMonthlyService = {
             }
             throw error;
         }
+    },
+
+    /** Read-only attendance basis of a payslip, from the current attendance data. */
+    async getAttendanceBasis(db: PrismaClient, payslipId: string) {
+        return readPayslipAttendanceBasis(db, payslipId);
+    },
+
+    /**
+     * Recompute the attendance proration of a DRAFT payslip (overwrites manual
+     * proration; other components unchanged). Atomic DRAFT claim, one transaction.
+     */
+    async recomputeDraftProration(
+        db: PrismaClient,
+        payslipId: string,
+        options?: PayrollTxOptions,
+    ) {
+        return db.$transaction(async (tx) => {
+            const claimed = await tx.payslip.updateMany({
+                where: { id: payslipId, status: 'DRAFT' },
+                data: { status: 'DRAFT' },
+            });
+            if (claimed.count !== 1) {
+                throw await payslipClaimRejection(
+                    tx,
+                    payslipId,
+                    () => 'Hanya payslip DRAFT yang bisa dihitung ulang',
+                );
+            }
+            return recomputeProrationInTx(tx, payslipId, options);
+        });
     },
 
     async listPayslips(db: PrismaClient, periodId: string) {

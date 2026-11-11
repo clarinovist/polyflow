@@ -23,6 +23,9 @@ import {
     type DraftAmountErrors,
     type DraftAmountField,
 } from './payslipDraftInput';
+import { PayslipAttendanceSection } from './PayslipAttendanceSection';
+
+const PRORATION_LABEL = 'Potongan absensi (alpa & izin tidak dibayar)';
 
 type Payslip = {
     id: string;
@@ -62,7 +65,7 @@ const DRAFT_FIELD_LABELS: Record<DraftAmountField, string> = {
     thrAmount: 'THR',
     bpjsDeduction: 'BPJS',
     loanDeduction: 'Kasbon',
-    prorationDeduction: 'Potongan alpa',
+    prorationDeduction: 'Potongan absensi',
     otherDeductions: 'Potongan lain',
 };
 
@@ -269,7 +272,9 @@ export function PayslipsPeriodView({
                             <th className="p-2 text-right">THR</th>
                             <th className="p-2 text-right">BPJS</th>
                             <th className="p-2 text-right">Kasbon</th>
-                            <th className="p-2 text-right">Prorata</th>
+                            <th className="p-2 text-right" title={PRORATION_LABEL}>
+                                Potongan absensi
+                            </th>
                             <th className="p-2 text-right">Net Pay</th>
                             <th className="p-2">Status</th>
                             <th className="p-2"></th>
@@ -478,6 +483,17 @@ export function PayslipsPeriodView({
                         </div>
                     </div>
 
+                    <PayslipAttendanceSection
+                        key={selected.id}
+                        payslip={{
+                            id: selected.id,
+                            employeeName: `${selected.employee.code} — ${selected.employee.name}`,
+                            status: selected.status,
+                            prorationDeduction: toN(selected.prorationDeduction),
+                        }}
+                        onRecomputed={load}
+                    />
+
                     {selected.status === 'DRAFT' && (
                         <div className="border-t pt-3 space-y-2">
                             <p className="text-xs font-semibold uppercase tracking-tight text-muted-foreground">
@@ -533,7 +549,7 @@ export function PayslipsPeriodView({
                                 </div>
                                 <div className="space-y-1">
                                     <Label className="text-[10px]">
-                                        Potongan alpa
+                                        {PRORATION_LABEL}
                                     </Label>
                                     <Input
                                         type="number"

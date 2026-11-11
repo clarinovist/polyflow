@@ -3,10 +3,19 @@
  */
 
 import type { Prisma } from '@prisma/client';
-import { BusinessRuleError } from '@/lib/errors/errors';
+import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import {
+    basisFromSources,
+    computeAttendanceProration,
+    loadAttendanceSources,
+    periodBounds,
+    todayWibDate,
+    type AttendanceBasis,
+    type AttendanceSources,
+    type PeriodBounds,
+} from './payroll-attendance-basis';
 import {
     computePayslipAmounts,
-    countMonToSat,
     round2,
     sumLoanDeductions,
 } from './payroll-monthly-math';
@@ -39,48 +48,46 @@ type DraftEmployee = Prisma.EmployeeGetPayload<{
     include: { allowances: true; loans: true };
 }>;
 
-/** ABSENT records per employee in [start, end], in a single grouped query. */
-async function loadAbsentCounts(
-    tx: TxClient,
-    employeeIds: string[],
-    start: Date,
-    end: Date,
-): Promise<Map<string, number>> {
-    if (employeeIds.length === 0) return new Map();
-    const rows = await tx.attendanceRecord.groupBy({
-        by: ['employeeId'],
-        where: {
-            employeeId: { in: employeeIds },
-            workDate: { gte: start, lte: end },
-            status: 'ABSENT',
-        },
-        _count: { _all: true },
-    });
-    return new Map(rows.map((r) => [r.employeeId, r._count._all]));
-}
-
 interface DraftContext {
     periodId: string;
     year: number;
     month: number;
-    effectiveDays: number;
-    absentCount: number;
+    bounds: PeriodBounds;
+    today: Date;
+    sources: AttendanceSources;
 }
 
-/** Draft payslip data for one employee, or null when the employee has no salary. */
+export interface DraftWarning {
+    employeeId: string;
+    employeeName: string;
+    missingDays: number;
+}
+
+export interface GenerateDraftsResult {
+    created: number;
+    skipped: number;
+    periodId: string;
+    warnings: DraftWarning[];
+}
+
+interface BuiltDraft {
+    data: Prisma.PayslipUncheckedCreateInput;
+    warning: DraftWarning | null;
+}
+
+/** Draft payslip data (+ missing-attendance warning) for one employee, or null when it has no salary. */
 function buildDraftPayslipData(
     emp: DraftEmployee,
     ctx: DraftContext,
-): Prisma.PayslipUncheckedCreateInput | null {
+): BuiltDraft | null {
     const monthlySalary = Number(emp.monthlySalary ?? 0);
     if (monthlySalary <= 0) return null;
 
     const allowanceTotal = round2(
         emp.allowances.reduce((s, a) => s + Number(a.amount), 0),
     );
-    const dailyRateEquivalent =
-        ctx.effectiveDays > 0 ? monthlySalary / ctx.effectiveDays : 0;
-    const prorationDeduction = round2(dailyRateEquivalent * ctx.absentCount);
+    const basis = basisFromSources(ctx.sources, emp, ctx.bounds, ctx.today);
+    const prorationDeduction = computeAttendanceProration(monthlySalary, basis);
     const bpjsDeduction = emp.bpjsParticipant
         ? round2(Number(emp.bpjsEmployeeDeduction ?? 0))
         : 0;
@@ -96,7 +103,7 @@ function buildDraftPayslipData(
         otherDeductions: 0,
     });
 
-    return {
+    const data: Prisma.PayslipUncheckedCreateInput = {
         payrollPeriodId: ctx.periodId,
         employeeId: emp.id,
         baseSalary: amounts.baseSalary,
@@ -117,24 +124,19 @@ function buildDraftPayslipData(
             })),
         },
     };
+    const warning =
+        basis.missingDays > 0
+            ? {
+                  employeeId: emp.id,
+                  employeeName: emp.name,
+                  missingDays: basis.missingDays,
+              }
+            : null;
+    return { data, warning };
 }
 
-export async function generateDraftsInTx(
-    tx: TxClient,
-    input: GeneratePayslipsInput,
-    options?: PayrollTxOptions,
-): Promise<{ created: number; skipped: number; periodId: string }> {
-    const period = await upsertPeriod(tx, input.year, input.month);
-    if (period.status === 'CLOSED') {
-        throw new BusinessRuleError(
-            `Periode ${input.year}-${String(input.month).padStart(2, '0')} sudah CLOSED`,
-        );
-    }
-
-    const periodStart = new Date(Date.UTC(input.year, input.month - 1, 1));
-    const periodEnd = new Date(Date.UTC(input.year, input.month, 0));
-    const effectiveDays = countMonToSat(periodStart, periodEnd);
-
+/** Active MONTHLY employees, and those without a payslip yet in this period. */
+async function loadDraftCandidates(tx: TxClient, periodId: string) {
     const employees = await tx.employee.findMany({
         where: { payType: 'MONTHLY', status: 'ACTIVE' },
         include: {
@@ -143,30 +145,48 @@ export async function generateDraftsInTx(
         },
     });
     const existing = await tx.payslip.findMany({
-        where: { payrollPeriodId: period.id },
+        where: { payrollPeriodId: periodId },
         select: { employeeId: true },
     });
     const existingIds = new Set(existing.map((p) => p.employeeId));
-    const candidates = employees.filter((e) => !existingIds.has(e.id));
-    const absentCounts = await loadAbsentCounts(
-        tx,
-        candidates.map((e) => e.id),
-        periodStart,
-        periodEnd,
-    );
+    return {
+        employees,
+        candidates: employees.filter((e) => !existingIds.has(e.id)),
+    };
+}
 
+export async function generateDraftsInTx(
+    tx: TxClient,
+    input: GeneratePayslipsInput,
+    options?: PayrollTxOptions,
+): Promise<GenerateDraftsResult> {
+    const period = await upsertPeriod(tx, input.year, input.month);
+    if (period.status === 'CLOSED') {
+        throw new BusinessRuleError(
+            `Periode ${input.year}-${String(input.month).padStart(2, '0')} sudah CLOSED`,
+        );
+    }
+
+    const bounds = periodBounds(input.year, input.month);
+    const { employees, candidates } = await loadDraftCandidates(tx, period.id);
+    const sources = await loadSourcesFor(tx, candidates, bounds);
+
+    const ctx: DraftContext = {
+        periodId: period.id,
+        year: input.year,
+        month: input.month,
+        bounds,
+        today: todayWibDate(),
+        sources,
+    };
+    const warnings: DraftWarning[] = [];
     let created = 0;
     for (const emp of candidates) {
-        const data = buildDraftPayslipData(emp, {
-            periodId: period.id,
-            year: input.year,
-            month: input.month,
-            effectiveDays,
-            absentCount: absentCounts.get(emp.id) ?? 0,
-        });
-        if (!data) continue;
-        await tx.payslip.create({ data });
+        const built = buildDraftPayslipData(emp, ctx);
+        if (!built) continue;
+        await tx.payslip.create({ data: built.data });
         created++;
+        if (built.warning) warnings.push(built.warning);
     }
     const skipped = employees.length - created;
 
@@ -176,6 +196,139 @@ export async function generateDraftsInTx(
         month: input.month,
         created,
         skipped,
+        warningCount: warnings.length,
     });
-    return { created, skipped, periodId: period.id };
+    return { created, skipped, periodId: period.id, warnings };
+}
+
+/** Two set-based queries for all candidates; none when there is nobody to draft. */
+async function loadSourcesFor(
+    tx: TxClient,
+    candidates: Array<{ id: string }>,
+    bounds: PeriodBounds,
+): Promise<AttendanceSources> {
+    if (candidates.length === 0) {
+        return { recordsByEmployee: new Map(), leavesByEmployee: new Map() };
+    }
+    return loadAttendanceSources(
+        tx,
+        candidates.map((e) => e.id),
+        bounds,
+    );
+}
+
+// ── Attendance basis of an existing payslip (read + DRAFT recompute) ──
+
+const SLIP_BASIS_INCLUDE = {
+    payrollPeriod: { select: { year: true, month: true } },
+    employee: { select: { id: true, name: true, code: true, joinDate: true } },
+} as const;
+
+type SlipForBasis = Prisma.PayslipGetPayload<{
+    include: typeof SLIP_BASIS_INCLUDE;
+}>;
+
+export interface PayslipAttendanceBasis extends AttendanceBasis {
+    payslipId: string;
+    employeeId: string;
+    periodYear: number;
+    periodMonth: number;
+    dailyRate: number;
+}
+
+async function computeSlipBasis(
+    client: TxClient,
+    slip: SlipForBasis,
+): Promise<AttendanceBasis> {
+    const bounds = periodBounds(
+        slip.payrollPeriod.year,
+        slip.payrollPeriod.month,
+    );
+    const sources = await loadAttendanceSources(
+        client,
+        [slip.employeeId],
+        bounds,
+    );
+    return basisFromSources(
+        sources,
+        { id: slip.employeeId, joinDate: slip.employee.joinDate },
+        bounds,
+        todayWibDate(),
+    );
+}
+
+async function findSlipForBasis(
+    client: TxClient,
+    payslipId: string,
+): Promise<SlipForBasis> {
+    const slip = await client.payslip.findUnique({
+        where: { id: payslipId },
+        include: SLIP_BASIS_INCLUDE,
+    });
+    if (!slip) throw new NotFoundError('Payslip tidak ditemukan');
+    return slip;
+}
+
+/** Read-only: attendance basis of a payslip as of the current attendance data. */
+export async function readPayslipAttendanceBasis(
+    client: TxClient,
+    payslipId: string,
+): Promise<PayslipAttendanceBasis> {
+    const slip = await findSlipForBasis(client, payslipId);
+    const basis = await computeSlipBasis(client, slip);
+    const baseSalary = Number(slip.baseSalary);
+    return {
+        ...basis,
+        payslipId: slip.id,
+        employeeId: slip.employeeId,
+        periodYear: slip.payrollPeriod.year,
+        periodMonth: slip.payrollPeriod.month,
+        dailyRate:
+            basis.workingDays > 0 ? round2(baseSalary / basis.workingDays) : 0,
+    };
+}
+
+/**
+ * Recompute the attendance proration of a DRAFT payslip inside the caller's
+ * transaction (the caller has already claimed the DRAFT row). Overwrites any manual
+ * proration; every other component keeps its stored value.
+ */
+export async function recomputeProrationInTx(
+    tx: TxClient,
+    payslipId: string,
+    options?: PayrollTxOptions,
+) {
+    const slip = await findSlipForBasis(tx, payslipId);
+    const basis = await computeSlipBasis(tx, slip);
+    const previousProration = Number(slip.prorationDeduction);
+    const amounts = computePayslipAmounts({
+        baseSalary: Number(slip.baseSalary),
+        allowanceTotal: Number(slip.allowanceTotal),
+        thrAmount: Number(slip.thrAmount),
+        prorationDeduction: computeAttendanceProration(
+            Number(slip.baseSalary),
+            basis,
+        ),
+        bpjsDeduction: Number(slip.bpjsDeduction),
+        loanDeduction: Number(slip.loanDeduction),
+        otherDeductions: Number(slip.otherDeductions),
+    });
+    const updated = await tx.payslip.update({
+        where: { id: payslipId },
+        data: {
+            prorationDeduction: amounts.prorationDeduction,
+            grossPay: amounts.grossPay,
+            deductionTotal: amounts.deductionTotal,
+            netPay: amounts.netPay,
+        },
+    });
+    await runOnCommit(tx, options, {
+        employeeId: slip.employeeId,
+        absentDays: basis.absentDays,
+        deductibleLeaveDays: basis.deductibleLeaveDays,
+        previousProration,
+        prorationDeduction: amounts.prorationDeduction,
+    });
+    const { id, name, code } = slip.employee;
+    return { ...updated, employee: { id, name, code } };
 }

@@ -344,7 +344,8 @@ function makeGenerateDb() {
     payrollPeriod: { upsert: vi.fn() },
     employee: { findMany: vi.fn() },
     payslip: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn() },
-    attendanceRecord: { groupBy: vi.fn(), count: vi.fn() },
+    attendanceRecord: { findMany: vi.fn(), count: vi.fn() },
+    leaveRequest: { findMany: vi.fn() },
   };
   const db = {
     $transaction: vi.fn(async (fn: (t: typeof tx) => Promise<unknown>) =>
@@ -358,7 +359,8 @@ function makeGenerateDb() {
     status: "OPEN",
   });
   tx.payslip.findMany.mockResolvedValue([]);
-  tx.attendanceRecord.groupBy.mockResolvedValue([]);
+  tx.attendanceRecord.findMany.mockResolvedValue([]);
+  tx.leaveRequest.findMany.mockResolvedValue([]);
   tx.payslip.create.mockResolvedValue({ id: "ps" });
   return { tx, db };
 }
@@ -385,8 +387,13 @@ describe("PayrollMonthlyService.generateDrafts", () => {
       }),
     ]);
     // 1 absent day; July 2026 has 27 Mon-Sat → daily ≈ 192592.59
-    tx.attendanceRecord.groupBy.mockResolvedValue([
-      { employeeId: "e1", _count: { _all: 1 } },
+    tx.attendanceRecord.findMany.mockResolvedValue([
+      {
+        employeeId: "e1",
+        workDate: new Date(Date.UTC(2026, 6, 8)),
+        status: "ABSENT",
+        clockInAt: null,
+      },
     ]);
 
     const result = await PayrollMonthlyService.generateDrafts(db as any, {
@@ -454,11 +461,23 @@ describe("PayrollMonthlyService.generateDrafts", () => {
     );
   });
 
-  it("uses one groupBy for ABSENT counts and no per-employee queries", async () => {
+  it("reads attendance with one findMany (no groupBy) and no per-employee queries", async () => {
     const { db, tx } = makeGenerateDb();
     tx.employee.findMany.mockResolvedValue([emp("e1"), emp("e2"), emp("e3")]);
-    tx.attendanceRecord.groupBy.mockResolvedValue([
-      { employeeId: "e2", _count: { _all: 2 } },
+    tx.attendanceRecord.findMany.mockResolvedValue([
+      // two shifts on the same date still count as ONE absent day
+      {
+        employeeId: "e2",
+        workDate: new Date(Date.UTC(2026, 6, 6)),
+        status: "ABSENT",
+        clockInAt: null,
+      },
+      {
+        employeeId: "e2",
+        workDate: new Date(Date.UTC(2026, 6, 7)),
+        status: "ABSENT",
+        clockInAt: null,
+      },
     ]);
 
     const result = await PayrollMonthlyService.generateDrafts(db as any, {
@@ -467,14 +486,7 @@ describe("PayrollMonthlyService.generateDrafts", () => {
     });
 
     expect(result.created).toBe(3);
-    expect(tx.attendanceRecord.groupBy).toHaveBeenCalledTimes(1);
-    const arg = tx.attendanceRecord.groupBy.mock.calls[0][0];
-    expect(arg.by).toEqual(["employeeId"]);
-    expect(arg.where.status).toBe("ABSENT");
-    expect(arg.where.workDate).toEqual({
-      gte: new Date(Date.UTC(2026, 6, 1)),
-      lte: new Date(Date.UTC(2026, 6, 31)),
-    });
+    expect(tx.attendanceRecord.findMany).toHaveBeenCalledTimes(1);
     expect(tx.attendanceRecord.count).not.toHaveBeenCalled();
     expect(tx.payslip.findUnique).not.toHaveBeenCalled();
     expect(tx.payslip.findMany).toHaveBeenCalledTimes(1);
@@ -499,7 +511,11 @@ describe("PayrollMonthlyService.generateDrafts", () => {
       month: 7,
     });
 
-    expect(result).toEqual({ created: 1, skipped: 2, periodId: "period-1" });
+    expect(result).toMatchObject({
+      created: 1,
+      skipped: 2,
+      periodId: "period-1",
+    });
     expect(tx.payslip.create).toHaveBeenCalledTimes(1);
   });
 

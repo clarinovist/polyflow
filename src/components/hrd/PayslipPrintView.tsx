@@ -164,7 +164,7 @@ export function PayslipPrintView({ period, payslips }: Props) {
                         ))}
                         {p.prorationDeduction > 0 && (
                             <div className="line deduction">
-                                <span>Prorata (ABSENT)</span>
+                                <span>Potongan absensi (alpa &amp; izin tidak dibayar)</span>
                                 <span className="amount">
                                     -{formatIdr(p.prorationDeduction)}
                                 </span>

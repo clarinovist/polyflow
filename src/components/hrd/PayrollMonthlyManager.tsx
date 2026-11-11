@@ -11,6 +11,10 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
+import {
+    GenerateWarningsDialog,
+    type GenerateWarning,
+} from './GenerateWarningsDialog';
 
 type Period = {
     id: string;
@@ -19,6 +23,8 @@ type Period = {
     status: 'OPEN' | 'CLOSED';
     closedAt: string | Date | null;
 };
+
+type PendingWarnings = { periodId: string; warnings: GenerateWarning[] };
 
 const MONTH_NAMES = [
     'Januari',
@@ -51,6 +57,8 @@ export function PayrollMonthlyManager() {
         month: new Date().getMonth() + 1,
     });
     const [genLoading, setGenLoading] = useState(false);
+    const [pendingWarnings, setPendingWarnings] =
+        useState<PendingWarnings | null>(null);
 
     const load = async () => {
         setLoading(true);
@@ -77,7 +85,13 @@ export function PayrollMonthlyManager() {
                 );
                 setGenOpen(false);
                 load();
-                router.push(`/hrd/payroll-monthly/${r.periodId}`);
+                const warnings = r.warnings ?? [];
+                if (warnings.length > 0) {
+                    // Show the warnings first; navigate once they are acknowledged.
+                    setPendingWarnings({ periodId: r.periodId, warnings });
+                } else {
+                    router.push(`/hrd/payroll-monthly/${r.periodId}`);
+                }
             } else {
                 toast.error(res.error || 'Gagal generate');
             }
@@ -88,8 +102,18 @@ export function PayrollMonthlyManager() {
         }
     };
 
+    const closeWarnings = () => {
+        if (!pendingWarnings) return;
+        router.push(`/hrd/payroll-monthly/${pendingWarnings.periodId}`);
+        setPendingWarnings(null);
+    };
+
     return (
         <div className="space-y-4">
+            <GenerateWarningsDialog
+                warnings={pendingWarnings?.warnings ?? []}
+                onClose={closeWarnings}
+            />
             <div className="flex items-center justify-between">
                 <div>
                     <h2 className="text-sm font-bold uppercase tracking-tight">

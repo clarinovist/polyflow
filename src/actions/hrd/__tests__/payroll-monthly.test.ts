@@ -6,6 +6,8 @@ import {
     generatePayslips,
     markPayslipPaid,
     closePayrollPeriod,
+    getPayslipAttendanceBasis,
+    recomputePayslipProration,
 } from '../payroll-monthly';
 import { requireHrdApprover, requireHrdFinance } from '@/lib/auth/hrd-access';
 import { logActivity } from '@/lib/tools/audit';
@@ -53,6 +55,8 @@ vi.mock('@/services/hrd/payroll-monthly-service', () => ({
         markPaid: vi.fn(),
         unfinalize: vi.fn(),
         closePeriod: vi.fn(),
+        getAttendanceBasis: vi.fn(),
+        recomputeDraftProration: vi.fn(),
     },
 }));
 
@@ -91,6 +95,28 @@ const GENERATE_FACTS = {
     month: 10,
     created: 3,
     skipped: 1,
+};
+
+const RECOMPUTE_FACTS = {
+    employeeId: 'emp-1',
+    absentDays: 2,
+    deductibleLeaveDays: 1,
+    previousProration: 100000,
+    prorationDeduction: 350000,
+};
+
+const ATTENDANCE_BASIS = {
+    payslipId: 'ps-1',
+    employeeId: 'emp-1',
+    periodYear: 2026,
+    periodMonth: 10,
+    dailyRate: 120000,
+    workingDays: 26,
+    absentDays: 2,
+    deductibleLeaveDays: 1,
+    paidLeaveDays: 3,
+    missingDays: 4,
+    unlinkedLeaveDays: 0,
 };
 
 const fakeTx = {
@@ -500,6 +526,28 @@ describe('payroll-monthly actions — audit di dalam transaksi', () => {
             expect(PayrollMonthlyService.generateDrafts).not.toHaveBeenCalled();
         });
 
+        it('returns warnings from the service to the client alongside the other fields', async () => {
+            const warnings = [
+                { employeeId: 'emp-1', employeeName: 'Budi Uji', missingDays: 3 },
+            ];
+            vi.mocked(PayrollMonthlyService.generateDrafts).mockResolvedValue({
+                created: 3,
+                skipped: 1,
+                periodId: 'per-1',
+                warnings,
+            } as never);
+
+            const res = await generatePayslips({ year: 2026, month: 10 });
+
+            expect(res.success).toBe(true);
+            expect(res.success && res.data).toEqual({
+                created: 3,
+                skipped: 1,
+                periodId: 'per-1',
+                warnings,
+            });
+        });
+
         it('returns error and does not commit when audit fails', async () => {
             const { state, impl } = simulateService({}, GENERATE_FACTS, 2);
             vi.mocked(PayrollMonthlyService.generateDrafts).mockImplementation(
@@ -619,6 +667,142 @@ describe('payroll-monthly actions — audit di dalam transaksi', () => {
 
             expect(res.success).toBe(false);
             expect(state.committed).toBe(false);
+        });
+    });
+
+    describe('getPayslipAttendanceBasis', () => {
+        it('forwards the service result and reads with the root client', async () => {
+            vi.mocked(PayrollMonthlyService.getAttendanceBasis).mockResolvedValue(
+                ATTENDANCE_BASIS as never,
+            );
+
+            const res = await getPayslipAttendanceBasis('ps-1');
+
+            expect(res.success).toBe(true);
+            expect(res.success && res.data).toEqual(ATTENDANCE_BASIS);
+            expect(PayrollMonthlyService.getAttendanceBasis).toHaveBeenCalledWith(
+                { marker: 'root-prisma' },
+                'ps-1',
+            );
+            expect(requireHrdFinance).toHaveBeenCalledTimes(1);
+        });
+
+        it('rejects when the role is not allowed', async () => {
+            vi.mocked(requireHrdFinance).mockRejectedValue(
+                new BusinessRuleError('Unauthorized'),
+            );
+
+            const res = await getPayslipAttendanceBasis('ps-1');
+
+            expect(res.success).toBe(false);
+            expect(PayrollMonthlyService.getAttendanceBasis).not.toHaveBeenCalled();
+        });
+
+        it('returns an error when the service fails (not an empty success)', async () => {
+            vi.mocked(PayrollMonthlyService.getAttendanceBasis).mockRejectedValue(
+                new BusinessRuleError('Payslip tidak ditemukan'),
+            );
+
+            const res = await getPayslipAttendanceBasis('ps-x');
+
+            expect(res.success).toBe(false);
+        });
+    });
+
+    describe('recomputePayslipProration', () => {
+        it('audits inside the tx with old and new deduction and no post-commit log', async () => {
+            const { impl } = simulateService(
+                { id: 'ps-1' },
+                RECOMPUTE_FACTS,
+                2,
+            );
+            vi.mocked(
+                PayrollMonthlyService.recomputeDraftProration,
+            ).mockImplementation(impl as never);
+
+            const res = await recomputePayslipProration('ps-1');
+
+            expect(res.success).toBe(true);
+            expect(logActivity).toHaveBeenCalledTimes(1);
+            expect(logActivity).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    userId: USER_ID,
+                    action: 'PAYSLIP_PRORATION_RECOMPUTED',
+                    entityType: 'Payslip',
+                    entityId: 'ps-1',
+                    details:
+                        'Recomputed attendance proration for employee=emp-1: 100000 -> 350000 (absent=2, unpaidLeave=1)',
+                    changes: {
+                        previousProration: 100000,
+                        prorationDeduction: 350000,
+                        absentDays: 2,
+                        deductibleLeaveDays: 1,
+                    },
+                    tx: fakeTx,
+                }),
+            );
+        });
+
+        it('passes the root client, payslip id and onCommit to the service', async () => {
+            vi.mocked(
+                PayrollMonthlyService.recomputeDraftProration,
+            ).mockResolvedValue({ id: 'ps-1' } as never);
+
+            await recomputePayslipProration('ps-1');
+
+            const call = vi.mocked(PayrollMonthlyService.recomputeDraftProration)
+                .mock.calls[0];
+            expect(call.slice(0, 2)).toEqual([{ marker: 'root-prisma' }, 'ps-1']);
+            expect(typeof optionsOf(PayrollMonthlyService.recomputeDraftProration, 2)?.onCommit).toBe('function');
+            expect(logActivity).not.toHaveBeenCalled();
+        });
+
+        it.each(['employeeId', 'absentDays', 'deductibleLeaveDays', 'previousProration', 'prorationDeduction'])(
+            'aborts without a half audit when fact %s is missing',
+            async (missing) => {
+                const facts: Record<string, unknown> = { ...RECOMPUTE_FACTS };
+                delete facts[missing];
+                const { state, impl } = simulateService({ id: 'ps-1' }, facts, 2);
+                vi.mocked(
+                    PayrollMonthlyService.recomputeDraftProration,
+                ).mockImplementation(impl as never);
+
+                const res = await recomputePayslipProration('ps-1');
+
+                expect(res.success).toBe(false);
+                expect(logActivity).not.toHaveBeenCalled();
+                expect(state.committed).toBe(false);
+            },
+        );
+
+        it('returns error and does not commit when audit fails inside the tx', async () => {
+            const { state, impl } = simulateService(
+                { id: 'ps-1' },
+                RECOMPUTE_FACTS,
+                2,
+            );
+            vi.mocked(
+                PayrollMonthlyService.recomputeDraftProration,
+            ).mockImplementation(impl as never);
+            vi.mocked(logActivity).mockRejectedValue(new Error('audit down'));
+
+            const res = await recomputePayslipProration('ps-1');
+
+            expect(res.success).toBe(false);
+            expect(state.committed).toBe(false);
+        });
+
+        it('rejects when role is not an approver', async () => {
+            vi.mocked(requireHrdApprover).mockRejectedValue(
+                new BusinessRuleError('Unauthorized'),
+            );
+
+            const res = await recomputePayslipProration('ps-1');
+
+            expect(res.success).toBe(false);
+            expect(
+                PayrollMonthlyService.recomputeDraftProration,
+            ).not.toHaveBeenCalled();
         });
     });
 });
