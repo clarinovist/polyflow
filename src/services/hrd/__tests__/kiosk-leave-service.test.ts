@@ -96,9 +96,10 @@ describe('KioskLeaveService.create', () => {
     it('rejects an unknown employee code without touching leave requests', async () => {
         db.employee.findUnique.mockResolvedValue(null);
 
-        await expect(create()).rejects.toThrow(
-            new BusinessRuleError('Karyawan tidak ditemukan'),
-        );
+        await expect(create()).rejects.toMatchObject({
+            name: 'BusinessRuleError',
+            message: 'Karyawan tidak ditemukan',
+        });
         expect(db.leaveRequest.create).not.toHaveBeenCalled();
     });
 

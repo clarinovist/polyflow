@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { BusinessRuleError, NotFoundError } from '@/lib/errors/errors';
+import { NotFoundError } from '@/lib/errors/errors';
 import { PayrollMonthlyService } from '../payroll-monthly-service';
 
 function dec(n: number) {
@@ -362,9 +362,10 @@ describe('PayrollMonthlyService.recomputeDraftProration', () => {
 
         await expect(
             PayrollMonthlyService.recomputeDraftProration(db as any, 'ps1'),
-        ).rejects.toThrow(
-            new BusinessRuleError('Hanya payslip DRAFT yang bisa dihitung ulang'),
-        );
+        ).rejects.toMatchObject({
+            name: 'BusinessRuleError',
+            message: 'Hanya payslip DRAFT yang bisa dihitung ulang',
+        });
         expect(tx.payslip.update).not.toHaveBeenCalled();
     });
 

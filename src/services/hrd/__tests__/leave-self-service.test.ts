@@ -362,9 +362,10 @@ describe('parseMyLeaveInput', () => {
         ['missing endDate', { endDate: undefined }],
         ['non-string note', { note: { $ne: null } }],
     ])('rejects %s', (_name, override) => {
-        expect(() =>
-            parseMyLeaveInput({ ...validInput(), ...override }),
-        ).toThrow(new BusinessRuleError('Data pengajuan izin tidak valid'));
+        const parse = () =>
+            parseMyLeaveInput({ ...validInput(), ...override });
+        expect(parse).toThrow(BusinessRuleError);
+        expect(parse).toThrow('Data pengajuan izin tidak valid');
     });
 
     it.each([null, 'text', 42, undefined])(
