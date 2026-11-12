@@ -476,6 +476,11 @@ describe('role-dashboard-config', () => {
             }
         });
 
+        it('never offers a create-purchase-order shortcut to a factory manager', () => {
+            const hrefs = buildQuickActions('FACTORY_MANAGER').map((a) => a.href);
+            expect(hrefs).not.toContain('/purchasing/orders/create');
+        });
+
         it('keeps every shortcut inside the granted read-only scope', () => {
             const actions = buildQuickActions('FACTORY_MANAGER');
             expect(actions.length).toBeGreaterThan(0);

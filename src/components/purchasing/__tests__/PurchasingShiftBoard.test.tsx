@@ -220,4 +220,11 @@ describe('PurchasingShiftBoardComponent', () => {
         expect(screen.getByRole('link', { name: 'Buat PO' })).toBeTruthy();
         expect(screen.queryByRole('link', { name: 'Supplier' })).not.toBeTruthy();
     });
+
+    it('hides the Buat PO link when canCreateOrder is false but keeps the others', () => {
+        render(<PurchasingShiftBoardComponent data={data} canCreateOrder={false} />);
+
+        expect(screen.queryByRole('link', { name: 'Buat PO' })).toBeNull();
+        expect(screen.getByRole('link', { name: 'Buat PR' })).toBeTruthy();
+    });
 });

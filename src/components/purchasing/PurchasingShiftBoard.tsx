@@ -404,10 +404,13 @@ function PurchasingInsight({
 
 interface PurchasingShiftBoardProps {
     data: PurchasingShiftBoard | null;
+    /** False hides the "Buat PO" link (read-only factory manager). */
+    canCreateOrder?: boolean;
 }
 
 export function PurchasingShiftBoardComponent({
     data,
+    canCreateOrder = true,
 }: PurchasingShiftBoardProps) {
     if (!data) {
         return (
@@ -487,16 +490,18 @@ export function PurchasingShiftBoardComponent({
                             <Plus className="h-4 w-4" /> Buat PR
                         </Link>
                     </Button>
-                    <Button
-                        asChild
-                        size="lg"
-                        variant="outline"
-                        className="min-h-11 gap-2"
-                    >
-                        <Link href="/purchasing/orders/create">
-                            <Plus className="h-4 w-4" /> Buat PO
-                        </Link>
-                    </Button>
+                    {canCreateOrder && (
+                        <Button
+                            asChild
+                            size="lg"
+                            variant="outline"
+                            className="min-h-11 gap-2"
+                        >
+                            <Link href="/purchasing/orders/create">
+                                <Plus className="h-4 w-4" /> Buat PO
+                            </Link>
+                        </Button>
+                    )}
                     <Button
                         asChild
                         size="lg"
