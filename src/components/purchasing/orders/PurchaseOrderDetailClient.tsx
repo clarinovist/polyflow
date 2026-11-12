@@ -128,12 +128,15 @@ interface PurchaseOrderDetailClientProps {
     order: SerializedPO;
     basePath?: string;
     warehouseMode?: boolean;
+    /** False hides the goods-receipt link (read-only roles). Defaults to true. */
+    canCreateReceipt?: boolean;
 }
 
 export function PurchaseOrderDetailClient({
     order,
     basePath = '/purchasing/orders',
     warehouseMode = false,
+    canCreateReceipt = true,
 }: PurchaseOrderDetailClientProps) {
     const showDpp =
         !warehouseMode &&
@@ -329,8 +332,9 @@ export function PurchaseOrderDetailClient({
                         </Button>
                     )}
 
-                    {(order.status === 'SENT' ||
-                        order.status === 'PARTIAL_RECEIVED') && (
+                    {canCreateReceipt &&
+                        (order.status === 'SENT' ||
+                            order.status === 'PARTIAL_RECEIVED') && (
                         <Button
                             asChild
                             className="bg-emerald-600 hover:bg-emerald-700 text-white"

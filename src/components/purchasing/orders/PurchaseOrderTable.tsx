@@ -55,6 +55,8 @@ interface PurchaseOrderTableProps {
     direction?: PurchasingSortDirection;
     /** Read-only roles: no totals in the table or mobile cards. */
     hidePrices?: boolean;
+    /** False hides the "Buat PO" action (read-only roles). Defaults to true. */
+    canCreate?: boolean;
 }
 
 function ServerSortHeader({
@@ -119,6 +121,7 @@ export function PurchaseOrderTable({
     sort = 'orderDate',
     direction = 'desc',
     hidePrices = false,
+    canCreate = true,
 }: PurchaseOrderTableProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -520,12 +523,14 @@ export function PurchaseOrderTable({
                         >
                             Terapkan filter
                         </Button>
-                        <Link href="/purchasing/orders/create">
-                            <Button className="bg-blue-600 hover:bg-blue-700">
-                                <Plus className="mr-2 h-4 w-4" />
-                                Buat PO
-                            </Button>
-                        </Link>
+                        {canCreate && (
+                            <Link href="/purchasing/orders/create">
+                                <Button className="bg-blue-600 hover:bg-blue-700">
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Buat PO
+                                </Button>
+                            </Link>
+                        )}
                     </ListToolbar>
                 </DataTable>
             </div>

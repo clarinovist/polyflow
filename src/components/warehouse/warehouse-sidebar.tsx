@@ -29,6 +29,8 @@ interface WarehouseSidebarProps {
     };
     /** Fresh rolePermission resources; 'ALL' for tenant admin */
     permissions?: string[] | 'ALL';
+    /** Hides links the server denies for read-only Kepala Pabrik. */
+    hideReadOnlyDenied?: boolean;
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
@@ -122,12 +124,17 @@ const warehouseLinks = [
 export function WarehouseSidebar({
     user,
     permissions,
+    hideReadOnlyDenied = false,
     currentTenantId,
     currentTenantName,
     workspaces = [],
     centralLoginHint = false,
 }: WarehouseSidebarProps) {
-    const filteredGroups = filterNavGroups(warehouseLinks, permissions);
+    const filteredGroups = filterNavGroups(
+        warehouseLinks,
+        permissions,
+        hideReadOnlyDenied,
+    );
 
     return (
         <PortalSidebarBase

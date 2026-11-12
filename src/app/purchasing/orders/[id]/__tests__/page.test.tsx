@@ -68,6 +68,7 @@ const renderPage = async () =>
 const lastProps = () => detailClient.mock.calls.at(-1)![0] as {
     order: { totalAmount: number | null; items: Array<{ unitPrice: number }>; invoices: unknown[] };
     warehouseMode?: boolean;
+    canCreateReceipt?: boolean;
     basePath?: string;
 };
 
@@ -86,6 +87,7 @@ describe('purchase order detail route price visibility', () => {
 
         const props = lastProps();
         expect(props.warehouseMode).toBe(true);
+        expect(props.canCreateReceipt).toBe(false);
         expect(props.basePath).toBeUndefined();
         expect(props.order.totalAmount).toBeNull();
         expect(props.order.items[0].unitPrice).toBe(0);
@@ -106,6 +108,7 @@ describe('purchase order detail route price visibility', () => {
 
         const props = lastProps();
         expect(props.warehouseMode).toBeFalsy();
+        expect(props.canCreateReceipt).toBe(true);
         expect(props.order.totalAmount).toBe(1_500_000);
         expect(props.order.items[0].unitPrice).toBe(150_000);
         expect(props.order.invoices).toHaveLength(1);

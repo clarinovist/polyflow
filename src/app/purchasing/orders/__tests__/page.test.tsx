@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { auth, getPurchaseOrdersPage, purchaseOrderTable } = vi.hoisted(() => ({
@@ -112,6 +112,7 @@ describe('purchase orders route price visibility', () => {
         purchaseOrderTable.mock.calls.at(-1)![0] as {
             orders: Array<{ totalAmount: number | null }>;
             hidePrices?: boolean;
+            canCreate?: boolean;
             sort: string;
         };
 
@@ -133,6 +134,8 @@ describe('purchase orders route price visibility', () => {
         render(await PurchaseOrdersPage({ searchParams: Promise.resolve({}) }));
 
         expect(tableProps().hidePrices).toBe(true);
+        expect(tableProps().canCreate).toBe(false);
+        expect(screen.queryByRole('link', { name: /Buat PO/ })).toBeNull();
         expect(tableProps().orders[0].totalAmount).toBeNull();
         expect(JSON.stringify(tableProps().orders)).not.toContain('1500000');
     });
@@ -169,6 +172,8 @@ describe('purchase orders route price visibility', () => {
         );
 
         expect(tableProps().hidePrices).toBeFalsy();
+        expect(tableProps().canCreate).toBe(true);
+        expect(screen.getByRole('link', { name: /Buat PO/ })).toBeTruthy();
         expect(tableProps().orders[0].totalAmount).toBe(1_500_000);
         expect(getPurchaseOrdersPage).toHaveBeenCalledWith(
             expect.objectContaining({ sort: 'totalAmount' }),

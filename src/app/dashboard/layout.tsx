@@ -123,6 +123,7 @@ export default async function DashboardLayout({
             <SidebarNav
                 user={user}
                 permissions={permissions}
+                hideReadOnlyDenied={isReadOnlyFactoryManager(session.user)}
                 activeModules={getTenantActiveModules()}
                 entryHrefs={buildWorkspaceEntryHrefs(permissions)}
                 currentTenantId={currentTenant?.id}

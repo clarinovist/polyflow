@@ -1,4 +1,5 @@
 import { getModuleRoot } from '@/lib/auth/permission-catalog';
+import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/access-policy';
 
 /**
  * Permission alias map — legacy resource keys that should be treated as
@@ -61,14 +62,28 @@ export interface FilterableNavItem {
 export function filterNavItems<T extends FilterableNavItem>(
     items: T[],
     permissions: string[] | 'ALL' | undefined,
+    hideReadOnlyDenied = false,
 ): T[] {
-    if (permissions === undefined || permissions === 'ALL') return items;
+    if (!hideReadOnlyDenied && (permissions === undefined || permissions === 'ALL'))
+        return items;
 
     return items.reduce<T[]>((acc, item) => {
         const visibleChildren = item.children
-            ? filterNavItems(item.children as T[], permissions)
+            ? filterNavItems(
+                  item.children as T[],
+                  permissions,
+                  hideReadOnlyDenied,
+              )
             : undefined;
-        const selfVisible = canSeeNavHref(item.href, permissions);
+        // Cosmetic only: the server still enforces the denial for these paths.
+        const isDenied =
+            hideReadOnlyDenied &&
+            isPathDeniedForReadOnlyFactoryManager(item.href);
+        const selfVisible =
+            !isDenied &&
+            (permissions === undefined ||
+                permissions === 'ALL' ||
+                canSeeNavHref(item.href, permissions));
 
         if (selfVisible || (visibleChildren && visibleChildren.length > 0)) {
             acc.push({
@@ -89,11 +104,15 @@ export interface FilterableNavGroup<T extends FilterableNavItem> {
 export function filterNavGroups<
     T extends FilterableNavItem,
     G extends FilterableNavGroup<T>,
->(groups: G[], permissions: string[] | 'ALL' | undefined): G[] {
+>(
+    groups: G[],
+    permissions: string[] | 'ALL' | undefined,
+    hideReadOnlyDenied = false,
+): G[] {
     return groups
         .map((group) => ({
             ...group,
-            items: filterNavItems(group.items, permissions),
+            items: filterNavItems(group.items, permissions, hideReadOnlyDenied),
         }))
         .filter((group) => group.items.length > 0);
 }

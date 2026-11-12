@@ -13,6 +13,7 @@ import { PathBreadCrumb } from '@/components/layout/path-breadcrumb';
 import { SidebarSpacer } from '@/components/layout/sidebar-spacer';
 import { SkipToMainContent } from '@/components/layout/skip-to-main-content';
 import { getMyPermissions } from '@/actions/admin/permissions';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { headers } from 'next/headers';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
@@ -119,6 +120,7 @@ export default async function WarehouseLayout({
             <WarehouseSidebar
                 user={user}
                 permissions={permissions}
+                hideReadOnlyDenied={isReadOnlyFactoryManager(session.user)}
                 currentTenantId={currentTenant?.id}
                 currentTenantName={currentTenant?.name}
                 workspaces={workspaces}

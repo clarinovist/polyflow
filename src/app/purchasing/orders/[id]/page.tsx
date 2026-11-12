@@ -57,6 +57,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                     >['order']
                 }
                 warehouseMode={isPriceHidden}
+                canCreateReceipt={!isPriceHidden}
             />
         </div>
     );

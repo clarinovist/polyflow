@@ -128,17 +128,20 @@ export default async function PurchaseOrdersPage(props: {
                 title="Order Pembelian (PO)"
                 description="Kelola procurement dan pesanan supplier."
                 actions={
-                    <Button asChild>
-                        <Link href="/purchasing/orders/create">
-                            <Plus aria-hidden="true" className="h-4 w-4" />
-                            Buat PO
-                        </Link>
-                    </Button>
+                    isPriceHidden ? undefined : (
+                        <Button asChild>
+                            <Link href="/purchasing/orders/create">
+                                <Plus aria-hidden="true" className="h-4 w-4" />
+                                Buat PO
+                            </Link>
+                        </Button>
+                    )
                 }
             />
 
             <PurchaseOrderTable
                 hidePrices={isPriceHidden}
+                canCreate={!isPriceHidden}
                 orders={
                     serializeData(visibleItems) as unknown as ComponentProps<
                         typeof PurchaseOrderTable

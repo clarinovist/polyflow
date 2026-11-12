@@ -38,6 +38,7 @@ import { useState, useEffect } from 'react';
 import { mainNavLabels } from '@/lib/labels';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/access-policy';
 import { resolvePathToModule } from '@/lib/modules/module-registry';
 import { TenantSwitcher } from '@/components/layout/tenant-switcher';
 import { FindingsNavLink } from '@/components/layout/findings-nav-link';
@@ -52,6 +53,8 @@ interface SidebarNavProps {
         avatarUrl?: string | null;
     };
     permissions: string[] | 'ALL';
+    /** Hides links the server denies for read-only Kepala Pabrik. */
+    hideReadOnlyDenied?: boolean;
     /** Active module keys for this tenant. Empty array = all modules shown (super admin / legacy). */
     activeModules?: string[];
     /**
@@ -146,6 +149,7 @@ function isSupportActive(pathname: string) {
 export function SidebarNav({
     user,
     permissions,
+    hideReadOnlyDenied = false,
     activeModules,
     entryHrefs,
     currentTenantId,
@@ -201,6 +205,12 @@ export function SidebarNav({
                         return false;
                     }
                 }
+                // Cosmetic only: the server still enforces this denial.
+                if (
+                    hideReadOnlyDenied &&
+                    isPathDeniedForReadOnlyFactoryManager(item.href)
+                )
+                    return false;
                 // Permission filter
                 if (permissions === 'ALL') return true;
 

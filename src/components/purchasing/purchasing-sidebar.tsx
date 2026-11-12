@@ -26,6 +26,8 @@ interface PurchasingSidebarProps {
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
+    /** Hides links the server denies for read-only Kepala Pabrik. */
+    hideReadOnlyDenied?: boolean;
     currentTenantId?: string;
     currentTenantName?: string;
     workspaces?: CentralWorkspaceOption[];
@@ -103,12 +105,17 @@ const purchasingLinks = [
 export function PurchasingSidebar({
     user,
     permissions,
+    hideReadOnlyDenied = false,
     currentTenantId,
     currentTenantName,
     workspaces = [],
     centralLoginHint = false,
 }: PurchasingSidebarProps) {
-    const filteredGroups = filterNavGroups(purchasingLinks, permissions);
+    const filteredGroups = filterNavGroups(
+        purchasingLinks,
+        permissions,
+        hideReadOnlyDenied,
+    );
     return (
         <PortalSidebarBase
             user={user}

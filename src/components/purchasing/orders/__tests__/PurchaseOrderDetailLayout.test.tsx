@@ -119,6 +119,11 @@ describe('Purchase order detail layout and existing action contracts', () => {
         expect(screen.queryByText(/Rps/)).toBeNull();
     });
 
+    it.each(['SENT', 'PARTIAL_RECEIVED'] as const)('hides the receipt link for %s when canCreateReceipt is false', (status) => {
+        render(<PurchaseOrderDetailClient order={makePurchaseOrder({ status })} warehouseMode canCreateReceipt={false} />);
+        expect(screen.queryByRole('link', { name: 'Penerimaan Barang' })).toBeNull();
+    });
+
     it.each(['PLANNING', 'WAREHOUSE', 'FINANCE'])('preserves closure role restriction for %s', (role) => {
         mocks.role = role;
         renderOrder({ status: 'PARTIAL_RECEIVED' });

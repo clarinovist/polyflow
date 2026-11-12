@@ -55,4 +55,26 @@ describe('filterNavItems / filterNavGroups', () => {
     const groups = [{ heading: 'Persediaan', items: [{ href: '/warehouse/opname' }] }];
     expect(filterNavGroups(groups, ['/sales'])).toEqual([]);
   });
+  it('hides server-denied paths for read-only Kepala Pabrik even with ALL', () => {
+    const links = [
+      { href: '/dashboard' },
+      { href: '/dashboard/products' },
+      { href: '/warehouse/inventory' },
+      { href: '/warehouse/inventory/adjustment' },
+      { href: '/warehouse/inventory/transfer' },
+      { href: '/purchasing/orders' },
+      { href: '/purchasing/orders/create' },
+    ];
+    expect(filterNavItems(links, 'ALL', true).map((l) => l.href)).toEqual([
+      '/dashboard',
+      '/warehouse/inventory',
+      '/purchasing/orders',
+    ]);
+    expect(filterNavItems(links, 'ALL')).toEqual(links);
+  });
+
+  it('drops groups that only held denied links', () => {
+    const groups = [{ heading: 'Master', items: [{ href: '/dashboard/boms' }] }];
+    expect(filterNavGroups(groups, 'ALL', true)).toEqual([]);
+  });
 });

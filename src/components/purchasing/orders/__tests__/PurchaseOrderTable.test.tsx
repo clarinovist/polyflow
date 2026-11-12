@@ -51,6 +51,14 @@ describe('PurchaseOrderTable paged list', () => {
         expect(screen.queryByRole('button', { name: 'Tutup PO PO-2026-0051' })).toBeNull();
         expect(screen.getAllByText('Ditutup').length).toBeGreaterThan(0);
     });
+    it('shows the Buat PO toolbar link by default and hides it when canCreate is false', () => {
+        const { unmount } = render(<PurchaseOrderTable orders={orders} />);
+        expect(screen.getByRole('link', { name: /Buat PO/ })).toBeTruthy();
+        unmount();
+
+        render(<PurchaseOrderTable orders={orders} canCreate={false} />);
+        expect(screen.queryByRole('link', { name: /Buat PO/ })).toBeNull();
+    });
     it('shows totals by default and hides every amount when prices are hidden', () => {
         const { unmount } = render(<PurchaseOrderTable orders={orders} />);
         expect(screen.getAllByText(/125\.000/).length).toBeGreaterThan(0);
