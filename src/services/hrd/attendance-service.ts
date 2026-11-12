@@ -25,11 +25,8 @@ import {
 } from './attendance-location';
 import { serializeGeofenceForStorage } from './attendance-location-storage';
 import { isValidCoordinate } from '@/lib/utils/geo';
-import {
-    isOvernightShift,
-    wibDateFrom,
-    wibDateStringFrom,
-} from './shift-window';
+import { wibDateFrom, wibDateStringFrom } from './shift-window';
+import { isStaleOpenSession } from './stale-session';
 
 // ─── Input types ───
 
@@ -811,52 +808,30 @@ export const AttendanceService = {
         })) as unknown as RecordWithRelations[];
 
         if (allOpen.length === 0) return null;
-        if (allOpen.length === 1) {
-            const rec = allOpen[0];
-            const workDateStr = (rec.workDate as Date)
-                .toISOString()
-                .slice(0, 10);
-            const elapsedHours =
-                (now.getTime() - new Date(rec.clockInAt as Date).getTime()) /
-                (1000 * 60 * 60);
-            const isStale = workDateStr !== todayWibStr && elapsedHours > 20;
-            return {
-                ...rec,
-                isStale: isStale || undefined,
-                staleDate: isStale ? workDateStr : undefined,
-            };
-        }
 
-        // Prefer record whose workDate matches today WIB, or overnight shift that started yesterday
-        const todayMatch = allOpen.filter((r) => {
-            const wd = (r.workDate as Date).toISOString().slice(0, 10);
-            if (wd === todayWibStr) return true;
-            // Overnight: clock-in late night yesterday, still open early today — workDate = yesterday
-            const shift = (
-                r as { workShift?: { startTime: string; endTime: string } }
-            ).workShift;
-            if (shift && isOvernightShift(shift.startTime, shift.endTime)) {
-                const clockInStr = wibDateStringFrom(
-                    new Date(r.clockInAt as Date),
-                );
-                // If clocked in today WIB but workDate is yesterday due to overnight logic, it's valid today
-                if (clockInStr === todayWibStr) return true;
-            }
-            return false;
-        });
+        const workDateOf = (r: RecordWithRelations) =>
+            (r.workDate as Date).toISOString().slice(0, 10);
 
-        if (todayMatch.length > 0) {
-            return todayMatch[0];
-        }
+        // A session is live when its workDate is today (WIB) OR it was opened
+        // within the stale window. The second clause covers overnight shifts:
+        // clock-in 11 Nov 23:00 has workDate 11 Nov, yet must close on 12 Nov 07:00.
+        // Newest first, so a forgotten older session never shadows the live one.
+        const live = allOpen.find(
+            (r) =>
+                workDateOf(r) === todayWibStr ||
+                !isStaleOpenSession(
+                    {
+                        clockInAt: new Date(r.clockInAt as Date),
+                        clockOutAt: null,
+                    },
+                    now,
+                ),
+        );
+        if (live) return { ...live, isStale: undefined, staleDate: undefined };
 
-        // No today match — we have only stale records. Return newest stale with flag.
+        // Only stale records remain. Return newest stale with flag.
         const newest = allOpen[0];
-        const staleDate = (newest.workDate as Date).toISOString().slice(0, 10);
-        return {
-            ...newest,
-            isStale: true,
-            staleDate,
-        };
+        return { ...newest, isStale: true, staleDate: workDateOf(newest) };
     },
 
     /**

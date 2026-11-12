@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AttendanceService } from '../attendance-service';
 import { haversineDistance } from '@/lib/utils/geo';
 import { logger } from '@/lib/config/logger';
@@ -1416,6 +1416,60 @@ describe('AttendanceService', () => {
           dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
           employee: { name: 'Budi', code: 'EMP-001' },
         },
+      ] as any);
+
+      await expect(
+        AttendanceService.clockOutSelfService(mockDb as any, {
+          employeeId: 'emp-1',
+          locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+        }, { 'attendance.geofenceEnabled': 'false' }),
+      ).rejects.toThrow(/koreksi HRD/i);
+    });
+  });
+
+  describe('clockOutSelfService - overnight session with another open record', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const openRecord = (id: string, workDate: string, clockInAt: Date) => ({
+      id, employeeId: 'emp-1', workDate: new Date(workDate),
+      clockInAt, clockOutAt: null,
+      workShift: { ...activeShift, startTime: '23:00', endTime: '07:00' }, workShiftId: 'shift-3',
+      dailyRateSnapshot: activeEmployee.dailyRate,
+      overtimeRateSnapshot: activeEmployee.overtimeHourlyRate,
+      standardDayHours: activeEmployee.standardDayHours,
+      plannedHours: dec(8), actualHours: null, regularHours: dec(0), overtimeHours: dec(0),
+      dailyEarnings: dec(0), overtimeEarnings: dec(0), totalEarnings: dec(0),
+      employee: { name: 'Budi', code: 'EMP-001' },
+    });
+
+    it('closes the night session (in 11 Nov 23:00 WIB) at 12 Nov 07:00 WIB instead of reporting it stale', async () => {
+      // 12 Nov 07:00 WIB = 12 Nov 00:00 UTC
+      vi.useFakeTimers({ now: new Date('2026-11-12T00:00:00.000Z'), toFake: ['Date'] });
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue({ id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE' } as any);
+      const nightIn = new Date('2026-11-11T16:00:00.000Z'); // 11 Nov 23:00 WIB
+      const forgotten = openRecord('rec-old', '2026-11-05', new Date('2026-11-05T01:00:00.000Z'));
+      const night = openRecord('rec-night', '2026-11-11', nightIn);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([night, forgotten] as any);
+      vi.mocked(mockDb.attendanceRecord.update).mockResolvedValue({
+        ...night, clockOutAt: new Date(), status: 'PRESENT', source: 'KIOSK',
+      } as any);
+
+      await AttendanceService.clockOutSelfService(mockDb as any, {
+        employeeId: 'emp-1',
+        locationEvidence: { latitude: -6, longitude: 106, accuracy: 10 },
+      }, { 'attendance.geofenceEnabled': 'false' });
+
+      expect(vi.mocked(mockDb.attendanceRecord.update).mock.calls[0][0].where).toEqual({ id: 'rec-night' });
+    });
+
+    it('still reports stale when every open record is older than 20 hours', async () => {
+      vi.useFakeTimers({ now: new Date('2026-11-12T00:00:00.000Z'), toFake: ['Date'] });
+      vi.mocked(mockDb.employee.findUnique).mockResolvedValue({ id: 'emp-1', name: 'Budi', code: 'EMP-001', status: 'ACTIVE' } as any);
+      vi.mocked(mockDb.attendanceRecord.findMany).mockResolvedValue([
+        openRecord('rec-a', '2026-11-08', new Date('2026-11-08T16:00:00.000Z')),
+        openRecord('rec-b', '2026-11-05', new Date('2026-11-05T16:00:00.000Z')),
       ] as any);
 
       await expect(
