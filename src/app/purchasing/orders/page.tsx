@@ -8,6 +8,8 @@ import { Plus } from 'lucide-react';
 import Link from 'next/link';
 import { serializeData } from '@/lib/utils/utils';
 import { withTenantPage } from '@/lib/core/tenant';
+import { auth } from '@/auth';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { PurchaseOrderStatus } from '@prisma/client';
 import { PURCHASE_ORDER_SORTS } from '@/services/purchasing/orders-service';
 import {
@@ -66,7 +68,10 @@ export default async function PurchaseOrdersPage(props: {
             ? searchParams.endDate
             : undefined;
     const dateBounds = parsePurchasingDateBounds(startDate, endDate);
-    const sorting = parsePurchasingSort(
+    // Read-only Kepala Pabrik never receives purchase totals (payload and sort).
+    const session = await auth();
+    const isPriceHidden = isReadOnlyFactoryManager(session?.user);
+    const requestedSorting = parsePurchasingSort(
         typeof searchParams.sort === 'string' ? searchParams.sort : undefined,
         typeof searchParams.direction === 'string'
             ? searchParams.direction
@@ -74,6 +79,10 @@ export default async function PurchaseOrdersPage(props: {
         PURCHASE_ORDER_SORTS,
         'orderDate',
     );
+    const sorting =
+        isPriceHidden && requestedSorting.sort === 'totalAmount'
+            ? { ...requestedSorting, sort: 'orderDate' as const }
+            : requestedSorting;
     let ordersPage: Awaited<ReturnType<typeof getOrdersData>>;
     try {
         ordersPage = await getOrdersData({
@@ -109,6 +118,10 @@ export default async function PurchaseOrdersPage(props: {
         );
     }
 
+    const visibleItems = isPriceHidden
+        ? ordersPage.items.map((item) => ({ ...item, totalAmount: null }))
+        : ordersPage.items;
+
     return (
         <div className="flex min-w-0 flex-col gap-6 p-4 md:p-6">
             <PageHeader
@@ -125,10 +138,9 @@ export default async function PurchaseOrdersPage(props: {
             />
 
             <PurchaseOrderTable
+                hidePrices={isPriceHidden}
                 orders={
-                    serializeData(
-                        ordersPage.items,
-                    ) as unknown as ComponentProps<
+                    serializeData(visibleItems) as unknown as ComponentProps<
                         typeof PurchaseOrderTable
                     >['orders']
                 }

@@ -51,6 +51,20 @@ describe('PurchaseOrderTable paged list', () => {
         expect(screen.queryByRole('button', { name: 'Tutup PO PO-2026-0051' })).toBeNull();
         expect(screen.getAllByText('Ditutup').length).toBeGreaterThan(0);
     });
+    it('shows totals by default and hides every amount when prices are hidden', () => {
+        const { unmount } = render(<PurchaseOrderTable orders={orders} />);
+        expect(screen.getAllByText(/125\.000/).length).toBeGreaterThan(0);
+        expect(screen.getByRole('columnheader', { name: /Total/ })).toBeTruthy();
+        unmount();
+
+        render(<PurchaseOrderTable orders={[{ ...orders[0], totalAmount: null }]} hidePrices />);
+        expect(screen.queryByText(/Rp/)).toBeNull();
+        expect(screen.queryByText(/125\.000/)).toBeNull();
+        expect(screen.queryByRole('columnheader', { name: /Total/ })).toBeNull();
+        expect(screen.getAllByText('2 item').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('PO-2026-0051').length).toBeGreaterThan(0);
+    });
+
     beforeEach(() => {
         push.mockReset();
         window.history.replaceState({}, '', '/purchasing/orders?page=2&pageSize=50&status=SENT');

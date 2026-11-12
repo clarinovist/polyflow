@@ -1,5 +1,6 @@
 import { StockAgingService } from '@/services/inventory/stock-aging-service';
 import { StockAgingTable } from '@/components/warehouse/inventory/StockAgingTable';
+import type { StockAgingResult } from '@/services/inventory/stock-aging-service';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Clock } from 'lucide-react';
 import Link from 'next/link';
@@ -7,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { formatRupiah, formatQuantity } from '@/lib/utils/utils';
 import { Metadata } from 'next';
 import { withTenantPage } from '@/lib/core/tenant';
+import { auth } from '@/auth';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 
 const getAgingData = withTenantPage(async () => {
     const aging = await StockAgingService.calculateStockAging();
@@ -18,8 +21,24 @@ export const metadata: Metadata = {
     title: 'Stock Aging | PolyFlow Warehouse',
 };
 
+function withoutBucketValues(aging: StockAgingResult[]): StockAgingResult[] {
+    return aging.map((row) => ({
+        ...row,
+        buckets: {
+            '0-30': { ...row.buckets['0-30'], value: 0 },
+            '31-60': { ...row.buckets['31-60'], value: 0 },
+            '61-90': { ...row.buckets['61-90'], value: 0 },
+            '90+': { ...row.buckets['90+'], value: 0 },
+        },
+    }));
+}
+
 export default async function StockAgingPage() {
-    const { aging: agingData, summary } = await getAgingData();
+    const { aging, summary } = await getAgingData();
+    // Read-only Kepala Pabrik sees ages and quantities, never valuation.
+    const session = await auth();
+    const showPrices = !isReadOnlyFactoryManager(session?.user);
+    const agingData = showPrices ? aging : withoutBucketValues(aging);
 
     return (
         <div className="p-6 max-w-[1600px] mx-auto space-y-6">
@@ -63,18 +82,20 @@ export default async function StockAgingPage() {
                         </div>
                     </CardContent>
                 </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Total Nilai
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">
-                            {formatRupiah(summary.totalValue)}
-                        </div>
-                    </CardContent>
-                </Card>
+                {showPrices && (
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Total Nilai
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">
+                                {formatRupiah(summary.totalValue)}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
                 <Card>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">
@@ -102,7 +123,7 @@ export default async function StockAgingPage() {
             </div>
 
             {/* Aging Table */}
-            <StockAgingTable data={agingData} />
+            <StockAgingTable data={agingData} showPrices={showPrices} />
         </div>
     );
 }

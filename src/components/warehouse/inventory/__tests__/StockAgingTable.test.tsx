@@ -16,3 +16,30 @@ it('paginates aging without dropping search results on later pages', () => {
     fireEvent.change(screen.getByLabelText('Cari produk aging'), { target: { value: 'tidak-ada' } });
     expect(screen.getByText(/Tidak ada stok aging/)).toBeTruthy();
 });
+
+const row = {
+    productVariantId: 'p-1',
+    name: 'Resin',
+    skuCode: 'RSN-1',
+    totalStock: 30,
+    buckets: {
+        '0-30': { range: '0-30', count: 1, quantity: 10, value: 111000 },
+        '31-60': { range: '31-60', count: 0, quantity: 0, value: 0 },
+        '61-90': { range: '61-90', count: 0, quantity: 0, value: 0 },
+        '90+': { range: '90+', count: 1, quantity: 20, value: 222000 },
+    },
+} as ComponentProps<typeof StockAgingTable>['data'][number];
+it('shows bucket values by default and hides them when prices are hidden', () => {
+    const { unmount } = render(<StockAgingTable data={[row]} />);
+    expect(screen.getAllByText(/Rp/).length).toBeGreaterThan(0);
+    unmount();
+    render(<StockAgingTable data={[row]} showPrices={false} />);
+    expect(screen.queryByText(/Rp/)).toBeNull();
+    expect(screen.getByText('Resin')).toBeTruthy();
+});
+it('ranks by aged quantity instead of value when prices are hidden', () => {
+    const cheapButLarge = { ...row, productVariantId: 'p-2', name: 'Besar Murah', buckets: { ...row.buckets, '90+': { range: '90+' as const, count: 1, quantity: 900, value: 1 } } };
+    render(<StockAgingTable data={[row, cheapButLarge]} showPrices={false} />);
+    const names = screen.getAllByRole('row').slice(1).map((r) => r.textContent ?? '');
+    expect(names[0]).toContain('Besar Murah');
+});

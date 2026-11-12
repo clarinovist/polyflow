@@ -1,4 +1,5 @@
 import { getUserRoles } from '@/lib/auth/roles';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { resolveWorkspaceToModule, MODULE_DEFINITIONS } from '@/lib/modules/module-registry';
 
 type EntitlementContextReader = {
@@ -168,6 +169,42 @@ export function isPathAllowedByResources(
 }
 
 /**
+ * Routes that stay closed to a read-only Kepala Pabrik (FACTORY_MANAGER
+ * without ADMIN) even though a broader grant covers them by prefix:
+ * `/dashboard` must not open master-data sub-routes, `/warehouse/inventory`
+ * must not open stock adjustment/transfer, and `/purchasing/orders` must not
+ * open PO create/edit (those forms expose and write purchase prices).
+ */
+const READ_ONLY_FACTORY_MANAGER_DENIED_PREFIXES: readonly string[] = [
+    '/dashboard',
+    '/warehouse/inventory/adjustment',
+    '/warehouse/inventory/transfer',
+    '/purchasing/orders/create',
+];
+const PURCHASE_ORDER_EDIT_PATH = /^\/purchasing\/orders\/[^/]+\/edit(\/|$)/;
+
+function stripTrailingSlashes(pathname: string): string {
+    return pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname;
+}
+
+/**
+ * Pure path matcher for the read-only Kepala Pabrik sub-route denial. The
+ * caller decides whether the user is such a role (see `canAccessWorkspace`).
+ * `/dashboard` itself stays open; its sub-routes do not.
+ */
+export function isPathDeniedForReadOnlyFactoryManager(
+    pathname: string,
+): boolean {
+    const path = stripTrailingSlashes(pathname);
+    if (PURCHASE_ORDER_EDIT_PATH.test(path)) return true;
+    return READ_ONLY_FACTORY_MANAGER_DENIED_PREFIXES.some((prefix) =>
+        prefix === '/dashboard'
+            ? path.startsWith('/dashboard/')
+            : path === prefix || path.startsWith(`${prefix}/`),
+    );
+}
+
+/**
  * Preferred landing path inside a workspace given granted resources.
  * Used when user may open the workspace root but only has nested perms.
  */
@@ -285,6 +322,16 @@ export function canAccessWorkspace(
     // 3. Tenant Admin can access all tenant workspaces
     if (allRoles.includes('ADMIN')) {
         return true;
+    }
+
+    // Read-only Kepala Pabrik: broad grants must not open write/sensitive
+    // sub-routes. Only this role is affected; ADMIN returned above.
+    if (
+        pathname &&
+        isReadOnlyFactoryManager(user) &&
+        isPathDeniedForReadOnlyFactoryManager(pathname)
+    ) {
+        return false;
     }
 
     const resourceAllowsWorkspace = (): boolean => {

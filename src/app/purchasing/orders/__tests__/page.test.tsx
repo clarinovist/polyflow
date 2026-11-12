@@ -3,10 +3,13 @@
 import { render } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getPurchaseOrdersPage, purchaseOrderTable } = vi.hoisted(() => ({
+const { auth, getPurchaseOrdersPage, purchaseOrderTable } = vi.hoisted(() => ({
+    auth: vi.fn(),
     getPurchaseOrdersPage: vi.fn(),
     purchaseOrderTable: vi.fn(),
 }));
+
+vi.mock('@/auth', () => ({ auth }));
 
 vi.mock('@/lib/core/tenant', () => ({
     withTenantPage: (fn: unknown) => fn,
@@ -25,6 +28,9 @@ import PurchaseOrdersPage from '../page';
 
 beforeEach(() => {
     vi.clearAllMocks();
+    auth.mockResolvedValue({
+        user: { role: 'PROCUREMENT', roles: ['PROCUREMENT'] },
+    });
     getPurchaseOrdersPage.mockResolvedValue({
         items: [],
         page: 1,
@@ -90,6 +96,82 @@ describe('purchase orders route', () => {
                 initialStartDate: undefined,
                 initialEndDate: undefined,
             }),
+        );
+    });
+});
+
+describe('purchase orders route price visibility', () => {
+    const pricedOrder = {
+        id: 'po-1',
+        orderNumber: 'PO-001',
+        totalAmount: 1_500_000,
+        supplier: { name: 'Supplier A', code: null },
+        _count: { items: 3 },
+    };
+    const tableProps = () =>
+        purchaseOrderTable.mock.calls.at(-1)![0] as {
+            orders: Array<{ totalAmount: number | null }>;
+            hidePrices?: boolean;
+            sort: string;
+        };
+
+    beforeEach(() => {
+        getPurchaseOrdersPage.mockResolvedValue({
+            items: [pricedOrder],
+            page: 1,
+            pageSize: 50,
+            totalCount: 1,
+            totalPages: 1,
+        });
+    });
+
+    it('strips totals from the client payload for Kepala Pabrik without ADMIN', async () => {
+        auth.mockResolvedValue({
+            user: { role: 'FACTORY_MANAGER', roles: ['FACTORY_MANAGER'] },
+        });
+
+        render(await PurchaseOrdersPage({ searchParams: Promise.resolve({}) }));
+
+        expect(tableProps().hidePrices).toBe(true);
+        expect(tableProps().orders[0].totalAmount).toBeNull();
+        expect(JSON.stringify(tableProps().orders)).not.toContain('1500000');
+    });
+
+    it('does not let Kepala Pabrik rank orders by hidden totals', async () => {
+        auth.mockResolvedValue({
+            user: { role: 'FACTORY_MANAGER', roles: ['FACTORY_MANAGER'] },
+        });
+
+        render(
+            await PurchaseOrdersPage({
+                searchParams: Promise.resolve({ sort: 'totalAmount', direction: 'desc' }),
+            }),
+        );
+
+        expect(getPurchaseOrdersPage).toHaveBeenCalledWith(
+            expect.objectContaining({ sort: 'orderDate' }),
+        );
+        expect(tableProps().sort).toBe('orderDate');
+    });
+
+    it.each([
+        ['PROCUREMENT', ['PROCUREMENT']],
+        ['PLANNING', ['PLANNING']],
+        ['ADMIN', ['ADMIN']],
+        ['FACTORY_MANAGER with ADMIN', ['FACTORY_MANAGER', 'ADMIN']],
+    ])('keeps totals and sorting for %s', async (_label, roles) => {
+        auth.mockResolvedValue({ user: { role: roles[0], roles } });
+
+        render(
+            await PurchaseOrdersPage({
+                searchParams: Promise.resolve({ sort: 'totalAmount' }),
+            }),
+        );
+
+        expect(tableProps().hidePrices).toBeFalsy();
+        expect(tableProps().orders[0].totalAmount).toBe(1_500_000);
+        expect(getPurchaseOrdersPage).toHaveBeenCalledWith(
+            expect.objectContaining({ sort: 'totalAmount' }),
         );
     });
 });

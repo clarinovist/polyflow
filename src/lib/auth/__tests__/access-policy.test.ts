@@ -7,6 +7,7 @@ import {
   isPathAllowedByResources,
   getPreferredWorkspaceLanding,
   buildWorkspaceEntryHrefs,
+  isPathDeniedForReadOnlyFactoryManager,
 } from '../access-policy';
 import { MATRIX_ROLES, SYSTEM_ROLES } from '../system-roles';
 
@@ -329,6 +330,134 @@ describe('Access Policy Helpers', () => {
       expect(canAccessWorkspace(user, 'hrd', '/hrd/payroll')).toBe(false);
       expect(canAccessWorkspace(user, 'sales', '/sales/reports/margin')).toBe(false);
       expect(canAccessWorkspace(user, 'warehouse', '/warehouse/outgoing')).toBe(false);
+    });
+  });
+
+  describe('kepala pabrik (FACTORY_MANAGER) sub-route denial', () => {
+    const resources = [
+      '/dashboard',
+      '/production/daily',
+      '/production/orders',
+      '/production/maintenance',
+      '/warehouse/inventory',
+      '/purchasing/requests',
+      '/purchasing/orders',
+    ];
+    const manager = { role: 'FACTORY_MANAGER', roles: ['FACTORY_MANAGER'], allowedResources: resources };
+    const MATERIAL_ORDER_ID = '11111111-1111-4111-8111-111111111111';
+
+    it('keeps the exact /dashboard route open', () => {
+      expect(canAccessWorkspace(manager, 'dashboard', '/dashboard')).toBe(true);
+      expect(canAccessWorkspace(manager, 'dashboard', '/dashboard/')).toBe(true);
+    });
+
+    it('denies every /dashboard sub-route even though /dashboard is granted', () => {
+      for (const path of [
+        '/dashboard/products',
+        '/dashboard/boms',
+        '/dashboard/machines',
+        '/dashboard/machines/m-1/edit',
+        '/dashboard/employees',
+        '/dashboard/employees/e-1/payroll',
+        '/dashboard/settings',
+        '/dashboard/maklon',
+      ]) {
+        expect(canAccessWorkspace(manager, 'dashboard', path)).toBe(false);
+      }
+    });
+
+    it('denies inventory adjustment and transfer routes but keeps the overview and read pages', () => {
+      for (const path of [
+        '/warehouse/inventory/adjustment',
+        '/warehouse/inventory/adjustment/',
+        '/warehouse/inventory/adjustment/new',
+        '/warehouse/inventory/transfer',
+        '/warehouse/inventory/transfer/',
+      ]) {
+        expect(canAccessWorkspace(manager, 'warehouse', path)).toBe(false);
+      }
+      for (const path of [
+        '/warehouse/inventory',
+        '/warehouse/inventory/aging',
+        '/warehouse/inventory/history',
+        '/warehouse/inventory/ledger-gaps',
+        '/warehouse/inventory/balance',
+        '/warehouse/inventory/adjustments-report',
+      ]) {
+        expect(canAccessWorkspace(manager, 'warehouse', path)).toBe(true);
+      }
+    });
+
+    it('denies PO create and edit routes but keeps list and detail', () => {
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/orders/create')).toBe(false);
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/orders/po-1/edit')).toBe(false);
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/orders')).toBe(true);
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/orders/po-1')).toBe(true);
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/requests')).toBe(true);
+    });
+
+    it('keeps the existing mobile production, review and maintenance routes open', () => {
+      for (const path of [
+        '/production',
+        '/production/mobile',
+        '/production/mobile/attendance',
+        '/production/mobile/insights',
+        '/production/mobile/maintenance',
+        '/production/mobile/maintenance/request-1',
+        '/production/mobile/material-orders',
+        `/production/mobile/material-orders/${MATERIAL_ORDER_ID}`,
+        '/production/maintenance',
+        '/production/daily',
+      ]) {
+        expect(canAccessWorkspace(manager, 'production', path)).toBe(true);
+      }
+    });
+
+    it('does not change behaviour for other roles or for ADMIN combined with FACTORY_MANAGER', () => {
+      const deniedPaths: Array<[Parameters<typeof canAccessWorkspace>[1], string]> = [
+        ['dashboard', '/dashboard/products'],
+        ['dashboard', '/dashboard/employees/e-1/edit'],
+        ['warehouse', '/warehouse/inventory/adjustment'],
+        ['warehouse', '/warehouse/inventory/transfer'],
+        ['purchasing', '/purchasing/orders/create'],
+        ['purchasing', '/purchasing/orders/po-1/edit'],
+      ];
+      const admin = { role: 'ADMIN', roles: ['ADMIN'] };
+      const adminAndManager = { role: 'FACTORY_MANAGER', roles: ['FACTORY_MANAGER', 'ADMIN'] };
+      const warehouse = {
+        role: 'WAREHOUSE',
+        roles: ['WAREHOUSE'],
+        allowedResources: ['/warehouse/inventory'],
+      };
+      const procurement = {
+        role: 'PROCUREMENT',
+        roles: ['PROCUREMENT'],
+        allowedResources: ['/purchasing', '/purchasing/orders'],
+      };
+      const planning = { role: 'PLANNING', roles: ['PLANNING'], allowedResources: ['/dashboard/products'] };
+      for (const [workspace, path] of deniedPaths) {
+        expect(canAccessWorkspace(admin, workspace, path)).toBe(true);
+        expect(canAccessWorkspace(adminAndManager, workspace, path)).toBe(true);
+      }
+      expect(canAccessWorkspace(warehouse, 'warehouse', '/warehouse/inventory/adjustment')).toBe(true);
+      expect(canAccessWorkspace(warehouse, 'warehouse', '/warehouse/inventory/transfer')).toBe(true);
+      expect(canAccessWorkspace(procurement, 'purchasing', '/purchasing/orders/create')).toBe(true);
+      expect(canAccessWorkspace(procurement, 'purchasing', '/purchasing/orders/po-1/edit')).toBe(true);
+      expect(canAccessWorkspace(planning, 'dashboard', '/dashboard/products')).toBe(true);
+    });
+
+    it('exposes the path matcher with exact, trailing-slash and look-alike cases', () => {
+      expect(isPathDeniedForReadOnlyFactoryManager('/dashboard')).toBe(false);
+      expect(isPathDeniedForReadOnlyFactoryManager('/dashboard/')).toBe(false);
+      expect(isPathDeniedForReadOnlyFactoryManager('/dashboard/products')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/dashboardx')).toBe(false);
+      expect(isPathDeniedForReadOnlyFactoryManager('/warehouse/inventory/adjustment')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/warehouse/inventory/adjustmentx')).toBe(false);
+      expect(isPathDeniedForReadOnlyFactoryManager('/warehouse/inventory/transfer/x')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders/create')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders/abc/edit')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders/abc')).toBe(false);
+      expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders')).toBe(false);
     });
   });
 

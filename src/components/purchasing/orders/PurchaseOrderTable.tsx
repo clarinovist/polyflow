@@ -53,6 +53,8 @@ interface PurchaseOrderTableProps {
     initialEndDate?: string;
     sort?: PurchaseOrderSort;
     direction?: PurchasingSortDirection;
+    /** Read-only roles: no totals in the table or mobile cards. */
+    hidePrices?: boolean;
 }
 
 function ServerSortHeader({
@@ -116,6 +118,7 @@ export function PurchaseOrderTable({
     initialEndDate = '',
     sort = 'orderDate',
     direction = 'desc',
+    hidePrices = false,
 }: PurchaseOrderTableProps) {
     const router = useRouter();
     const pathname = usePathname();
@@ -313,22 +316,34 @@ export function PurchaseOrderTable({
                 size: 140,
                 cell: ({ row }) => getStatusBadge(row.original.status),
             },
-            {
-                accessorKey: 'totalAmount',
-                header: () => sortHeader('totalAmount', 'Total'),
-                enableSorting: !pagination,
-                size: 150,
-                cell: ({ row }) => (
-                    <div className="text-right">
-                        <div className="font-medium tabular-nums">
-                            {formatRupiah(row.original.totalAmount || 0)}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                            {row.original._count.items} item
-                        </div>
-                    </div>
-                ),
-            },
+            hidePrices
+                ? {
+                      id: 'itemCount',
+                      header: () => <div className="text-right">Item</div>,
+                      enableSorting: false,
+                      size: 150,
+                      cell: ({ row }) => (
+                          <div className="text-right text-sm tabular-nums">
+                              {row.original._count.items} item
+                          </div>
+                      ),
+                  }
+                : {
+                      accessorKey: 'totalAmount',
+                      header: () => sortHeader('totalAmount', 'Total'),
+                      enableSorting: !pagination,
+                      size: 150,
+                      cell: ({ row }) => (
+                          <div className="text-right">
+                              <div className="font-medium tabular-nums">
+                                  {formatRupiah(row.original.totalAmount || 0)}
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                  {row.original._count.items} item
+                              </div>
+                          </div>
+                      ),
+                  },
             {
                 id: 'actions',
                 header: () => <div className="text-right">Aksi</div>,
@@ -355,7 +370,7 @@ export function PurchaseOrderTable({
                 ),
             },
         ],
-        [pagination, sortHeader],
+        [pagination, sortHeader, hidePrices],
     );
 
     return (
@@ -419,7 +434,10 @@ export function PurchaseOrderTable({
                                             new Date(order.orderDate),
                                             'dd MMM yyyy',
                                         )}{' '}
-                                        · {formatRupiah(order.totalAmount)}
+                                        ·{' '}
+                                        {hidePrices
+                                            ? `${order._count.items} item`
+                                            : formatRupiah(order.totalAmount)}
                                     </p>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <Button

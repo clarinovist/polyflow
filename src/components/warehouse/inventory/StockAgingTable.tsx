@@ -25,9 +25,14 @@ import { warehouseComponentLabels } from '@/lib/labels';
 
 interface StockAgingTableProps {
     data: StockAgingResult[];
+    /** false for roles that must not see inventory valuation (values are not rendered or used for ranking). */
+    showPrices?: boolean;
 }
 
-export function StockAgingTable({ data }: StockAgingTableProps) {
+export function StockAgingTable({
+    data,
+    showPrices = true,
+}: StockAgingTableProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -37,9 +42,12 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
             item.skuCode.toLowerCase().includes(searchTerm.toLowerCase()),
     );
 
-    // Sort by oldest stock (90+ bucket value) desc
+    // Sort by oldest stock (90+ bucket) desc: by value, or by quantity when
+    // values are hidden.
+    const agedWeight = (item: StockAgingResult) =>
+        showPrices ? item.buckets['90+'].value : item.buckets['90+'].quantity;
     const sortedData = [...filteredData].sort(
-        (a, b) => b.buckets['90+'].value - a.buckets['90+'].value,
+        (a, b) => agedWeight(b) - agedWeight(a),
     );
 
     const pageCount = Math.max(1, Math.ceil(sortedData.length / 25));
@@ -135,11 +143,14 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                                         .quantity,
                                                 )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {formatRupiah(
-                                                    item.buckets['0-30'].value,
-                                                )}
-                                            </div>
+                                            {showPrices && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {formatRupiah(
+                                                        item.buckets['0-30']
+                                                            .value,
+                                                    )}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right border-l border-border">
                                             <div className="text-sm">
@@ -148,11 +159,14 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                                         .quantity,
                                                 )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {formatRupiah(
-                                                    item.buckets['31-60'].value,
-                                                )}
-                                            </div>
+                                            {showPrices && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {formatRupiah(
+                                                        item.buckets['31-60']
+                                                            .value,
+                                                    )}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right border-l border-border">
                                             <div className="text-sm">
@@ -161,11 +175,14 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                                         .quantity,
                                                 )}
                                             </div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {formatRupiah(
-                                                    item.buckets['61-90'].value,
-                                                )}
-                                            </div>
+                                            {showPrices && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {formatRupiah(
+                                                        item.buckets['61-90']
+                                                            .value,
+                                                    )}
+                                                </div>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right border-l-2 border-red-500/50">
                                             <div className="text-sm font-bold text-red-600 dark:text-red-400">
@@ -174,14 +191,16 @@ export function StockAgingTable({ data }: StockAgingTableProps) {
                                                         .quantity,
                                                 )}
                                             </div>
-                                            {item.buckets['90+'].value > 0 && (
-                                                <div className="text-xs font-semibold text-red-500 dark:text-red-400/80">
-                                                    {formatRupiah(
-                                                        item.buckets['90+']
-                                                            .value,
-                                                    )}
-                                                </div>
-                                            )}
+                                            {showPrices &&
+                                                item.buckets['90+'].value >
+                                                    0 && (
+                                                    <div className="text-xs font-semibold text-red-500 dark:text-red-400/80">
+                                                        {formatRupiah(
+                                                            item.buckets['90+']
+                                                                .value,
+                                                        )}
+                                                    </div>
+                                                )}
                                         </TableCell>
                                     </TableRow>
                                 ))

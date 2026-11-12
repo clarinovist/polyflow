@@ -4,6 +4,9 @@ import { notFound } from 'next/navigation';
 import { PurchaseOrderDetailClient } from '@/components/purchasing/orders/PurchaseOrderDetailClient';
 import { Metadata } from 'next';
 import { serializeData } from '@/lib/utils/utils';
+import { auth } from '@/auth';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
+import { toPriceFreePurchaseOrder } from '@/lib/purchasing/purchase-order-price-redaction';
 
 import { withTenantPage } from '@/lib/core/tenant';
 
@@ -34,8 +37,16 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
         notFound();
     }
 
+    // Read-only Kepala Pabrik follows the PO without prices or commercial
+    // actions: redact on the server so no price reaches the client payload.
+    const session = await auth();
+    const isPriceHidden = isReadOnlyFactoryManager(session?.user);
+    const visibleOrder = isPriceHidden
+        ? toPriceFreePurchaseOrder(order)
+        : order;
+
     // Serialize all Prisma objects for Client Components
-    const serializedOrder = serializeData(order);
+    const serializedOrder = serializeData(visibleOrder);
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
@@ -45,6 +56,7 @@ export default async function PurchaseOrderDetailPage({ params }: PageProps) {
                         typeof PurchaseOrderDetailClient
                     >['order']
                 }
+                warehouseMode={isPriceHidden}
             />
         </div>
     );

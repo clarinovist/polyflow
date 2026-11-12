@@ -10,7 +10,9 @@ import { prisma } from '@/lib/core/prisma';
 import {
     getTenantActiveModules,
     buildWorkspaceEntryHrefs,
+    isPathDeniedForReadOnlyFactoryManager,
 } from '@/lib/auth/access-policy';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';
 
@@ -87,6 +89,15 @@ export default async function DashboardLayout({
               : [];
     const reqHeaders = await headers();
     const pathname = reqHeaders.get('x-pathname') || '/dashboard';
+
+    // Read-only Kepala Pabrik: the /dashboard grant opens only the overview,
+    // not master-data sub-routes that the prefix match below would allow.
+    if (
+        isReadOnlyFactoryManager(session.user) &&
+        isPathDeniedForReadOnlyFactoryManager(pathname)
+    ) {
+        redirect('/dashboard');
+    }
 
     if (permissions !== 'ALL') {
         const canAccessCurrentDashboardPath =
