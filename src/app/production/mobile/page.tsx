@@ -13,6 +13,7 @@ import {
     MobileSectionHeader,
 } from '@/components/mobile';
 import type { ProductionMobileSection } from '@/services/production/production-mobile-dashboard-service';
+import { PendingApprovalsCard } from './PendingApprovalsCard';
 
 const PROCESS_LABEL: Record<string, string> = {
     MIXING: 'Mixing',
@@ -206,6 +207,10 @@ export default async function ProductionMobilePage() {
                     </Link>
                 )}
             </div>
+
+            {overview.pendingApprovals && (
+                <PendingApprovalsCard approvals={overview.pendingApprovals} />
+            )}
 
             <MobileSectionHeader title="Pulse Shift Hari Ini" level={1} />
             <MobileDataFreshness generatedAt={overview.generatedAt} />

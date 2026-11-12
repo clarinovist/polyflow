@@ -210,6 +210,7 @@ export const getProductionSupervisorOverview = withTenant(
                     hasRole(user, 'FACTORY_MANAGER') && !hasRole(user, 'ADMIN')
                         ? 'EXECUTIVE'
                         : 'OPERATIONAL',
+                canApprove: hasAnyRole(user, ['FACTORY_MANAGER', 'ADMIN']),
             });
             return serializeData(overview);
         });

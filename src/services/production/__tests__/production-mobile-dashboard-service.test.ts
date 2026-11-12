@@ -37,6 +37,8 @@ function reader(): ProductionMobileOverviewReader {
             ),
         readActiveSpk: vi.fn().mockResolvedValue({ count: 0 }),
         readQcPending: vi.fn().mockResolvedValue({ count: 0 }),
+        readPendingMaintenance: vi.fn().mockResolvedValue({ count: 3 }),
+        readPendingMaterialOrders: vi.fn().mockResolvedValue({ count: 2 }),
         readDowntime: vi.fn().mockResolvedValue({
             openCount: 2,
             thresholdValue: JSON.stringify({ downtimeCriticalMinutes: 90 }),
@@ -69,6 +71,7 @@ describe('production mobile canonical composition', () => {
             canOpen: () => true,
             canCreateSpk: true,
             audience: 'OPERATIONAL',
+            canApprove: false,
         });
 
         expect(result.health.outputToday).toMatchObject({
@@ -121,6 +124,7 @@ describe('production mobile canonical composition', () => {
             canOpen: () => false,
             canCreateSpk: false,
             audience: 'EXECUTIVE',
+            canApprove: false,
         });
 
         expect(result.health.downtime).toMatchObject({
@@ -144,6 +148,7 @@ describe('production mobile canonical composition', () => {
             canOpen: (href) => href.endsWith('/attendance'),
             canCreateSpk: true,
             audience: 'OPERATIONAL',
+            canApprove: false,
         });
 
         expect(result.health.outputToday).toEqual({
@@ -162,6 +167,95 @@ describe('production mobile canonical composition', () => {
             maintenance: null,
             attendance: '/production/mobile/attendance',
             quickSpk: null,
+        });
+    });
+});
+
+describe('production mobile pending approvals', () => {
+    async function collect(
+        testReader: ProductionMobileOverviewReader,
+        overrides: { canApprove?: boolean; canOpen?: (href: string) => boolean } = {},
+    ) {
+        return collectProductionMobileOverview({
+            reader: testReader,
+            now,
+            canOpen: overrides.canOpen ?? (() => true),
+            canCreateSpk: false,
+            audience: 'EXECUTIVE',
+            canApprove: overrides.canApprove ?? true,
+        });
+    }
+
+    it('returns pending maintenance and material order counts with links for approvers', async () => {
+        const result = await collect(reader());
+
+        expect(result.pendingApprovals).toEqual({
+            maintenance: {
+                status: 'AVAILABLE',
+                data: { count: 3 },
+            },
+            materialOrders: {
+                status: 'AVAILABLE',
+                data: { count: 2 },
+            },
+            links: {
+                maintenance: '/production/mobile/maintenance',
+                materialOrders: '/production/mobile/material-orders',
+            },
+        });
+    });
+
+    it('omits the block and never queries pending approvals for non-approvers', async () => {
+        const testReader = reader();
+
+        const result = await collect(testReader, { canApprove: false });
+
+        expect(result.pendingApprovals).toBeNull();
+        expect(testReader.readPendingMaintenance).not.toHaveBeenCalled();
+        expect(testReader.readPendingMaterialOrders).not.toHaveBeenCalled();
+    });
+
+    it('keeps one failing approval query independent from the other and from the page', async () => {
+        const testReader = reader();
+        vi.mocked(testReader.readPendingMaintenance).mockRejectedValue(
+            new Error('maintenance'),
+        );
+
+        const result = await collect(testReader);
+
+        expect(result.pendingApprovals?.maintenance).toEqual({
+            status: 'UNAVAILABLE',
+            data: null,
+        });
+        expect(result.pendingApprovals?.materialOrders).toEqual({
+            status: 'AVAILABLE',
+            data: { count: 2 },
+        });
+        expect(result.health.activeSpk.status).toBe('AVAILABLE');
+    });
+
+    it('keeps a valid zero count available', async () => {
+        const testReader = reader();
+        vi.mocked(testReader.readPendingMaterialOrders).mockResolvedValue({
+            count: 0,
+        });
+
+        const result = await collect(testReader);
+
+        expect(result.pendingApprovals?.materialOrders).toEqual({
+            status: 'AVAILABLE',
+            data: { count: 0 },
+        });
+    });
+
+    it('only projects links for paths the viewer may open', async () => {
+        const result = await collect(reader(), {
+            canOpen: (href) => href.endsWith('/material-orders'),
+        });
+
+        expect(result.pendingApprovals?.links).toEqual({
+            maintenance: null,
+            materialOrders: '/production/mobile/material-orders',
         });
     });
 });

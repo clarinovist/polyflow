@@ -21,9 +21,20 @@ export type ProductionMobileSection<T> =
     | { status: 'UNAVAILABLE'; data: null }
     | { status: 'NOT_CONFIGURED'; data: null };
 
+export interface ProductionMobilePendingApprovals {
+    maintenance: ProductionMobileSection<{ count: number }>;
+    materialOrders: ProductionMobileSection<{ count: number }>;
+    links: {
+        maintenance: '/production/mobile/maintenance' | null;
+        materialOrders: '/production/mobile/material-orders' | null;
+    };
+}
+
 export interface ProductionMobileOverview {
     generatedAt: string;
     audience: 'OPERATIONAL' | 'EXECUTIVE';
+    /** Null unless the viewer can approve (FACTORY_MANAGER or ADMIN). */
+    pendingApprovals: ProductionMobilePendingApprovals | null;
     links: {
         maintenance: '/production/mobile/maintenance' | null;
         attendance: '/production/mobile/attendance' | null;
@@ -51,6 +62,8 @@ export interface ProductionMobileOverviewReader {
     }): Promise<ProductionOutputHealthData>;
     readActiveSpk(): Promise<{ count: number }>;
     readQcPending(): Promise<{ count: number }>;
+    readPendingMaintenance(): Promise<{ count: number }>;
+    readPendingMaterialOrders(): Promise<{ count: number }>;
     readDowntime(input: { now: Date; startOfDay: Date }): Promise<{
         openCount: number;
         openRows: ProductionDowntimeRow[];
@@ -103,6 +116,20 @@ function createProductionMobileOverviewReader(
                 }),
             };
         },
+        async readPendingMaintenance() {
+            return {
+                count: await db.maintenanceRequest.count({
+                    where: { status: 'PENDING' },
+                }),
+            };
+        },
+        async readPendingMaterialOrders() {
+            return {
+                count: await db.materialOrder.count({
+                    where: { status: 'PENDING' },
+                }),
+            };
+        },
         async readDowntime({ now, startOfDay }) {
             const [openCount, openRows, dayRows, threshold] = await Promise.all(
                 [
@@ -150,15 +177,65 @@ function createProductionMobileOverviewReader(
     };
 }
 
+const MAINTENANCE_HREF = '/production/mobile/maintenance';
+const MATERIAL_ORDERS_HREF = '/production/mobile/material-orders';
+
+async function collectPendingApprovals(input: {
+    reader: ProductionMobileOverviewReader;
+    now: Date;
+    canOpen: (href: string) => boolean;
+}): Promise<ProductionMobilePendingApprovals> {
+    const [maintenance, materialOrders] = await Promise.allSettled([
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'pending-maintenance',
+            generatedAt: input.now,
+            read: () => input.reader.readPendingMaintenance(),
+        }),
+        observeDashboardSection({
+            route: 'production-mobile',
+            section: 'pending-material-orders',
+            generatedAt: input.now,
+            read: () => input.reader.readPendingMaterialOrders(),
+        }),
+    ]);
+    return {
+        maintenance:
+            maintenance.status === 'fulfilled'
+                ? available(maintenance.value)
+                : unavailable(),
+        materialOrders:
+            materialOrders.status === 'fulfilled'
+                ? available(materialOrders.value)
+                : unavailable(),
+        links: {
+            maintenance: input.canOpen(MAINTENANCE_HREF)
+                ? MAINTENANCE_HREF
+                : null,
+            materialOrders: input.canOpen(MATERIAL_ORDERS_HREF)
+                ? MATERIAL_ORDERS_HREF
+                : null,
+        },
+    };
+}
+
 export async function collectProductionMobileOverview(input: {
     reader: ProductionMobileOverviewReader;
     now?: Date;
     canOpen: (href: string) => boolean;
     canCreateSpk: boolean;
     audience: ProductionMobileOverview['audience'];
+    canApprove: boolean;
 }): Promise<ProductionMobileOverview> {
     const now = input.now ?? new Date();
     const bounds = getWibDayBounds(toBusinessDateString(now));
+    const pendingApprovalsPromise = input.canApprove
+        ? collectPendingApprovals({
+              reader: input.reader,
+              now,
+              canOpen: input.canOpen,
+          })
+        : Promise.resolve(null);
     const [output, activeSpk, qcPending, downtime] = await Promise.allSettled([
         observeDashboardSection({
             route: 'production-mobile',
@@ -190,6 +267,8 @@ export async function collectProductionMobileOverview(input: {
                 }),
         }),
     ]);
+
+    const pendingApprovals = await pendingApprovalsPromise;
 
     let outputSection: ProductionMobileOverview['health']['outputToday'] =
         unavailable();
@@ -236,6 +315,7 @@ export async function collectProductionMobileOverview(input: {
     return {
         generatedAt: now.toISOString(),
         audience: input.audience,
+        pendingApprovals,
         links: {
             maintenance: input.canOpen('/production/mobile/maintenance')
                 ? '/production/mobile/maintenance'
@@ -272,6 +352,7 @@ export async function readProductionMobileOverview(input: {
     canOpen: (href: string) => boolean;
     canCreateSpk: boolean;
     audience: ProductionMobileOverview['audience'];
+    canApprove: boolean;
 }): Promise<ProductionMobileOverview> {
     return collectProductionMobileOverview({
         ...input,
