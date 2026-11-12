@@ -39,8 +39,10 @@ function fmtIdr(n: number) {
 
 export function ProductStockByLocationTab({
     productVariantId,
+    showPrices = true,
 }: {
     productVariantId: string;
+    showPrices?: boolean;
 }) {
     const [rows, setRows] = useState<Inv[]>([]);
     const [loading, setLoading] = useState(true);
@@ -69,8 +71,8 @@ export function ProductStockByLocationTab({
                         </CardTitle>
                         <p className="text-xs text-muted-foreground">
                             {rows.length} lokasi · total{' '}
-                            {formatQuantity(totalQty)} · value{' '}
-                            {fmtIdr(totalVal)}
+                            {formatQuantity(totalQty)}
+                            {showPrices && ` · value ${fmtIdr(totalVal)}`}
                         </p>
                     </div>
                 </div>
@@ -96,12 +98,16 @@ export function ProductStockByLocationTab({
                                     <TableHead className="text-right">
                                         Jumlah
                                     </TableHead>
-                                    <TableHead className="text-right">
-                                        Biaya Rata-rata
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Nilai
-                                    </TableHead>
+                                    {showPrices && (
+                                        <>
+                                            <TableHead className="text-right">
+                                                Biaya Rata-rata
+                                            </TableHead>
+                                            <TableHead className="text-right">
+                                                Nilai
+                                            </TableHead>
+                                        </>
+                                    )}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -116,17 +122,23 @@ export function ProductStockByLocationTab({
                                         <TableCell className="text-right font-mono text-sm tabular-nums">
                                             {formatQuantity(toN(r.quantity))}
                                         </TableCell>
-                                        <TableCell className="text-right font-mono text-sm tabular-nums">
-                                            {r.averageCost
-                                                ? fmtIdr(toN(r.averageCost))
-                                                : '-'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-sm font-semibold">
-                                            {fmtIdr(
-                                                toN(r.quantity) *
-                                                    toN(r.averageCost),
-                                            )}
-                                        </TableCell>
+                                        {showPrices && (
+                                            <>
+                                                <TableCell className="text-right font-mono text-sm tabular-nums">
+                                                    {r.averageCost
+                                                        ? fmtIdr(
+                                                              toN(r.averageCost),
+                                                          )
+                                                        : '-'}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm font-semibold">
+                                                    {fmtIdr(
+                                                        toN(r.quantity) *
+                                                            toN(r.averageCost),
+                                                    )}
+                                                </TableCell>
+                                            </>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>

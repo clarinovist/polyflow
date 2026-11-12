@@ -62,6 +62,8 @@ interface Props {
         totalValue: number;
     } | null;
     initialTab: string;
+    /** false for roles that must not see valuation (read-only Kepala Pabrik). */
+    showPrices?: boolean;
 }
 
 import type { ComponentProps } from 'react';
@@ -87,11 +89,14 @@ export function Product360Tabs({
     locations,
     overview,
     initialTab,
+    showPrices = true,
 }: Props) {
     const searchParams = useSearchParams();
-    const activeTab = (searchParams.get('tab') ||
+    const requestedTab = (searchParams.get('tab') ||
         initialTab ||
         'overview') as Tab;
+    const activeTab: Tab =
+        !showPrices && requestedTab === 'cost' ? 'overview' : requestedTab;
     const router = useRouter();
     const handleTabChange = useCallback(
         (v: string) => {
@@ -145,8 +150,9 @@ export function Product360Tabs({
                         </Badge>
                         {overview && (
                             <Badge variant="secondary" className="text-[10px]">
-                                Stock {formatQuantity(overview.totalQty)} ·
-                                Value {fmtIdr(overview.totalValue)}
+                                Stock {formatQuantity(overview.totalQty)}
+                                {showPrices &&
+                                    ` · Value ${fmtIdr(overview.totalValue)}`}
                             </Badge>
                         )}
                     </div>
@@ -185,12 +191,14 @@ export function Product360Tabs({
                     <TabsTrigger value="bom" className="text-xs gap-1 shrink-0">
                         <Beaker className="h-3 w-3" /> BOM
                     </TabsTrigger>
-                    <TabsTrigger
-                        value="cost"
-                        className="text-xs gap-1 shrink-0"
-                    >
-                        <TrendingUp className="h-3 w-3" /> Biaya
-                    </TabsTrigger>
+                    {showPrices && (
+                        <TabsTrigger
+                            value="cost"
+                            className="text-xs gap-1 shrink-0"
+                        >
+                            <TrendingUp className="h-3 w-3" /> Biaya
+                        </TabsTrigger>
+                    )}
                     <TabsTrigger
                         value="reservations"
                         className="text-xs gap-1 shrink-0"
@@ -258,21 +266,25 @@ export function Product360Tabs({
                                                     .costingMethod ?? '-'}
                                             </p>
                                         </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">
-                                                Standard Cost
-                                            </p>
-                                            <p className="font-mono">
-                                                {overview.variant.standardCost
-                                                    ? fmtIdr(
-                                                          toN(
-                                                              overview.variant
-                                                                  .standardCost,
-                                                          ),
-                                                      )
-                                                    : '-'}
-                                            </p>
-                                        </div>
+                                        {showPrices && (
+                                            <div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Standard Cost
+                                                </p>
+                                                <p className="font-mono">
+                                                    {overview.variant
+                                                        .standardCost
+                                                        ? fmtIdr(
+                                                              toN(
+                                                                  overview
+                                                                      .variant
+                                                                      .standardCost,
+                                                              ),
+                                                          )
+                                                        : '-'}
+                                                </p>
+                                            </div>
+                                        )}
                                         <div>
                                             <p className="text-xs text-muted-foreground">
                                                 Min Stock Alert
@@ -340,16 +352,18 @@ export function Product360Tabs({
                                                     )}
                                                 </p>
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Total Value
-                                                </p>
-                                                <p className="text-xl font-bold">
-                                                    {fmtIdr(
-                                                        overview.totalValue,
-                                                    )}
-                                                </p>
-                                            </div>
+                                            {showPrices && (
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Total Value
+                                                    </p>
+                                                    <p className="text-xl font-bold">
+                                                        {fmtIdr(
+                                                            overview.totalValue,
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            )}
                                         </div>
                                     </>
                                 ) : (
@@ -364,6 +378,7 @@ export function Product360Tabs({
                     {activeTab === 'stock' && (
                         <ProductStockByLocationTab
                             productVariantId={productVariantId}
+                            showPrices={showPrices}
                         />
                     )}
                     {activeTab === 'ledger' && (

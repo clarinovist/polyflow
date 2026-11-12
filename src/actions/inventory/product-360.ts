@@ -4,11 +4,17 @@ import { withTenant } from '@/lib/core/tenant';
 import { prisma } from '@/lib/core/prisma';
 import { requireAuth } from '@/lib/tools/auth-checks';
 import { safeAction } from '@/lib/errors/errors';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
+import {
+    redactInventoryCost,
+    redactMovementCost,
+    redactProduct360Overview,
+} from '@/lib/inventory/product-360-redaction';
 
 export const getProduct360Overview = withTenant(
     async function getProduct360Overview(productVariantId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            const session = await requireAuth();
             const variant = await prisma.productVariant.findUnique({
                 where: { id: productVariantId },
                 include: {
@@ -87,7 +93,7 @@ export const getProduct360Overview = withTenant(
                 0,
             );
 
-            return {
+            const overview = {
                 variant,
                 totalQty,
                 totalValue,
@@ -98,6 +104,10 @@ export const getProduct360Overview = withTenant(
                 costHistory,
                 reservations,
             };
+            // Read-only Kepala Pabrik sees quantities, never valuation.
+            return isReadOnlyFactoryManager(session.user)
+                ? redactProduct360Overview(overview)
+                : overview;
         });
     },
 );
@@ -105,8 +115,8 @@ export const getProduct360Overview = withTenant(
 export const listStockByLocation = withTenant(
     async function listStockByLocation(productVariantId: string) {
         return safeAction(async () => {
-            await requireAuth();
-            return prisma.inventory.findMany({
+            const session = await requireAuth();
+            const rows = await prisma.inventory.findMany({
                 where: { productVariantId },
                 include: {
                     location: {
@@ -120,6 +130,9 @@ export const listStockByLocation = withTenant(
                 },
                 orderBy: { quantity: 'desc' },
             });
+            return isReadOnlyFactoryManager(session.user)
+                ? rows.map(redactInventoryCost)
+                : rows;
         });
     },
 );
@@ -140,7 +153,9 @@ export const listBatchesByProductVariant = withTenant(
 export const listCostHistoryByProductVariant = withTenant(
     async function listCostHistoryByProductVariant(productVariantId: string) {
         return safeAction(async () => {
-            await requireAuth();
+            const session = await requireAuth();
+            // Cost history is pure valuation: nothing to show read-only Kepala Pabrik.
+            if (isReadOnlyFactoryManager(session.user)) return [];
             return prisma.costHistory.findMany({
                 where: { productVariantId },
                 orderBy: { createdAt: 'desc' },
@@ -154,8 +169,8 @@ export const listRecentMovementsByProductVariant = withTenant(
         productVariantId: string,
     ) {
         return safeAction(async () => {
-            await requireAuth();
-            return prisma.stockMovement.findMany({
+            const session = await requireAuth();
+            const movements = await prisma.stockMovement.findMany({
                 where: { productVariantId },
                 orderBy: { createdAt: 'desc' },
                 take: 50,
@@ -164,6 +179,9 @@ export const listRecentMovementsByProductVariant = withTenant(
                     toLocation: { select: { name: true } },
                 },
             });
+            return isReadOnlyFactoryManager(session.user)
+                ? movements.map(redactMovementCost)
+                : movements;
         });
     },
 );

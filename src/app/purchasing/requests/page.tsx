@@ -7,6 +7,7 @@ import { purchasingLabels } from '@/lib/labels';
 import { PurchaseRequestStatus } from '@prisma/client';
 import { auth } from '@/auth';
 import { getUserRoles } from '@/lib/auth/roles';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { PageHeader } from '@/components/ui/page-header';
 import { ListResultSummary } from '@/components/ui/list-result-summary';
 
@@ -32,24 +33,28 @@ export default async function PurchaseRequestsPage(props: {
             ? (statusParam as PurchaseRequestStatus)
             : undefined;
 
-    // Determine canApprove from session roles — fail-closed on error
+    // Determine canApprove from session roles — fail-closed on error.
+    // Read-only Kepala Pabrik follows PR progress only: no write controls.
     let canApprove = false;
+    let isReadOnly = false;
     try {
         const session = await auth();
         if (session?.user) {
             const roles = getUserRoles(session.user);
             canApprove =
                 roles.includes('ADMIN') || roles.includes('PROCUREMENT');
+            isReadOnly = isReadOnlyFactoryManager(session.user);
         }
     } catch {
         canApprove = false;
     }
 
+    // Suppliers only feed the consolidate dialog, which read-only viewers never see.
     const [requestsRes, suppliersRes] = await Promise.all([
         getPurchaseRequests(
             statusFilter ? { status: statusFilter } : undefined,
         ),
-        getSuppliers(),
+        isReadOnly ? Promise.resolve(null) : getSuppliers(),
     ]);
 
     if (!requestsRes.success) {
@@ -69,7 +74,7 @@ export default async function PurchaseRequestsPage(props: {
     }
     const requests = requestsRes.data ?? [];
     const suppliers =
-        suppliersRes.success && suppliersRes.data ? suppliersRes.data : [];
+        suppliersRes?.success && suppliersRes.data ? suppliersRes.data : [];
 
     return (
         <div className="flex-1 space-y-4 p-4 md:p-6">
@@ -94,6 +99,7 @@ export default async function PurchaseRequestsPage(props: {
                 }
                 suppliers={suppliers}
                 canApprove={canApprove}
+                readOnly={isReadOnly}
             />
         </div>
     );

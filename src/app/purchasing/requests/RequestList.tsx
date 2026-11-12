@@ -77,6 +77,8 @@ interface RequestListProps {
     requests: RequestWithRelations[];
     suppliers: Supplier[];
     canApprove?: boolean;
+    /** Hides consolidation controls (read-only Kepala Pabrik). */
+    readOnly?: boolean;
 }
 
 const STATUS_BADGE_VARIANT: Record<
@@ -93,6 +95,7 @@ export function RequestList({
     requests,
     suppliers,
     canApprove = false,
+    readOnly = false,
 }: RequestListProps) {
     const router = useRouter();
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -236,7 +239,7 @@ export function RequestList({
                         </CardDescription>
                     </div>
                     <div>
-                        {selectedIds.length > 0 && (
+                        {!readOnly && selectedIds.length > 0 && (
                             <Button
                                 onClick={() => handleActionClick()}
                                 className="gap-2"
@@ -252,19 +255,23 @@ export function RequestList({
                         <TableHeader>
                             <TableRow>
                                 <TableHead className="w-[50px]">
-                                    <Checkbox
-                                        checked={
-                                            selectedIds.length ===
-                                                approvedRequests.length &&
-                                            approvedRequests.length > 0
-                                        }
-                                        onCheckedChange={(checked) =>
-                                            handleSelectAll(checked as boolean)
-                                        }
-                                        disabled={
-                                            approvedRequests.length === 0
-                                        }
-                                    />
+                                    {!readOnly && (
+                                        <Checkbox
+                                            checked={
+                                                selectedIds.length ===
+                                                    approvedRequests.length &&
+                                                approvedRequests.length > 0
+                                            }
+                                            onCheckedChange={(checked) =>
+                                                handleSelectAll(
+                                                    checked as boolean,
+                                                )
+                                            }
+                                            disabled={
+                                                approvedRequests.length === 0
+                                            }
+                                        />
+                                    )}
                                 </TableHead>
                                 <TableHead>
                                     {purchasingLabels.prNumber}
@@ -285,18 +292,22 @@ export function RequestList({
                             {requests.map((req) => (
                                 <TableRow key={req.id}>
                                     <TableCell>
-                                        <Checkbox
-                                            checked={selectedIds.includes(
-                                                req.id,
-                                            )}
-                                            onCheckedChange={(checked) =>
-                                                handleSelect(
+                                        {!readOnly && (
+                                            <Checkbox
+                                                checked={selectedIds.includes(
                                                     req.id,
-                                                    checked as boolean,
-                                                )
-                                            }
-                                            disabled={req.status !== 'APPROVED'}
-                                        />
+                                                )}
+                                                onCheckedChange={(checked) =>
+                                                    handleSelect(
+                                                        req.id,
+                                                        checked as boolean,
+                                                    )
+                                                }
+                                                disabled={
+                                                    req.status !== 'APPROVED'
+                                                }
+                                            />
+                                        )}
                                     </TableCell>
                                     <TableCell className="font-medium">
                                         {req.requestNumber}
@@ -420,7 +431,8 @@ export function RequestList({
                                                         </Button>
                                                     </>
                                                 )}
-                                            {req.status === 'APPROVED' && (
+                                            {!readOnly &&
+                                                req.status === 'APPROVED' && (
                                                 <Button
                                                     size="sm"
                                                     variant="ghost"

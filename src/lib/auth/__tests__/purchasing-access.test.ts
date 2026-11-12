@@ -311,4 +311,14 @@ describe("purchasing-access helpers", () => {
       await expect(requirePurchasingCreator()).rejects.toThrow("No session");
     });
   });
+  describe("FACTORY_MANAGER stays read-only on purchase request writes", () => {
+    it.each([
+      ["requirePurchasingApprover", requirePurchasingApprover],
+      ["requirePurchasingCreator", requirePurchasingCreator],
+      ["requirePurchasingAccess", requirePurchasingAccess],
+    ])("%s rejects FACTORY_MANAGER without ADMIN", async (_name, guard) => {
+      vi.mocked(requireAuth).mockResolvedValue(mockSession("FACTORY_MANAGER"));
+      await expect(guard()).rejects.toThrow(BusinessRuleError);
+    });
+  });
 });

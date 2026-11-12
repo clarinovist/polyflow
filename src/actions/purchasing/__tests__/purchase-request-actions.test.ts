@@ -43,6 +43,12 @@ vi.mock('@/lib/errors/errors', () => ({
             this.name = 'BusinessRuleError';
         }
     },
+    AuthorizationError: class AuthorizationError extends Error {
+        constructor(message: string) {
+            super(message);
+            this.name = 'AuthorizationError';
+        }
+    },
 }));
 
 vi.mock('@/services/purchasing/purchase-service', () => ({
@@ -560,6 +566,91 @@ describe('purchase-request actions (action boundary)', () => {
             const callArgs =
                 mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
             expect(callArgs.where).toEqual({ status: 'APPROVED' });
+        });
+
+        it('read-only FACTORY_MANAGER sees all requests (no ownership filter)', async () => {
+            mockRequireAuth.mockResolvedValue(
+                session('u-fm', 'FACTORY_MANAGER'),
+            );
+            mockPrisma.purchaseRequest.findMany.mockResolvedValue([
+                { id: 'pr-1' },
+            ]);
+
+            const result = await getPurchaseRequests({ status: 'OPEN' });
+            expect(result.success).toBe(true);
+            const callArgs =
+                mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
+            expect(callArgs.where).toEqual({ status: 'OPEN' });
+        });
+
+        it('read-only FACTORY_MANAGER gets a price-free variant select', async () => {
+            mockRequireAuth.mockResolvedValue(
+                session('u-fm', 'FACTORY_MANAGER'),
+            );
+            mockPrisma.purchaseRequest.findMany.mockResolvedValue([]);
+
+            await getPurchaseRequests();
+            const callArgs =
+                mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
+            const variant = callArgs.include.items.include.productVariant;
+            expect(variant.include).toBeUndefined();
+            expect(Object.keys(variant.select).sort()).toEqual([
+                'id',
+                'name',
+                'primaryUnit',
+                'product',
+                'skuCode',
+            ]);
+            for (const key of ['price', 'buyPrice', 'sellPrice', 'standardCost']) {
+                expect(variant.select).not.toHaveProperty(key);
+            }
+        });
+
+        it('FACTORY_MANAGER combined with ADMIN keeps the full variant include', async () => {
+            mockRequireAuth.mockResolvedValue(
+                session('u-fm-admin', 'FACTORY_MANAGER', [
+                    'FACTORY_MANAGER',
+                    'ADMIN',
+                ]),
+            );
+            mockPrisma.purchaseRequest.findMany.mockResolvedValue([]);
+
+            await getPurchaseRequests();
+            const callArgs =
+                mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
+            expect(callArgs.where).toEqual({});
+            expect(callArgs.include.items.include.productVariant).toEqual({
+                include: { product: true },
+            });
+        });
+
+        it('FACTORY_MANAGER combined with PLANNING keeps the own-requests filter', async () => {
+            mockRequireAuth.mockResolvedValue(
+                session('u-fm-plan', 'FACTORY_MANAGER', [
+                    'FACTORY_MANAGER',
+                    'PLANNING',
+                ]),
+            );
+            mockPrisma.purchaseRequest.findMany.mockResolvedValue([]);
+
+            await getPurchaseRequests();
+            const callArgs =
+                mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
+            expect(callArgs.where).toEqual({ createdById: 'u-fm-plan' });
+        });
+
+        it('non-FM roles still get the full variant include', async () => {
+            mockRequireAuth.mockResolvedValue(
+                session('u-proc', 'PROCUREMENT'),
+            );
+            mockPrisma.purchaseRequest.findMany.mockResolvedValue([]);
+
+            await getPurchaseRequests();
+            const callArgs =
+                mockPrisma.purchaseRequest.findMany.mock.calls[0][0];
+            expect(callArgs.include.items.include.productVariant).toEqual({
+                include: { product: true },
+            });
         });
 
         it('includes reviewedBy {id, name} in query', async () => {

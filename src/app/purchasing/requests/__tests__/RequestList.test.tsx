@@ -315,4 +315,25 @@ describe('RequestList — approval UI', () => {
         // "Dikonversi" appears in both badge and disabled action button
         expect(screen.getAllByText('Dikonversi').length).toBeGreaterThanOrEqual(1);
     });
+describe('RequestList — read-only viewer', () => {
+    it('hides selection checkboxes and consolidate controls for APPROVED rows', () => {
+        renderList({
+            canApprove: false,
+            readOnly: true,
+            requests: [makeRequest({ id: 'pr-a', status: 'APPROVED' })],
+        });
+        expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+        expect(
+            screen.queryByRole('button', { name: /Konsolidasi/i }),
+        ).toBeNull();
+        expect(screen.queryByRole('button', { name: /Setujui/i })).toBeNull();
+        expect(screen.queryByRole('button', { name: /Tolak/i })).toBeNull();
+    });
+
+    it('still renders request number, items and status', () => {
+        renderList({ readOnly: true });
+        expect(screen.getByText('PR-001')).toBeDefined();
+        expect(screen.getByText(/Kain PE 24s/)).toBeDefined();
+    });
+});
 });

@@ -28,6 +28,7 @@ import { logActivity } from '@/lib/tools/audit';
 import { logger } from '@/lib/config/logger';
 import { safeAction, BusinessRuleError } from '@/lib/errors/errors';
 import { getUserRoles } from '@/lib/auth/roles';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import {
     requirePurchasingCreator,
     requirePurchasingApprover,
@@ -388,6 +389,18 @@ export const getPurchaseInvoices = withTenant(
     },
 );
 
+/**
+ * Read-only Kepala Pabrik follows PR progress (all requests) but never sees
+ * prices: the variant is limited to identity fields in the query itself.
+ */
+const PRICE_FREE_VARIANT_SELECT = {
+    id: true,
+    name: true,
+    skuCode: true,
+    primaryUnit: true,
+    product: { select: { id: true, name: true } },
+} as const;
+
 export const getPurchaseRequests = withTenant(
     async function getPurchaseRequests(filters?: {
         status?: 'OPEN' | 'APPROVED' | 'CONVERTED' | 'REJECTED';
@@ -396,6 +409,7 @@ export const getPurchaseRequests = withTenant(
             const session = await requireAuth();
             const userRoles = getUserRoles(session.user);
 
+            const isReadOnlyViewer = isReadOnlyFactoryManager(session.user);
             const isAdminOrApprover =
                 userRoles.includes('ADMIN') ||
                 userRoles.includes('PROCUREMENT');
@@ -406,11 +420,13 @@ export const getPurchaseRequests = withTenant(
                         userRoles.includes(r),
                     )
                   ? { createdById: session.user.id }
-                  : (() => {
-                        throw new BusinessRuleError(
-                            'Tidak memiliki akses untuk melihat purchase requests',
-                        );
-                    })();
+                  : isReadOnlyViewer
+                    ? {}
+                    : (() => {
+                          throw new BusinessRuleError(
+                              'Tidak memiliki akses untuk melihat purchase requests',
+                          );
+                      })();
 
             const where = {
                 ...ownershipWhere,
@@ -423,9 +439,9 @@ export const getPurchaseRequests = withTenant(
                 include: {
                     items: {
                         include: {
-                            productVariant: {
-                                include: { product: true },
-                            },
+                            productVariant: isReadOnlyViewer
+                                ? { select: PRICE_FREE_VARIANT_SELECT }
+                                : { include: { product: true } },
                         },
                     },
                     salesOrder: {

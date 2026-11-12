@@ -9,6 +9,8 @@ import type { ComponentProps } from 'react';
 import { startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Product360Tabs } from '@/components/warehouse/360/Product360Tabs';
 import type { StockLedgerClient } from '@/components/warehouse/StockLedgerClient';
+import { auth } from '@/auth';
+import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +30,10 @@ export default async function StockLedgerPage({
 }: PageProps) {
     const { id } = await params;
     const { startDate, endDate, locationId, tab } = await searchParams;
+    // Read-only Kepala Pabrik sees quantities, never valuation. The actions
+    // redact server-side; this flag only removes the empty valuation UI.
+    const session = await auth();
+    const showPrices = !isReadOnlyFactoryManager(session?.user);
 
     const now = new Date();
     const defaultStart = startOfMonth(now);
@@ -102,6 +108,7 @@ export default async function StockLedgerPage({
                 } | null
             }
             initialTab={tab || 'overview'}
+            showPrices={showPrices}
         />
     );
 }
