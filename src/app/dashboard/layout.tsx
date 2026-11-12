@@ -10,8 +10,8 @@ import { prisma } from '@/lib/core/prisma';
 import {
     getTenantActiveModules,
     buildWorkspaceEntryHrefs,
-    isPathDeniedForReadOnlyFactoryManager,
 } from '@/lib/auth/access-policy';
+import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/read-only-factory-manager-paths';
 import { isReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { getMainPrisma } from '@/lib/core/prisma';
 import { getCentralWorkspaceOptions } from '@/lib/auth/central-workspaces';

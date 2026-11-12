@@ -1,5 +1,5 @@
 import { getModuleRoot } from '@/lib/auth/permission-catalog';
-import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/access-policy';
+import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/read-only-factory-manager-paths';
 
 /**
  * Permission alias map — legacy resource keys that should be treated as

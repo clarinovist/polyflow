@@ -38,7 +38,7 @@ import { useState, useEffect } from 'react';
 import { mainNavLabels } from '@/lib/labels';
 import { useSidebarCollapse } from '@/components/layout/sidebar-collapse-context';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/access-policy';
+import { isPathDeniedForReadOnlyFactoryManager } from '@/lib/auth/read-only-factory-manager-paths';
 import { resolvePathToModule } from '@/lib/modules/module-registry';
 import { TenantSwitcher } from '@/components/layout/tenant-switcher';
 import { FindingsNavLink } from '@/components/layout/findings-nav-link';

@@ -459,6 +459,47 @@ describe('Access Policy Helpers', () => {
       expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders/abc')).toBe(false);
       expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders')).toBe(false);
     });
+
+    it('denies encoded, repeated-slash and mixed-case bypass attempts', () => {
+      for (const path of [
+        '/purchasing/orders/%63reate',
+        '/purchasing/orders/abc/%65dit',
+        '/warehouse/inventory/%61djustment',
+        '/dashboard/%65mployees',
+        '//dashboard/employees',
+        '/Dashboard/Employees',
+        '/dashboard//employees',
+        '/purchasing/orders/%2563reate',
+      ]) {
+        expect(isPathDeniedForReadOnlyFactoryManager(path), path).toBe(true);
+      }
+    });
+
+    it('fails closed on malformed percent-encoding', () => {
+      expect(isPathDeniedForReadOnlyFactoryManager('/purchasing/orders/%E0%A4%A')).toBe(true);
+      expect(isPathDeniedForReadOnlyFactoryManager('/production/daily/%')).toBe(true);
+    });
+
+    it('keeps normal paths open after normalisation', () => {
+      for (const path of [
+        '/dashboard',
+        '/dashboard/',
+        '/production/daily',
+        '/warehouse/inventory',
+        '/purchasing/orders',
+        '/purchasing/orders/3f2b8c1e-0a4d-4c8e-9d3a-6b1f2e7a9c10',
+      ]) {
+        expect(isPathDeniedForReadOnlyFactoryManager(path), path).toBe(false);
+      }
+    });
+
+    it('denies encoded bypass paths through canAccessWorkspace for read-only Kepala Pabrik only', () => {
+      expect(canAccessWorkspace(manager, 'dashboard', '/dashboard/%65mployees')).toBe(false);
+      expect(canAccessWorkspace(manager, 'purchasing', '/purchasing/orders/%63reate')).toBe(false);
+      expect(canAccessWorkspace(manager, 'warehouse', '//warehouse/inventory/adjustment')).toBe(false);
+      const adminAndManager = { role: 'FACTORY_MANAGER', roles: ['FACTORY_MANAGER', 'ADMIN'] };
+      expect(canAccessWorkspace(adminAndManager, 'dashboard', '/dashboard/%65mployees')).toBe(true);
+    });
   });
 
   describe('buildWorkspaceEntryHrefs', () => {
