@@ -38,7 +38,8 @@ vi.mock('@/components/layout/sidebar-collapse-context', () => ({
 vi.mock('@/actions/findings/finding-count-actions', () => ({
     countMyOpenFindings: vi.fn().mockResolvedValue(0),
 }));
-vi.mock('@/lib/modules/module-registry', () => ({
+vi.mock('@/lib/modules/module-registry', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/lib/modules/module-registry')>()),
     resolvePathToModule: () => null,
 }));
 
