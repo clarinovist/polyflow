@@ -18,6 +18,7 @@ import {
 } from '@/lib/schemas/inventory';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/tools/auth-checks';
+import { assertNotReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 import { safeAction, ValidationError } from '@/lib/errors/errors';
 
 export const getInventoryStats = withTenant(
@@ -53,6 +54,7 @@ export const transferStockBulk = withTenant(async function transferStockBulk(
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
+        assertNotReadOnlyFactoryManager(session.user);
         const currentUserId = session.user.id;
 
         const result = bulkTransferStockSchema.safeParse(data);
@@ -82,6 +84,7 @@ export const adjustStock = withTenant(async function adjustStock(
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
+        assertNotReadOnlyFactoryManager(session.user);
         const currentUserId = session.user.id;
 
         const result = adjustStockWithBatchSchema.safeParse(data);
@@ -102,6 +105,7 @@ export const adjustStockBulk = withTenant(async function adjustStockBulk(
 ) {
     return safeAction(async () => {
         const session = await requireAuth();
+        assertNotReadOnlyFactoryManager(session.user);
         const currentUserId = session.user.id;
 
         const result = bulkAdjustStockSchema.safeParse(data);
@@ -124,7 +128,8 @@ export const updateThreshold = withTenant(async function updateThreshold(
     minStockAlert: number,
 ) {
     return safeAction(async () => {
-        await requireAuth();
+        const session = await requireAuth();
+        assertNotReadOnlyFactoryManager(session.user);
         await InventoryCoreService.updateThreshold(
             productVariantId,
             minStockAlert,

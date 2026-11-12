@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { logger } from '@/lib/config/logger';
 import {
     safeAction,
+    AuthorizationError,
     BusinessRuleError,
     isNextControlFlowError,
 } from '@/lib/errors/errors';
@@ -18,6 +19,7 @@ import {
     SALARY_FIELDS,
 } from '@/lib/hrd/salary-history';
 import { hasHrdFinanceAccess } from '@/lib/auth/hrd-access';
+import { assertNotReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 
 // Strip salary/BPJS fields (and pinHash) for actors without HRD/Finance/Admin access.
 function redactSalaryFields<T extends Record<string, unknown>>(employee: T): T {
@@ -152,6 +154,7 @@ export const createEmployee = withTenant(async function createEmployee(data: {
     return safeAction(async () => {
         try {
             const session = await requireAuth();
+            assertNotReadOnlyFactoryManager(session.user);
             const canEditSalary = await hasHrdFinanceAccess();
             // Actors without HRD/Finance/Admin access get schema defaults for
             // salary/BPJS fields — client-supplied values are ignored, not trusted.
@@ -207,6 +210,7 @@ export const createEmployee = withTenant(async function createEmployee(data: {
         } catch (error) {
             // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
             if (isNextControlFlowError(error)) throw error;
+            if (error instanceof AuthorizationError) throw error;
             logger.error('Failed to create employee', {
                 error,
                 module: 'EmployeeActions',
@@ -239,6 +243,7 @@ export const updateEmployee = withTenant(async function updateEmployee(
     return safeAction(async () => {
         try {
             const session = await requireAuth();
+            assertNotReadOnlyFactoryManager(session.user);
             const canEditSalary = await hasHrdFinanceAccess();
             // Snapshot old values for salary-critical fields (compliance audit).
             const before = await prisma.employee.findUnique({
@@ -355,6 +360,7 @@ export const updateEmployee = withTenant(async function updateEmployee(
         } catch (error) {
             // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
             if (isNextControlFlowError(error)) throw error;
+            if (error instanceof AuthorizationError) throw error;
             logger.error('Failed to update employee', {
                 error,
                 employeeId: id,
@@ -371,6 +377,7 @@ export const deleteEmployee = withTenant(async function deleteEmployee(
     return safeAction(async () => {
         try {
             const session = await requireAuth();
+            assertNotReadOnlyFactoryManager(session.user);
             const before = await prisma.employee.findUnique({
                 where: { id },
                 select: {
@@ -399,6 +406,7 @@ export const deleteEmployee = withTenant(async function deleteEmployee(
         } catch (error) {
             // Redirect ke /login (sesi habis) bukan kegagalan, lempar ulang.
             if (isNextControlFlowError(error)) throw error;
+            if (error instanceof AuthorizationError) throw error;
             logger.error('Failed to delete employee', {
                 error,
                 employeeId: id,

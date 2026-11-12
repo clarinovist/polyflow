@@ -10,6 +10,13 @@ import {
     BusinessRuleError,
     NotFoundError,
 } from '@/lib/errors/errors';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { assertNotReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
+
+async function requireMachineWriteAccess() {
+    const session = await requireAuth();
+    assertNotReadOnlyFactoryManager(session.user);
+}
 
 export const getMachines = withTenant(async function getMachines() {
     return safeAction(async () => {
@@ -85,6 +92,7 @@ export const createMachine = withTenant(async function createMachine(data: {
     costPerHour?: number;
 }) {
     return safeAction(async () => {
+        await requireMachineWriteAccess();
         try {
             const machine = await prisma.machine.create({
                 data: {
@@ -123,6 +131,7 @@ export const updateMachine = withTenant(async function updateMachine(
     },
 ) {
     return safeAction(async () => {
+        await requireMachineWriteAccess();
         try {
             const machine = await prisma.machine.update({
                 where: { id },
@@ -148,6 +157,7 @@ export const deleteMachine = withTenant(async function deleteMachine(
     id: string,
 ) {
     return safeAction(async () => {
+        await requireMachineWriteAccess();
         try {
             await prisma.machine.delete({
                 where: { id },
@@ -173,6 +183,7 @@ export const setMachineStatus = withTenant(async function setMachineStatus(
     status: MachineStatus,
 ) {
     return safeAction(async () => {
+        await requireMachineWriteAccess();
         try {
             const machine = await prisma.machine.update({
                 where: { id },

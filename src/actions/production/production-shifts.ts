@@ -9,6 +9,8 @@ import {
 import { revalidatePath } from 'next/cache';
 import { ProductionService } from '@/services/production/production-service';
 import { prisma } from '@/lib/core/prisma';
+import { requireAuth } from '@/lib/tools/auth-checks';
+import { assertNotReadOnlyFactoryManager } from '@/lib/auth/read-only-role';
 
 export const addProductionShift = withTenant(
     async function addProductionShift(data: {
@@ -21,6 +23,8 @@ export const addProductionShift = withTenant(
         machineId?: string;
     }) {
         return safeAction(async () => {
+            const session = await requireAuth();
+            assertNotReadOnlyFactoryManager(session.user);
             try {
                 await ProductionService.addShift(data);
                 revalidatePath(`/production/orders/${data.productionOrderId}`);
@@ -41,6 +45,8 @@ export const addProductionShift = withTenant(
 export const deleteProductionShift = withTenant(
     async function deleteProductionShift(shiftId: string, orderId: string) {
         return safeAction(async () => {
+            const session = await requireAuth();
+            assertNotReadOnlyFactoryManager(session.user);
             try {
                 await ProductionService.deleteShift(shiftId);
                 revalidatePath(`/production/orders/${orderId}`);
