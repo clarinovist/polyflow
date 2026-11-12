@@ -4,6 +4,11 @@ import { saveOwnerHppWorkspace } from '@/actions/owner-hpp/owner-hpp';
 import type { StoredOwnerHppWorkspace } from '@/actions/owner-hpp/owner-hpp-query';
 import { calculateScenario } from '@/lib/owner-hpp/calculate-chain';
 import type { ErpChainResult } from '@/lib/owner-hpp/erp-chain';
+import {
+    applyVoiceCommands,
+    validateAppliedScenario,
+} from '@/lib/owner-hpp/voice-apply';
+import type { VoiceCommand } from '@/lib/owner-hpp/voice-commands';
 import { createExtrusionTemplateScenario } from '@/lib/owner-hpp/templates';
 import {
     addStage,
@@ -33,6 +38,7 @@ import { ScenarioBar } from './ScenarioBar';
 import { StageAdvanced } from './StageAdvanced';
 import { StageEditor } from './StageEditor';
 import { StageStrip } from './StageStrip';
+import { VoiceDock } from './VoiceDock';
 
 const SAVED_AT_FORMAT = new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
@@ -127,6 +133,25 @@ export function OwnerHppClient({
         toast.success(
             `${chain.stages.length} tahap diisi dari ERP. Periksa harga lalu simpan.`,
         );
+    }
+
+    /** Applies spoken commands; the workspace stays untouched if the result is invalid. */
+    function handleApplyVoice(commands: VoiceCommand[]): boolean {
+        const applied = applyVoiceCommands(
+            scenario,
+            activeStage.id,
+            commands,
+            randomId,
+        );
+        const check = validateAppliedScenario(workspace, applied.scenario);
+        if (!check.success) {
+            toast.error(`Perubahan suara ditolak: ${check.error}`);
+            return false;
+        }
+        patchScenario(() => applied.scenario);
+        setActiveStageId(applied.activeStageId);
+        toast.success('Perubahan suara diterapkan. Periksa lalu simpan.');
+        return true;
     }
 
     function handleSave() {
@@ -281,6 +306,11 @@ export function OwnerHppClient({
                 isDirty={isDirty}
                 isSaving={isSaving}
                 onSave={handleSave}
+            />
+            <VoiceDock
+                scenario={scenario}
+                activeStageId={activeStage.id}
+                onApply={handleApplyVoice}
             />
         </main>
     );

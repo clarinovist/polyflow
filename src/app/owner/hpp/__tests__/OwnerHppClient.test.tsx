@@ -11,12 +11,16 @@ const mocks = vi.hoisted(() => ({
     save: vi.fn(),
     toastSuccess: vi.fn(),
     toastError: vi.fn(),
+    parseVoice: vi.fn(),
 }));
 
 vi.mock('@/actions/owner-hpp/owner-hpp', () => ({
     saveOwnerHppWorkspace: mocks.save,
     getOwnerHppErpChain: vi.fn(),
     listOwnerHppVariantOptions: vi.fn(),
+}));
+vi.mock('@/actions/owner-hpp/owner-hpp-voice', () => ({
+    parseOwnerHppVoice: mocks.parseVoice,
 }));
 vi.mock('sonner', () => ({
     toast: { success: mocks.toastSuccess, error: mocks.toastError },
@@ -268,5 +272,31 @@ describe('/owner/hpp simple screen', () => {
         expect(screen.getAllByLabelText('Nama bahan')).toHaveLength(4);
         expect(overheadInput().value).toBe('10');
         expect(screen.getByText('4 bahan masih belum berharga.')).toBeTruthy();
+    });
+
+    it('applies spoken commands only after Terapkan and marks the workspace unsaved', async () => {
+        // Arrange
+        mocks.parseVoice.mockResolvedValue({
+            success: true,
+            data: {
+                commands: [{ op: 'select_stage', stage: 'Packing', heard: 'pindah ke packing' }],
+                warnings: [],
+            },
+        });
+        renderClient();
+        fireEvent.click(screen.getByRole('button', { name: 'Ketik perintah' }));
+        fireEvent.change(screen.getByRole('textbox', { name: 'Transkrip perintah' }), {
+            target: { value: 'pindah ke packing' },
+        });
+
+        // Act
+        fireEvent.click(screen.getByRole('button', { name: 'Proses' }));
+        await screen.findByRole('region', { name: 'Pratinjau perubahan' });
+        expect(mocks.toastSuccess).not.toHaveBeenCalled();
+        fireEvent.click(screen.getByRole('button', { name: /Terapkan/ }));
+
+        // Assert
+        await waitFor(() => expect(mocks.toastSuccess).toHaveBeenCalled());
+        expect(screen.getByRole('textbox', { name: 'Tenaga / biaya konversi per kg' })).toBeTruthy();
     });
 });
