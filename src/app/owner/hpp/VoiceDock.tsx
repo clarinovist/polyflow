@@ -33,10 +33,6 @@ interface VoiceDockProps {
 
 const PARSE_FAILED = 'Gagal memproses, coba lagi atau ketik manual.';
 
-function joinTranscript(current: string, added: string): string {
-    return [current.trim(), added.trim()].filter(Boolean).join(' ');
-}
-
 function micLabel(state: string, willCancel: boolean): string {
     if (state === 'transcribing') return 'Mendengarkan…';
     if (state === 'recording') {
@@ -66,7 +62,7 @@ export function VoiceDock({
     const hold = useHoldToRecord({
         onAudio: async (audio) => {
             const text = await requestTranscription(audio, context);
-            setTranscript((current) => joinTranscript(current, text));
+            setTranscript(text.trim());
             setParsed(null);
             setIsOpen(true);
         },

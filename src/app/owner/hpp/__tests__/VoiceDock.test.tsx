@@ -130,7 +130,7 @@ describe('VoiceDock', () => {
         await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith('Gagal memproses, coba lagi atau ketik manual.'));
     });
 
-    it('puts a recorded transcript in the editable box, appending to earlier text', async () => {
+    it('replaces an earlier transcript with the latest recording', async () => {
         mocks.transcribe.mockResolvedValue('tambah benang');
         renderDock();
         openTyping();
@@ -140,7 +140,7 @@ describe('VoiceDock', () => {
         await mocks.hold.onAudio?.(new Blob(['x']));
 
         await waitFor(() =>
-            expect((screen.getByRole('textbox', { name: 'Transkrip perintah' }) as HTMLTextAreaElement).value).toBe('halo tambah benang'),
+            expect((screen.getByRole('textbox', { name: 'Transkrip perintah' }) as HTMLTextAreaElement).value).toBe('tambah benang'),
         );
     });
 
