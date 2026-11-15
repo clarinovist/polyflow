@@ -4,6 +4,8 @@
  * YAGNI: embedding later; keyword normalize is enough for Phase 3 thin.
  */
 
+import { logger } from '@/lib/config/logger';
+
 function normalizeQuestion(q: string): string {
     return q
         .toLowerCase()
@@ -110,7 +112,11 @@ export async function upsertCluster(input: ClusterInput) {
             },
         });
         return created;
-    } catch {
+    } catch (error) {
+        logger.error('Failed to upsert help question cluster', {
+            module: 'HelpClustering',
+            error,
+        });
         return null;
     }
 }

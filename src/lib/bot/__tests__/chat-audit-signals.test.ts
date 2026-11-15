@@ -1,21 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { upsertSignalMock, createMock } = vi.hoisted(() => ({
+const { upsertSignalMock, upsertClusterMock, createMock, loggerError } = vi.hoisted(() => ({
     upsertSignalMock: vi.fn().mockResolvedValue(null),
+    upsertClusterMock: vi.fn().mockResolvedValue(null),
     createMock: vi.fn().mockResolvedValue({ id: 'interaction-1' }),
+    loggerError: vi.fn(),
 }));
 
 vi.mock('@/lib/core/prisma', () => ({
     getMainPrisma: () => ({ helpInteraction: { create: createMock } }),
 }));
 vi.mock('@/lib/config/logger', () => ({
-    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), warn: vi.fn(), error: loggerError },
 }));
 vi.mock('@/lib/tools/audit', () => ({ logActivity: vi.fn() }));
 vi.mock('@/lib/bot/metrics', () => ({ recordVirtualCsMetric: vi.fn() }));
 vi.mock('../help-clustering', async (orig) => ({
     ...(await orig<typeof import('../help-clustering')>()),
-    upsertCluster: vi.fn().mockResolvedValue(null),
+    upsertCluster: upsertClusterMock,
 }));
 vi.mock('../feature-signals', async (orig) => ({
     ...(await orig<typeof import('../feature-signals')>()),
@@ -35,6 +37,9 @@ const base = {
 describe('logVirtualCsEvent — feature signals', () => {
     beforeEach(() => {
         upsertSignalMock.mockClear();
+        upsertClusterMock.mockReset();
+        upsertClusterMock.mockResolvedValue(null);
+        loggerError.mockClear();
         delete process.env.OPENCLAW_SYSTEM_USER_ID;
     });
 
@@ -69,5 +74,31 @@ describe('logVirtualCsEvent — feature signals', () => {
             answer: 'Buka menu Sales lalu pilih Sales Order dan klik Buat Baru.',
         });
         expect(upsertSignalMock).not.toHaveBeenCalled();
+    });
+});
+
+describe('logVirtualCsEvent — help clustering', () => {
+    beforeEach(() => {
+        upsertSignalMock.mockClear();
+        upsertClusterMock.mockReset();
+        upsertClusterMock.mockResolvedValue(null);
+        loggerError.mockClear();
+        delete process.env.OPENCLAW_SYSTEM_USER_ID;
+    });
+
+    it('logs a rejected cluster upsert instead of swallowing it', async () => {
+        upsertClusterMock.mockRejectedValue(new Error('connection reset'));
+
+        await logVirtualCsEvent({
+            ...base,
+            question: 'Bagaimana cara input sales order?',
+        });
+
+        await vi.waitFor(() =>
+            expect(loggerError).toHaveBeenCalledWith(
+                'Help cluster upsert rejected',
+                expect.objectContaining({ module: 'HelpClustering' }),
+            ),
+        );
     });
 });

@@ -165,10 +165,18 @@ export async function logVirtualCsEvent(
             upsertCluster({
                 question: input.question.slice(0, 500),
                 redactedSample: sanitized,
-            }).catch(() => {});
+            }).catch((error) => {
+                logger.error('Help cluster upsert rejected', {
+                    module: 'HelpClustering',
+                    error,
+                });
+            });
         }
-    } catch {
-        /* best effort */
+    } catch (error) {
+        logger.error('Help clustering classification failed', {
+            module: 'HelpClustering',
+            error,
+        });
     }
 
     // Feature signals — explicit asks and partially answered questions. Additive,
