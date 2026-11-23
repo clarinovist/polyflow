@@ -65,6 +65,8 @@ RUN ./node_modules/.bin/esbuild scripts/align-stock-ledger-material.ts --bundle 
 RUN node /app/ops-dist/scripts/align-stock-ledger-material.js --help
 RUN ./node_modules/.bin/esbuild scripts/backfill-order-end-dates.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/backfill-order-end-dates.js
 RUN node /app/ops-dist/scripts/backfill-order-end-dates.js --help
+RUN ./node_modules/.bin/esbuild scripts/correct-operational-basis.ts --bundle --platform=node --external:@prisma/client --format=cjs --outfile=/app/ops-dist/scripts/correct-operational-basis.js
+RUN node /app/ops-dist/scripts/correct-operational-basis.js --help
 
 # The TypeScript worker exceeds Node's ~2 GiB default heap on CI.
 # Scope the larger heap to this build command; do not change runtime limits.
@@ -120,6 +122,7 @@ COPY --from=builder --chown=nextjs:nodejs \
   /app/ops-dist/scripts/align-stock-ledger-material.js \
   /app/ops-dist/scripts/backfill-order-end-dates.js \
   /app/ops-dist/scripts/attribute-operational-opening.js \
+  /app/ops-dist/scripts/correct-operational-basis.js \
   /app/scripts/audit-duplicate-production-voids.js \
   /app/scripts/check-ob.js \
   /app/scripts/run-product-learning.mjs \

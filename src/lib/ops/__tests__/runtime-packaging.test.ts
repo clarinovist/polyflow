@@ -32,6 +32,7 @@ describe('standalone operational tooling packaging', () => {
             '/app/ops-dist/scripts/align-stock-ledger-material.js',
             '/app/ops-dist/scripts/backfill-order-end-dates.js',
             '/app/ops-dist/scripts/attribute-operational-opening.js',
+            '/app/ops-dist/scripts/correct-operational-basis.js',
             '/app/scripts/audit-duplicate-production-voids.js',
             '/app/scripts/check-ob.js',
             '/app/scripts/run-product-learning.mjs',
