@@ -11,6 +11,7 @@ vi.mock('../account-resolver', () => ({
             'intermediate': { id: 'acc-13', code: '11325', name: 'Semi-Finished Goods' },
             'scrap': { id: 'acc-4', code: '11350', name: 'Scrap' },
             'packaging': { id: 'acc-5', code: '11340', name: 'Packaging' },
+            'inventory-consumables': { id: 'acc-14', code: '11360', name: 'Consumables' },
             'inventory': { id: 'acc-6', code: '11300', name: 'Inventory' },
             'accounts-payable': { id: 'acc-7', code: '21110', name: 'Trade Payable' },
             'cogs': { id: 'acc-8', code: '50000', name: 'COGS' },
@@ -42,6 +43,9 @@ describe('account-mapping-policy', () => {
 
         const pack = await getInventoryAccount('PACKAGING');
         expect(pack.code).toBe(GL_ACCOUNT_CODES.INVENTORY_PACKAGING);
+
+        const operational = await getInventoryAccount('OPERATIONAL');
+        expect(operational.code).toBe(GL_ACCOUNT_CODES.INVENTORY_CONSUMABLES);
     });
 
     it('resolves default inventory account code for unknown product type', async () => {

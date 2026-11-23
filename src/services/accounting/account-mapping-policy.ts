@@ -43,6 +43,8 @@ function productTypeToAccountRole(
             return 'scrap';
         case 'PACKAGING':
             return 'packaging';
+        case 'OPERATIONAL':
+            return 'inventory-consumables';
         default:
             return 'inventory';
     }
@@ -113,6 +115,7 @@ export const GL_ACCOUNT_CODES = {
     INVENTORY_INTERMEDIATE: '11325',
     INVENTORY_FINISHED_GOOD: '11330',
     INVENTORY_PACKAGING: '11340',
+    INVENTORY_CONSUMABLES: '11360',
     INVENTORY_SCRAP: '11350',
     TRADE_PAYABLE: '21110',
     ACCRUED_LIABILITIES: '21200',
