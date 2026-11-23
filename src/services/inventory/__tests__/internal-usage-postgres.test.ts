@@ -40,6 +40,7 @@ async function seed(client: PrismaClient) {
         { id: 'usage-raw', code: '11310', name: 'Synthetic raw material', type: 'ASSET', category: 'CURRENT_ASSET' },
         // Pattern targets for the real resolver used by stock adjustments.
         { id: 'usage-generic', code: '11300', name: 'Synthetic generic stock', type: 'ASSET', category: 'CURRENT_ASSET' },
+        { id: 'usage-consumables', code: '11360', name: 'Synthetic consumables', type: 'ASSET', category: 'CURRENT_ASSET' },
         { id: 'usage-loss', code: '91100', name: 'Synthetic adjustment loss', type: 'EXPENSE', category: 'OPERATING_EXPENSE' },
     ] });
     await client.product.create({ data: { id: 'usage-product', name: 'Synthetic pen', productType: 'OPERATIONAL', inventoryAccountId: 'usage-inventory' } });
