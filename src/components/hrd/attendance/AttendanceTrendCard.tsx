@@ -188,7 +188,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                 <div className="text-[10px] uppercase text-muted-foreground">
                                     Rata-rata Kehadiran
                                 </div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold tabular-nums">
                                     {data.shiftFiltered ||
                                     data.averageRate === null
                                         ? '—'
@@ -199,7 +199,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                 <div className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400">
                                     Tepat waktu
                                 </div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold tabular-nums">
                                     {data.totals.onTime}
                                 </div>
                             </div>
@@ -207,7 +207,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                 <div className="text-[10px] uppercase text-amber-700 dark:text-amber-400">
                                     {attendanceStatusLabel('LATE')}
                                 </div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold tabular-nums">
                                     {data.totals.late}
                                 </div>
                             </div>
@@ -215,7 +215,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                 <div className="text-[10px] uppercase text-sky-700 dark:text-sky-400">
                                     {attendanceStatusLabel('ON_LEAVE')}
                                 </div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold tabular-nums">
                                     {data.totals.onLeave}
                                 </div>
                             </div>
@@ -223,7 +223,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                 <div className="text-[10px] uppercase text-rose-700 dark:text-rose-400">
                                     {attendanceStatusLabel('ABSENT')}
                                 </div>
-                                <div className="text-lg font-bold">
+                                <div className="text-lg font-bold tabular-nums">
                                     {data.totals.absent}
                                 </div>
                             </div>
@@ -232,7 +232,7 @@ export function AttendanceTrendCard({ shifts, initialShiftId }: Props) {
                                     <div className="text-[10px] uppercase text-orange-700 dark:text-orange-400">
                                         Tanpa catatan
                                     </div>
-                                    <div className="text-lg font-bold">
+                                    <div className="text-lg font-bold tabular-nums">
                                         {data.totals.noRecord ?? 0}
                                     </div>
                                 </div>

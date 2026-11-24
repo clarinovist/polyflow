@@ -258,7 +258,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                                 {attendanceStatusLabel('PRESENT')}
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {summary.presentDays}
                             </div>
                         </div>
@@ -266,7 +266,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400">
                                 {attendanceStatusLabel('LATE')}
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {summary.lateDays}
                             </div>
                         </div>
@@ -274,7 +274,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400">
                                 {attendanceStatusLabel('ABSENT')}
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {summary.absentDays}
                             </div>
                         </div>
@@ -282,7 +282,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400">
                                 {attendanceStatusLabel('ON_LEAVE')}
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {summary.leaveDays}
                             </div>
                         </div>
@@ -290,7 +290,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-orange-700 dark:text-orange-400">
                                 Tanpa catatan
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {summary.missingDays}
                             </div>
                         </div>
@@ -298,7 +298,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                                 Jam Kerja
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {fmtHours(totalHours)}
                             </div>
                         </div>
@@ -306,7 +306,7 @@ export function Employee360AttendanceTab({
                             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
                                 Lembur
                             </div>
-                            <div className="text-xl font-bold">
+                            <div className="text-xl font-bold tabular-nums">
                                 {fmtHours(totalOvertime)}
                             </div>
                         </div>
@@ -434,7 +434,7 @@ export function Employee360AttendanceTab({
                                                                         : r.status ===
                                                                             'ABSENT'
                                                                           ? 'bg-rose-500/10 text-rose-600 border-rose-500/10'
-                                                                          : 'bg-amber-500/10 text-amber-600 border-amber-500/10'
+                                                                          : 'bg-sky-500/10 text-sky-600 border-sky-500/10'
                                                                 }`}
                                                             >
                                                                 {r.isOvertimeShift
