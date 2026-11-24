@@ -341,4 +341,82 @@ describe('GET /api/images/[...path]', () => {
             expect(res.headers?.['Content-Type']).toBe(expected);
         });
     });
+
+    describe('expense receipts', () => {
+        const ownerId = 'sales-owner';
+        const receiptKey = ['acme', 'expense-receipt', ownerId, '1787886860020.jpg'];
+        const userOf = (role: string, id = 'u9', tenantSubdomain = 'acme') => ({
+            user: { id, role, roles: [role], tenantSubdomain },
+        });
+
+        it('hides a receipt from an anonymous caller even when the host matches', async () => {
+            const res = await call(receiptKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('serves a receipt to the SALES user who owns the folder', async () => {
+            mockAuth.mockResolvedValue(userOf('SALES', ownerId));
+            const res = await call(receiptKey);
+            expect(res.status).toBe(200);
+            expect(mockSend).toHaveBeenCalledTimes(1);
+        });
+
+        it("hides a receipt from another SALES user of the same tenant", async () => {
+            mockAuth.mockResolvedValue(userOf('SALES', 'sales-other'));
+            const res = await call(receiptKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it.each(['ADMIN', 'MARKETING', 'FINANCE'])(
+            'serves any receipt to a %s user of the same tenant',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role));
+                const res = await call(receiptKey);
+                expect(res.status).toBe(200);
+            },
+        );
+
+        it.each(['WAREHOUSE', 'HRD', 'PRODUCTION'])(
+            'hides a receipt from a %s user even with a matching folder id',
+            async (role) => {
+                mockAuth.mockResolvedValue(userOf(role, ownerId));
+                const res = await call(receiptKey);
+                expect(res.status).toBe(404);
+                expect(mockSend).not.toHaveBeenCalled();
+            },
+        );
+
+        it('hides a receipt from a finance user of another tenant', async () => {
+            mockAuth.mockResolvedValue(userOf('FINANCE', 'u9', 'globex'));
+            const res = await call(receiptKey);
+            expect(res.status).toBe(404);
+            expect(mockSend).not.toHaveBeenCalled();
+        });
+
+        it('hides a receipt from the owner id of another tenant', async () => {
+            mockAuth.mockResolvedValue(userOf('SALES', ownerId, 'globex'));
+            const res = await call(receiptKey);
+            expect(res.status).toBe(404);
+        });
+
+        it('lets a super admin read a receipt of any tenant', async () => {
+            setHost('admin.polyflow.uk');
+            mockAuth.mockResolvedValue({ user: { id: 'u1', isSuperAdmin: true } });
+            const res = await call(['globex', ...receiptKey.slice(1)]);
+            expect(res.status).toBe(200);
+        });
+
+        it('matches the segment case-insensitively and needs a user folder and file', async () => {
+            mockAuth.mockResolvedValue(userOf('SALES', ownerId));
+            expect((await call(['acme', 'Expense-Receipt', 'sales-other', '1.jpg'])).status).toBe(404);
+            expect((await call(['acme', 'expense-receipt', ownerId + '.jpg'])).status).toBe(404);
+        });
+
+        it('does not gate expense-receipt deeper in the path', async () => {
+            const res = await call(['acme', 'production', 'expense-receipt', '1.jpg']);
+            expect(res.status).toBe(200);
+        });
+    });
 });

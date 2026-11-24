@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { createHash } from 'node:crypto';
 import { headers } from 'next/headers';
 import { extractSubdomain } from '@/lib/core/tenant';
+import { buildExpenseReceiptObjectKey } from '@/lib/sales/expense-receipt';
 
 // Reuse existing S3-compatible env vars (already configured for Cloudflare R2)
 export const r2Client = new S3Client({
@@ -184,4 +185,18 @@ export function buildRemittanceProofKey(
     const ext = filename.split('.').pop() || 'jpg';
     const timestamp = Date.now();
     return `${tenant}/remittance-proof/${userId}/${timestamp}.${ext}`;
+}
+
+/**
+ * Build R2 key for sales expense-claim receipt (nota) photos.
+ * Format: {tenant}/expense-receipt/{userId}/{timestamp}.{ext}
+ * `extension` must come from the MIME whitelist (see expense-receipt.ts), never
+ * from the raw client filename; anything else falls back to jpg.
+ */
+export function buildExpenseReceiptKey(
+    tenant: string,
+    userId: string,
+    extension: string,
+): string {
+    return buildExpenseReceiptObjectKey(tenant, userId, extension);
 }

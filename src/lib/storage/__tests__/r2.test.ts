@@ -17,6 +17,7 @@ import {
     contentFingerprint,
     buildProductionPhotoKey,
     buildAttendancePhotoKey,
+    buildExpenseReceiptKey,
     uploadToR2,
 } from '../r2';
 
@@ -67,5 +68,17 @@ describe('uploadToR2', () => {
         await expect(uploadToR2('acme/production/e/1.jpg', Buffer.from('x'), 'image/jpeg')).resolves.toBe(
             '/api/images/acme/production/e/1.jpg',
         );
+    });
+});
+
+describe('buildExpenseReceiptKey', () => {
+    it('builds a per-user receipt key from a whitelisted extension', () => {
+        expect(buildExpenseReceiptKey('acme', 'user-1', 'png')).toMatch(
+            /^acme\/expense-receipt\/user-1\/\d+\.png$/,
+        );
+    });
+
+    it('never trusts an extension outside the whitelist', () => {
+        expect(buildExpenseReceiptKey('acme', 'user-1', 'html')).toMatch(/\.jpg$/);
     });
 });

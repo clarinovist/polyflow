@@ -221,7 +221,11 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
         landingPath: '/finance',
         requiredModules: [],
         capabilities: [],
-        apiRoutes: ['/api/print/invoice', '/api/upload/remittance-proof'],
+        apiRoutes: [
+            '/api/print/invoice',
+            '/api/upload/remittance-proof',
+            '/api/upload/expense-receipt',
+        ],
         actionPrefixes: ['finance/'],
         serviceDirs: ['finance', 'accounting'],
         uploadPrefixes: [],

@@ -87,6 +87,9 @@ model User {
   lockedPeriods                  PeriodLock[]
   ownerHppWorkspace              OwnerHppWorkspace?
   salesVisits                    SalesVisit[]                     @relation("SalesVisitCreator")
+  submittedExpenseClaims         ExpenseClaim[]                   @relation("ExpenseClaimSubmitter")
+  reviewedExpenseClaims          ExpenseClaim[]                   @relation("ExpenseClaimReviewer")
+  paidExpenseClaims              ExpenseClaim[]                   @relation("ExpenseClaimPayer")
   routePlans                     SalesRoutePlan[]
   customerSalesAssignments       CustomerSalesAssignment[]        @relation("CustomerSalesAssignee")
   customerAssignmentsCreated     CustomerSalesAssignment[]        @relation("CustomerSalesAssignmentCreator")
@@ -2120,6 +2123,8 @@ model Account {
   internalUsageInventory InternalUsage[] @relation("InternalUsageInventory")
   internalUsageExpenses InternalUsage[] @relation("InternalUsageExpense")
   pettyCashTransactions PettyCashTransaction[]
+  expenseClaimExpenses  ExpenseClaim[] @relation("ExpenseClaimExpenseAccount")
+  expenseClaimPayments  ExpenseClaim[] @relation("ExpenseClaimPaymentAccount")
   bankReconciliations   BankReconciliation[]
 
   @@index([code])
@@ -2151,6 +2156,7 @@ model JournalEntry {
   atkEvidence               AtkCostEvidence[] @relation("AtkEvidenceJournal")
   details                   JournalEntryDetail[]
   pettyCashTransaction      PettyCashTransaction?
+  expenseClaim              ExpenseClaim?
   reconciliationAdjustments BankReconciliationAdjustment[]
   priceAdjustmentSources    InvoicePriceAdjustment[] @relation("PriceAdjustmentSource")
   priceAdjustmentJournal    InvoicePriceAdjustment? @relation("PriceAdjustmentJournal")
@@ -2976,6 +2982,7 @@ enum ReferenceType {
   PURCHASE_RETURN
   PETTY_CASH
   BANK_RECONCILIATION
+  EXPENSE_CLAIM
 }
 
 enum JournalStatus {
@@ -4101,6 +4108,7 @@ model SalesVisit {
   clientVisitId   String?
   routePlanItemId String?
   routePlanItem   SalesRoutePlanItem?    @relation(fields: [routePlanItemId], references: [id])
+  expenseClaims   ExpenseClaim[]
   isExtraCall     Boolean                @default(false)
   extraReason     SalesVisitExtraReason?
   reviewStatus    SalesVisitReviewStatus @default(NOT_REQUIRED)
@@ -4112,6 +4120,64 @@ model SalesVisit {
   @@index([customerId])
   @@index([routePlanItemId])
   @@index([isExtraCall, checkInTime])
+}
+
+// ==========================================
+// Sales expense claims (reimburse nota): submit -> approve -> pay (posts a journal)
+// ==========================================
+
+enum ExpenseClaimCategory {
+  BBM
+  PARKIR
+  TOL
+  MAKAN
+  TRANSPORT_LAIN
+  LAINNYA
+}
+
+enum ExpenseClaimStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELLED
+}
+
+model ExpenseClaim {
+  id               String               @id @default(uuid())
+  claimNumber      String               @unique // RMB-YYYYMM-NNN (WIB month)
+  userId           String
+  salesVisitId     String?
+  expenseDate      DateTime
+  category         ExpenseClaimCategory
+  amount           Decimal              @db.Decimal(15, 2)
+  description      String
+  receiptUrl       String
+  clientClaimId    String?
+  status           ExpenseClaimStatus   @default(SUBMITTED)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  paidById         String?
+  paidAt           DateTime?
+  expenseAccountId String?
+  paymentAccountId String?
+  journalEntryId   String?              @unique
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  user           User          @relation("ExpenseClaimSubmitter", fields: [userId], references: [id])
+  reviewedBy     User?         @relation("ExpenseClaimReviewer", fields: [reviewedById], references: [id])
+  paidBy         User?         @relation("ExpenseClaimPayer", fields: [paidById], references: [id])
+  salesVisit     SalesVisit?   @relation(fields: [salesVisitId], references: [id])
+  expenseAccount Account?      @relation("ExpenseClaimExpenseAccount", fields: [expenseAccountId], references: [id])
+  paymentAccount Account?      @relation("ExpenseClaimPaymentAccount", fields: [paymentAccountId], references: [id])
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+
+  @@unique([userId, clientClaimId])
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+  @@index([salesVisitId])
 }
 
 // ==========================================

@@ -38,6 +38,7 @@ const AUDITABLE_MODELS = new Set([
     'ProductionIssue',
     'PettyCashTransaction',
     'PettyCashDailyReport',
+    'ExpenseClaim',
     'FiscalPeriod',
     'FixedAsset',
     'Batch',
@@ -65,9 +66,18 @@ type QueryArgs = {
 // Learning reviews write their audit atomically; scheduled states are immutable
 // observation/evaluation receipts. Outer-client audit would leave false history
 // on rollback and requires a user even for background job leases.
+// ExpenseClaim also writes its audit manually inside the transaction (logActivity
+// with tx), which is authoritative: an outer-client row would duplicate it and
+// leave a false APPROVED -> PAID history when payment rolls back or loses the CAS.
+const IN_TRANSACTION_AUDIT_MODELS: ReadonlySet<string> = new Set([
+    'LearningDailyRun',
+    'LearningFinding',
+    'ExpenseClaim',
+]);
+
 function usesOuterStatusAudit(model: string): boolean {
     return model !== 'AuditLog' && AUDITABLE_MODELS.has(model) &&
-        model !== 'LearningDailyRun' && model !== 'LearningFinding';
+        !IN_TRANSACTION_AUDIT_MODELS.has(model);
 }
 
 function hasStatusField(data: unknown): data is Record<string, unknown> {

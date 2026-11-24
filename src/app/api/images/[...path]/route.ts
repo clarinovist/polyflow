@@ -21,6 +21,9 @@ import { HRD_DOC_FINANCE_ROLES, rolesForHrdDocCategory } from '@/lib/hrd/hrd-doc
  *  - HRD documents (`<tenant>/hrd-docs/<category>/...`) additionally need a signed-in user of
  *    that tenant (or a super admin) whose role fits the category (ADMIN/HRD, plus FINANCE for
  *    loans) — a matching host alone is not enough;
+ *  - expense-claim receipts (`<tenant>/expense-receipt/<userId>/...`) need a signed-in user of
+ *    that tenant (or a super admin): ADMIN/MARKETING/FINANCE read every receipt, any other role
+ *    only its own `<userId>` folder (SALES), so a matching host alone is not enough;
  *  - employee attendance selfies (`<tenant>/attendance/...`) need a signed-in ADMIN/FINANCE/HRD
  *    user of that tenant (or a super admin); the kiosk does not display them;
  *  - the response Content-Type comes from the key extension, never from storage metadata,
@@ -36,6 +39,13 @@ const ALLOWED_EXTENSIONS: ReadonlySet<string> = new Set(CONTENT_TYPE_BY_EXTENSIO
 
 const HRD_DOCS_SEGMENT = 'hrd-docs';
 const ATTENDANCE_SEGMENT = 'attendance';
+const EXPENSE_RECEIPT_SEGMENT = 'expense-receipt';
+/** Path index of the uploader's user id: `<tenant>/expense-receipt/<userId>/<file>`. */
+const EXPENSE_RECEIPT_OWNER_INDEX = 2;
+const EXPENSE_RECEIPT_MIN_SEGMENTS = 4;
+/** Roles that review or pay claims and therefore may read every receipt. */
+const EXPENSE_RECEIPT_READER_ROLES: readonly string[] = ['ADMIN', 'MARKETING', 'FINANCE'];
+const EXPENSE_RECEIPT_OWNER_ROLES: readonly string[] = ['SALES'];
 
 /** Path segments that must never be served by the image proxy. */
 const BLOCKED_SEGMENTS = new Set(['backups', 'backup', 'archive', 'dump', 'dumps', 'exports']);
@@ -74,6 +84,31 @@ function isAttendanceKey(path: string[]): boolean {
     return path[1]?.toLowerCase() === ATTENDANCE_SEGMENT;
 }
 
+function isExpenseReceiptKey(path: string[]): boolean {
+    return path[1]?.toLowerCase() === EXPENSE_RECEIPT_SEGMENT;
+}
+
+/**
+ * Signed-in user of the owning tenant (or a super admin). Reader roles see every
+ * receipt; the owner role only sees the folder named after its own user id.
+ */
+async function isAllowedForExpenseReceipt(
+    path: string[],
+    tenantPrefix: string,
+): Promise<boolean> {
+    const session = await auth().catch(() => null);
+    const user = session?.user;
+    if (!user) return false;
+    if (user.isSuperAdmin) return true;
+    if (user.tenantSubdomain?.toLowerCase() !== tenantPrefix) return false;
+    if (hasAnyRole(user, [...EXPENSE_RECEIPT_READER_ROLES])) return true;
+    return (
+        path.length >= EXPENSE_RECEIPT_MIN_SEGMENTS &&
+        hasAnyRole(user, [...EXPENSE_RECEIPT_OWNER_ROLES]) &&
+        path[EXPENSE_RECEIPT_OWNER_INDEX] === user.id
+    );
+}
+
 /** Signed-in user of the owning tenant (or a super admin) holding one of `roles`. */
 async function isAllowedForRoles(
     tenantPrefix: string,
@@ -87,13 +122,16 @@ async function isAllowedForRoles(
     return user.tenantSubdomain?.toLowerCase() === tenantPrefix;
 }
 
-/** Access check for the key's prefix; only HRD documents and selfies need a role. */
+/** Access check for the key's prefix; HRD documents, selfies and expense receipts need a role. */
 function isAllowedForKey(path: string[], tenantPrefix: string): Promise<boolean> {
     if (isHrdDocKey(path)) {
         return isAllowedForRoles(tenantPrefix, rolesForHrdDocCategory(path[2]));
     }
     if (isAttendanceKey(path)) {
         return isAllowedForRoles(tenantPrefix, HRD_DOC_FINANCE_ROLES);
+    }
+    if (isExpenseReceiptKey(path)) {
+        return isAllowedForExpenseReceipt(path, tenantPrefix);
     }
     return isAllowedForCaller(tenantPrefix);
 }
