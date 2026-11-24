@@ -16,7 +16,10 @@ import { formatRupiah } from '@/lib/utils/utils';
 import { formatWibDate } from '@/lib/utils/timezone';
 import { categoryLabel } from '@/lib/sales/expense-claim-ui';
 import type { ClaimReviewItem } from '@/lib/sales/expense-claim-review';
-import type { ClaimPaymentAccounts } from '@/lib/sales/expense-claim-payment-ui';
+import {
+    payoutNotice,
+    type ClaimPaymentAccounts,
+} from '@/lib/sales/expense-claim-payment-ui';
 import { PayClaimDialog } from './PayClaimDialog';
 
 const EMPTY_MESSAGE = 'Tidak ada klaim yang menunggu pencairan.';
@@ -36,16 +39,14 @@ export function ReimbursementQueue({
     const handleSettled = ({
         paid,
         claimNumber,
+        journalNumber,
     }: {
         paid: boolean;
         claimNumber: string;
+        journalNumber: string | null;
     }) => {
         setSelected(null);
-        setNotice(
-            paid
-                ? `Klaim ${claimNumber} berhasil dicairkan dan jurnal sudah diposting.`
-                : null,
-        );
+        setNotice(paid ? payoutNotice(claimNumber, journalNumber) : null);
         router.refresh();
     };
 

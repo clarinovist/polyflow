@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
     getMyClaim: vi.fn(),
     listClaimsForReview: vi.fn(),
     listClaimsForPayment: vi.fn(),
+    listPaidClaims: vi.fn(),
     getClaimsSummaryCounts: vi.fn(),
 }));
 
@@ -36,6 +37,7 @@ vi.mock('@/services/sales/expense-claim-queries', () => ({
     getMyClaim: mocks.getMyClaim,
     listClaimsForReview: mocks.listClaimsForReview,
     listClaimsForPayment: mocks.listClaimsForPayment,
+    listPaidClaims: mocks.listPaidClaims,
     getClaimsSummaryCounts: mocks.getClaimsSummaryCounts,
 }));
 
@@ -46,6 +48,7 @@ import {
     getMyExpenseClaim,
     listExpenseClaimsForPayment,
     listExpenseClaimsForReview,
+    listExpenseClaimsPaid,
     listMyExpenseClaims,
     payExpenseClaim,
     rejectExpenseClaim,
@@ -73,7 +76,7 @@ beforeEach(() => {
     for (const name of ['submitClaim', 'cancelClaim', 'approveClaim', 'rejectClaim', 'payClaim', 'getMyClaim'] as const) {
         mocks[name].mockResolvedValue({ id: 'c1' });
     }
-    for (const name of ['listMyClaims', 'listClaimsForReview', 'listClaimsForPayment'] as const) {
+    for (const name of ['listMyClaims', 'listClaimsForReview', 'listClaimsForPayment', 'listPaidClaims'] as const) {
         mocks[name].mockResolvedValue([]);
     }
     mocks.getClaimsSummaryCounts.mockResolvedValue({ submitted: 1, approved: 2 });
@@ -206,6 +209,35 @@ describe('finance actions', () => {
     it('lists payable claims for FINANCE', async () => {
         as('FINANCE');
         expect(await listExpenseClaimsForPayment()).toEqual({ success: true, data: [] });
+    });
+});
+
+describe('Finance paid history', () => {
+    it.each(['FINANCE', 'ADMIN'])('lists paid claims for %s with a validated take', async (role) => {
+        as(role);
+        expect(await listExpenseClaimsPaid({ take: 100 })).toEqual({ success: true, data: [] });
+        expect(mocks.listPaidClaims).toHaveBeenCalledWith({ take: 100 });
+    });
+
+    it('accepts a call without options', async () => {
+        as('FINANCE');
+        expect(await listExpenseClaimsPaid()).toMatchObject({ success: true });
+        expect(mocks.listPaidClaims).toHaveBeenCalledWith(undefined);
+    });
+
+    it.each(['SALES', 'MARKETING', 'WAREHOUSE'])('does not let %s read the paid history', async (role) => {
+        as(role);
+        expect(await listExpenseClaimsPaid()).toMatchObject({ success: false });
+        expect(mocks.listPaidClaims).not.toHaveBeenCalled();
+    });
+
+    it('rejects malformed options before reading', async () => {
+        as('FINANCE');
+        expect(await listExpenseClaimsPaid({ take: 'many' })).toMatchObject({
+            success: false,
+            code: 'VALIDATION_ERROR',
+        });
+        expect(mocks.listPaidClaims).not.toHaveBeenCalled();
     });
 });
 

@@ -3,7 +3,10 @@ import {
     accountLabel,
     buildPayInput,
     emptyPayDraft,
+    initialPayDraft,
+    payoutNotice,
     validatePayDraft,
+    type ClaimPaymentAccounts,
     type PayDraft,
 } from '../expense-claim-payment-ui';
 
@@ -29,6 +32,66 @@ describe('emptyPayDraft', () => {
             paymentAccountId: '',
             paymentDate: '2026-11-25',
         });
+    });
+});
+
+const ACCOUNTS: ClaimPaymentAccounts = {
+    expenseAccounts: [
+        { id: 'exp-bbm', code: '61100', name: 'Biaya BBM' },
+        { id: 'exp-tol', code: '61200', name: 'Biaya Tol' },
+    ],
+    paymentAccounts: [{ id: 'cash-1', code: '11110', name: 'Kas Kecil' }],
+    defaults: {
+        expenseByCategory: { BBM: 'exp-bbm', TOL: 'exp-tol' },
+        paymentAccountId: 'cash-1',
+    },
+};
+
+describe('initialPayDraft', () => {
+    it('preselects the category default expense account and the default source account', () => {
+        expect(initialPayDraft(NOW, 'TOL', ACCOUNTS)).toEqual({
+            expenseAccountId: 'exp-tol',
+            paymentAccountId: 'cash-1',
+            paymentDate: '2026-11-24',
+        });
+    });
+
+    it('leaves the expense account empty for a category without a default', () => {
+        expect(initialPayDraft(NOW, 'MAKAN', ACCOUNTS)).toMatchObject({
+            expenseAccountId: '',
+            paymentAccountId: 'cash-1',
+        });
+    });
+
+    it('leaves both accounts empty when there are no defaults', () => {
+        const none = { ...ACCOUNTS, defaults: { expenseByCategory: {}, paymentAccountId: null } };
+        expect(initialPayDraft(NOW, 'BBM', none)).toEqual(emptyPayDraft(NOW));
+    });
+
+    it('ignores a default that is not among the offered accounts', () => {
+        const stale = {
+            ...ACCOUNTS,
+            defaults: { expenseByCategory: { BBM: 'gone' }, paymentAccountId: 'gone-too' },
+        };
+        expect(initialPayDraft(NOW, 'BBM', stale)).toEqual(emptyPayDraft(NOW));
+    });
+
+    it('ignores an unknown category', () => {
+        expect(initialPayDraft(NOW, 'ROKOK', ACCOUNTS).expenseAccountId).toBe('');
+    });
+});
+
+describe('payoutNotice', () => {
+    it('names the journal number when it is known', () => {
+        expect(payoutNotice('RMB-202611-002', 'JE-2026-0101')).toBe(
+            'Klaim RMB-202611-002 berhasil dicairkan dan jurnal JE-2026-0101 sudah diposting.',
+        );
+    });
+
+    it('falls back to a generic confirmation without a journal number', () => {
+        expect(payoutNotice('RMB-202611-002', null)).toBe(
+            'Klaim RMB-202611-002 berhasil dicairkan dan jurnal sudah diposting.',
+        );
     });
 });
 

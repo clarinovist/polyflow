@@ -3,9 +3,11 @@ import { Prisma } from '@prisma/client';
 
 const mocks = vi.hoisted(() => {
     const tx = {
+        $queryRaw: vi.fn(),
         expenseClaim: {
             count: vi.fn(),
             create: vi.fn(),
+            findFirst: vi.fn(),
             findUnique: vi.fn(),
             findUniqueOrThrow: vi.fn(),
             updateMany: vi.fn(),
@@ -62,6 +64,8 @@ beforeEach(() => {
     mocks.db.$transaction.mockImplementation((fn: (tx: unknown) => unknown) => fn(mocks.tx));
     mocks.db.expenseClaim.findFirst.mockResolvedValue(null);
     mocks.db.salesVisit.findFirst.mockResolvedValue({ id: 'visit-1' });
+    mocks.tx.$queryRaw.mockResolvedValue([{ locked: 1 }]);
+    mocks.tx.expenseClaim.findFirst.mockResolvedValue(null);
     mocks.tx.expenseClaim.count.mockResolvedValue(0);
     mocks.tx.expenseClaim.create.mockImplementation(async ({ data }) => ({ id: 'claim-1', ...data }));
     mocks.tx.expenseClaim.findUnique.mockResolvedValue(stored());
@@ -149,14 +153,14 @@ describe('submitClaim', () => {
     });
 
     it('rejects a receipt already used by a SUBMITTED, APPROVED or PAID claim', async () => {
-        mocks.db.expenseClaim.findFirst.mockImplementation(async ({ where }) =>
+        mocks.tx.expenseClaim.findFirst.mockImplementation(async ({ where }) =>
             where.receiptUrl ? { id: 'other-claim' } : null,
         );
 
         await expect(submitClaim(USER, validInput, { tenant: TENANT }, NOW)).rejects.toMatchObject({
             code: 'DUPLICATE_RECEIPT',
         });
-        expect(mocks.db.expenseClaim.findFirst).toHaveBeenCalledWith({
+        expect(mocks.tx.expenseClaim.findFirst).toHaveBeenCalledWith({
             where: {
                 receiptUrl: RECEIPT,
                 status: { in: ['SUBMITTED', 'APPROVED', 'PAID'] },
@@ -169,7 +173,7 @@ describe('submitClaim', () => {
     it('allows reusing a receipt whose earlier claim was cancelled or rejected', async () => {
         const claim = await submitClaim(USER, validInput, { tenant: TENANT }, NOW);
         expect(claim.id).toBe('claim-1');
-        const duplicateLookup = mocks.db.expenseClaim.findFirst.mock.calls.find(([a]) => a.where.receiptUrl);
+        const duplicateLookup = mocks.tx.expenseClaim.findFirst.mock.calls.find(([a]) => a.where.receiptUrl);
         expect(duplicateLookup?.[0].where.status.in).not.toContain('CANCELLED');
         expect(duplicateLookup?.[0].where.status.in).not.toContain('REJECTED');
     });
@@ -179,10 +183,59 @@ describe('submitClaim', () => {
         mocks.db.expenseClaim.findFirst.mockImplementation(async ({ where }) =>
             where.clientClaimId ? existing : { id: 'same-receipt-claim' },
         );
+        mocks.tx.expenseClaim.findFirst.mockResolvedValue({ id: 'same-receipt-claim' });
 
         await expect(
             submitClaim(USER, { ...validInput, clientClaimId: 'offline-1' }, { tenant: TENANT }, NOW),
         ).resolves.toBe(existing);
+        expect(mocks.db.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('takes a per-receipt advisory lock inside the transaction before the duplicate check and the create', async () => {
+        await submitClaim(USER, validInput, { tenant: TENANT }, NOW);
+
+        expect(mocks.tx.$queryRaw).toHaveBeenCalledTimes(1);
+        const [strings, key] = mocks.tx.$queryRaw.mock.calls[0];
+        expect(strings.join('?')).toContain('pg_advisory_xact_lock(hashtextextended(');
+        expect(key).toBe(`expense-claim-receipt:${RECEIPT}`);
+        const lockOrder = mocks.tx.$queryRaw.mock.invocationCallOrder[0];
+        const duplicateOrder = mocks.tx.expenseClaim.findFirst.mock.invocationCallOrder[0];
+        const createOrder = mocks.tx.expenseClaim.create.mock.invocationCallOrder[0];
+        expect(lockOrder).toBeLessThan(duplicateOrder);
+        expect(duplicateOrder).toBeLessThan(createOrder);
+    });
+
+    it('checks duplicates only inside the transaction, never on the pool client', async () => {
+        await submitClaim(USER, validInput, { tenant: TENANT }, NOW);
+
+        const poolLookups = mocks.db.expenseClaim.findFirst.mock.calls.filter(([a]) => a.where.receiptUrl);
+        expect(poolLookups).toHaveLength(0);
+        expect(mocks.tx.expenseClaim.findFirst).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not create a claim and does not retry when the duplicate is found after the lock', async () => {
+        mocks.tx.expenseClaim.findFirst.mockResolvedValue({ id: 'winner-of-the-race' });
+
+        await expect(submitClaim(USER, validInput, { tenant: TENANT }, NOW)).rejects.toMatchObject({
+            code: 'DUPLICATE_RECEIPT',
+        });
+        expect(mocks.db.$transaction).toHaveBeenCalledTimes(1);
+        expect(mocks.tx.expenseClaim.create).not.toHaveBeenCalled();
+        expect(mocks.audit).not.toHaveBeenCalled();
+    });
+
+    it('replays a racing retry of the same clientClaimId after the lock instead of reporting a duplicate receipt', async () => {
+        const stored = { id: 'first-attempt' };
+        mocks.tx.expenseClaim.findFirst.mockImplementation(async ({ where }) =>
+            where.clientClaimId ? stored : { id: 'first-attempt' },
+        );
+
+        await expect(
+            submitClaim(USER, { ...validInput, clientClaimId: 'offline-1' }, { tenant: TENANT }, NOW),
+        ).resolves.toBe(stored);
+        expect(mocks.tx.expenseClaim.create).not.toHaveBeenCalled();
+        const receiptLookups = mocks.tx.expenseClaim.findFirst.mock.calls.filter(([a]) => a.where.receiptUrl);
+        expect(receiptLookups).toHaveLength(0);
     });
 
     it('rejects a visit that belongs to someone else', async () => {

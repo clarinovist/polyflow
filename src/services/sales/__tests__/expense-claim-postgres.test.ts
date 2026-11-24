@@ -194,6 +194,32 @@ describe.skipIf(!db)('expense claim PostgreSQL contracts', () => {
         expect(await db!.expenseClaim.count({ where: { receiptUrl: shared } })).toBe(3);
     });
 
+    it('lets exactly one of two parallel submits with the same receipt succeed', async () => {
+        const shared = receipt(SUBMITTER, 1950000000000);
+
+        const outcomes = await Promise.allSettled([submit({ receiptUrl: shared }), submit({ receiptUrl: shared })]);
+
+        expect(outcomes.filter((o) => o.status === 'fulfilled')).toHaveLength(1);
+        const failed = outcomes.find((o) => o.status === 'rejected') as PromiseRejectedResult;
+        expect(failed.reason).toMatchObject({ code: 'DUPLICATE_RECEIPT' });
+        expect(await db!.expenseClaim.count({ where: { receiptUrl: shared } })).toBe(1);
+        expect(await db!.auditLog.count({ where: { action: 'SUBMIT_EXPENSE_CLAIM' } })).toBe(1);
+    });
+
+    it('returns the stored claim for a racing retry that reuses both clientClaimId and receipt', async () => {
+        const shared = receipt(SUBMITTER, 1970000000000);
+
+        const outcomes = await Promise.allSettled([
+            submit({ receiptUrl: shared, clientClaimId: 'offline-2' }),
+            submit({ receiptUrl: shared, clientClaimId: 'offline-2' }),
+        ]);
+
+        expect(outcomes.every((o) => o.status === 'fulfilled')).toBe(true);
+        const ids = outcomes.map((o) => (o as PromiseFulfilledResult<{ id: string }>).value.id);
+        expect(new Set(ids).size).toBe(1);
+        expect(await db!.expenseClaim.count({ where: { receiptUrl: shared } })).toBe(1);
+    });
+
     it('rejects a visit owned by another user and links an owned visit', async () => {
         await db!.customer.create({ data: { id: 'claim-customer', name: 'Synthetic Customer' } });
         await db!.salesVisit.create({

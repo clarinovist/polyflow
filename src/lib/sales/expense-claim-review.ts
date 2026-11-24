@@ -38,6 +38,24 @@ export function parseReviewStatus(
     return tab ? tab.status : DEFAULT_REVIEW_STATUS;
 }
 
+export const REIMBURSEMENT_TABS = [
+    { tab: 'queue', label: 'Menunggu pencairan' },
+    { tab: 'paid', label: 'Sudah dibayar' },
+] as const;
+
+export type ReimbursementTab = (typeof REIMBURSEMENT_TABS)[number]['tab'];
+
+export const DEFAULT_REIMBURSEMENT_TAB: ReimbursementTab = 'queue';
+
+/** Anything that is not one of the two Finance tabs falls back to the queue. */
+export function parseReimbursementTab(
+    raw: string | string[] | undefined,
+): ReimbursementTab {
+    const value = Array.isArray(raw) ? raw[0] : raw;
+    const found = REIMBURSEMENT_TABS.find((item) => item.tab === value);
+    return found ? found.tab : DEFAULT_REIMBURSEMENT_TAB;
+}
+
 /** First problem with the (trimmed) rejection reason, or null when valid. */
 export function validateRejectionReason(raw: string): string | null {
     const length = raw.trim().length;
@@ -69,4 +87,17 @@ export function isStaleStatus(failure: ClaimActionFailure): boolean {
 /** Row shape the review and payment tables read (serialized `ClaimView`). */
 export interface ClaimReviewItem extends ClaimListItem {
     user: { name: string | null } | null;
+}
+
+interface AccountCodeName {
+    code: string;
+    name: string;
+}
+
+/** Row shape of the Finance "Sudah dibayar" table (serialized `PaidClaimView`). */
+export interface PaidClaimItem extends ClaimReviewItem {
+    paidAt: string | null;
+    expenseAccount: AccountCodeName | null;
+    paymentAccount: AccountCodeName | null;
+    journalEntry: { entryNumber: string } | null;
 }

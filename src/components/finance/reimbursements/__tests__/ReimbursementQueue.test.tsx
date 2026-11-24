@@ -32,6 +32,14 @@ const ACCOUNTS: ClaimPaymentAccounts = {
         { id: 'cash-1', code: '11110', name: 'Kas Kecil' },
         { id: 'bank-1', code: '11120', name: 'Bank Operasional' },
     ],
+    defaults: { expenseByCategory: {}, paymentAccountId: null },
+};
+const WITH_DEFAULTS: ClaimPaymentAccounts = {
+    ...ACCOUNTS,
+    defaults: {
+        expenseByCategory: { TOL: 'exp-1', BBM: 'exp-2' },
+        paymentAccountId: 'bank-1',
+    },
 };
 
 function claim(overrides: Partial<ClaimReviewItem> = {}): ClaimReviewItem {
@@ -95,6 +103,72 @@ describe('ReimbursementQueue', () => {
         expect(
             screen.getByRole('link', { name: /Lihat nota/ }).getAttribute('href'),
         ).toBe('/api/images/t/expense-receipt/u/2.jpg');
+    });
+});
+
+describe('PayClaimDialog defaults', () => {
+    const expenseSelect = () => screen.getByLabelText('Akun biaya') as HTMLSelectElement;
+    const sourceSelect = () =>
+        screen.getByLabelText('Akun sumber dana (kas/bank)') as HTMLSelectElement;
+
+    it('preselects the default expense account of the claim category and the default source account', async () => {
+        renderQueue(WITH_DEFAULTS);
+        await openDialog();
+
+        expect(expenseSelect().value).toBe('exp-1');
+        expect(sourceSelect().value).toBe('bank-1');
+    });
+
+    it('pays with the preselected accounts without touching the selects', async () => {
+        renderQueue(WITH_DEFAULTS);
+        await openDialog();
+
+        submit();
+
+        await waitFor(() =>
+            expect(m.pay).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    claimId: 'claim-1',
+                    expenseAccountId: 'exp-1',
+                    paymentAccountId: 'bank-1',
+                }),
+            ),
+        );
+    });
+
+    it('lets Finance change a preselected account', async () => {
+        renderQueue(WITH_DEFAULTS);
+        await openDialog();
+
+        choose('Akun biaya', 'exp-2');
+        choose('Akun sumber dana (kas/bank)', 'cash-1');
+        submit();
+
+        await waitFor(() =>
+            expect(m.pay).toHaveBeenCalledWith(
+                expect.objectContaining({ expenseAccountId: 'exp-2', paymentAccountId: 'cash-1' }),
+            ),
+        );
+    });
+
+    it('preselects nothing for a category without a default but still offers the source default', async () => {
+        const noTolDefault = {
+            ...WITH_DEFAULTS,
+            defaults: { expenseByCategory: { BBM: 'exp-2' }, paymentAccountId: 'cash-1' },
+        };
+        renderQueue(noTolDefault);
+        await openDialog();
+
+        expect(expenseSelect().value).toBe('');
+        expect(sourceSelect().value).toBe('cash-1');
+    });
+
+    it('preselects nothing when there is no history at all', async () => {
+        renderQueue();
+        await openDialog();
+
+        expect(expenseSelect().value).toBe('');
+        expect(sourceSelect().value).toBe('');
     });
 });
 
@@ -195,6 +269,37 @@ describe('PayClaimDialog', () => {
         await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     });
 
+    it('names the posted journal number in the confirmation when the server returns it', async () => {
+        m.pay.mockResolvedValue({
+            success: true,
+            data: { journalEntry: { entryNumber: 'JE-2026-0101' } },
+        });
+        renderQueue();
+        await openDialog();
+
+        choose('Akun biaya', 'exp-1');
+        choose('Akun sumber dana (kas/bank)', 'cash-1');
+        submit();
+
+        expect((await screen.findByRole('status')).textContent).toBe(
+            'Klaim RMB-202611-002 berhasil dicairkan dan jurnal JE-2026-0101 sudah diposting.',
+        );
+    });
+
+    it('still confirms when the response carries no journal number', async () => {
+        m.pay.mockResolvedValue({ success: true, data: { journalEntry: null } });
+        renderQueue();
+        await openDialog();
+
+        choose('Akun biaya', 'exp-1');
+        choose('Akun sumber dana (kas/bank)', 'cash-1');
+        submit();
+
+        expect((await screen.findByRole('status')).textContent).toBe(
+            'Klaim RMB-202611-002 berhasil dicairkan dan jurnal sudah diposting.',
+        );
+    });
+
     it('keeps the dialog open and shows the server error as-is on failure', async () => {
         m.pay.mockResolvedValue({
             success: false,
@@ -263,7 +368,7 @@ describe('PayClaimDialog', () => {
     });
 
     it('blocks paying when the chart of accounts has no usable accounts', async () => {
-        renderQueue({ expenseAccounts: [], paymentAccounts: [] });
+        renderQueue({ ...ACCOUNTS, expenseAccounts: [], paymentAccounts: [] });
         await openDialog();
 
         expect((await screen.findByRole('alert')).textContent).toContain(

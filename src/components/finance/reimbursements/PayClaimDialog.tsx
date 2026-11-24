@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect } from '@/components/ui/native-select';
 import { payExpenseClaim } from '@/actions/sales/expense-claims';
 import { formatRupiah } from '@/lib/utils/utils';
-import { categoryLabel } from '@/lib/sales/expense-claim-ui';
+import { categoryLabel, todayWib } from '@/lib/sales/expense-claim-ui';
 import {
     CLAIM_ACTION_FAILED_MESSAGE,
     claimActionErrorMessage,
@@ -26,7 +26,7 @@ import {
 import {
     accountLabel,
     buildPayInput,
-    emptyPayDraft,
+    initialPayDraft,
     validatePayDraft,
     type ClaimAccountOption,
     type ClaimPaymentAccounts,
@@ -38,7 +38,11 @@ interface PayClaimDialogProps {
     accounts: ClaimPaymentAccounts;
     onClose: () => void;
     /** Called after a successful payment, or when the claim turned out stale. */
-    onSettled: (outcome: { paid: boolean; claimNumber: string }) => void;
+    onSettled: (outcome: {
+        paid: boolean;
+        claimNumber: string;
+        journalNumber: string | null;
+    }) => void;
 }
 
 function AccountSelect({
@@ -84,9 +88,9 @@ function PayClaimForm({
     onSettled,
 }: Omit<PayClaimDialogProps, 'claim'> & { claim: ClaimReviewItem }) {
     const [draft, setDraft] = useState<PayDraft>(() =>
-        emptyPayDraft(new Date()),
+        initialPayDraft(new Date(), claim.category, accounts),
     );
-    const [maxDate] = useState(() => emptyPayDraft(new Date()).paymentDate);
+    const [maxDate] = useState(() => todayWib(new Date()));
     const [error, setError] = useState<string | null>(null);
     const [isPending, setIsPending] = useState(false);
     const hasAccounts =
@@ -113,11 +117,19 @@ function PayClaimForm({
             if (!result.success) {
                 setError(claimActionErrorMessage(result));
                 if (isStaleStatus(result)) {
-                    onSettled({ paid: false, claimNumber: claim.claimNumber });
+                    onSettled({
+                        paid: false,
+                        claimNumber: claim.claimNumber,
+                        journalNumber: null,
+                    });
                 }
                 return;
             }
-            onSettled({ paid: true, claimNumber: claim.claimNumber });
+            onSettled({
+                paid: true,
+                claimNumber: claim.claimNumber,
+                journalNumber: result.data?.journalEntry?.entryNumber ?? null,
+            });
         } catch {
             setError(CLAIM_ACTION_FAILED_MESSAGE);
         } finally {

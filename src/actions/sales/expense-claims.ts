@@ -165,6 +165,16 @@ export const listExpenseClaimsForPayment = withTenant(
     },
 );
 
+export const listExpenseClaimsPaid = withTenant(
+    async function listExpenseClaimsPaid(options?: unknown) {
+        return safeAction(async () => {
+            await requireFinanceMutation();
+            const parsed = parseClaimInput(listClaimsSchema, options);
+            return serializeData(await queries.listPaidClaims(parsed));
+        });
+    },
+);
+
 // ── Page counters (approver or Finance) ──
 
 export const getExpenseClaimCounts = withTenant(

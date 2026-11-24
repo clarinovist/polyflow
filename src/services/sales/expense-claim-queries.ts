@@ -2,9 +2,15 @@ import { ExpenseClaimStatus } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import { NotFoundError } from '@/lib/errors/errors';
 import { clampTake } from '@/lib/sales/expense-claim';
-import { CLAIM_VIEW_SELECT, type ClaimView } from './expense-claim-select';
+import {
+    CLAIM_VIEW_SELECT,
+    PAID_CLAIM_SELECT,
+    type ClaimView,
+    type PaidClaimView,
+} from './expense-claim-select';
 
 const NEWEST_FIRST = [{ createdAt: 'desc' }, { id: 'desc' }] as const;
+const NEWEST_PAID_FIRST = [{ paidAt: 'desc' }, { id: 'desc' }] as const;
 const OLDEST_FIRST = [{ createdAt: 'asc' }, { id: 'asc' }] as const;
 
 export interface ClaimListOptions {
@@ -67,6 +73,18 @@ export async function listClaimsForPayment(
         orderBy: [...OLDEST_FIRST],
         take: clampTake(options.take),
         select: CLAIM_VIEW_SELECT,
+    });
+}
+
+/** Finance history: claims already paid, most recently paid first. */
+export async function listPaidClaims(
+    options: ClaimListOptions = {},
+): Promise<PaidClaimView[]> {
+    return prisma.expenseClaim.findMany({
+        where: { status: ExpenseClaimStatus.PAID },
+        orderBy: [...NEWEST_PAID_FIRST],
+        take: clampTake(options.take),
+        select: PAID_CLAIM_SELECT,
     });
 }
 

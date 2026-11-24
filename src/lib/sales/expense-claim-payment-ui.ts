@@ -1,6 +1,9 @@
 import { toBusinessDateString } from '@/lib/utils/timezone';
 import { businessDateToEntryDate } from '@/lib/utils/timezone';
-import { todayWib } from '@/lib/sales/expense-claim-ui';
+import {
+    todayWib,
+    type ExpenseClaimCategoryValue,
+} from '@/lib/sales/expense-claim-ui';
 
 /** Pure helpers for the Finance "Cairkan" dialog. No I/O. */
 
@@ -12,9 +15,16 @@ export interface ClaimAccountOption {
     name: string;
 }
 
+/** Suggested accounts from past paid claims; always a subset of the offered accounts. */
+export interface ClaimAccountDefaults {
+    expenseByCategory: Partial<Record<ExpenseClaimCategoryValue, string>>;
+    paymentAccountId: string | null;
+}
+
 export interface ClaimPaymentAccounts {
     expenseAccounts: ClaimAccountOption[];
     paymentAccounts: ClaimAccountOption[];
+    defaults: ClaimAccountDefaults;
 }
 
 export interface PayDraft {
@@ -31,7 +41,42 @@ export function emptyPayDraft(now: Date): PayDraft {
     };
 }
 
-export function accountLabel(account: ClaimAccountOption): string {
+function offeredId(
+    options: ClaimAccountOption[],
+    id: string | null | undefined,
+): string {
+    return id && options.some((option) => option.id === id) ? id : '';
+}
+
+/** Draft for the pay dialog: today, with the default accounts when still offered. */
+export function initialPayDraft(
+    now: Date,
+    category: string,
+    accounts: ClaimPaymentAccounts,
+): PayDraft {
+    const { expenseByCategory, paymentAccountId } = accounts.defaults;
+    const expenseId = Object.hasOwn(expenseByCategory, category)
+        ? expenseByCategory[category as ExpenseClaimCategoryValue]
+        : undefined;
+    return {
+        ...emptyPayDraft(now),
+        expenseAccountId: offeredId(accounts.expenseAccounts, expenseId),
+        paymentAccountId: offeredId(accounts.paymentAccounts, paymentAccountId),
+    };
+}
+
+/** Confirmation shown after a payment; names the journal number when known. */
+export function payoutNotice(
+    claimNumber: string,
+    journalNumber: string | null,
+): string {
+    const journal = journalNumber ? `jurnal ${journalNumber}` : 'jurnal';
+    return `Klaim ${claimNumber} berhasil dicairkan dan ${journal} sudah diposting.`;
+}
+
+export function accountLabel<T extends { code: string; name: string }>(
+    account: T,
+): string {
     return `${account.code} · ${account.name}`;
 }
 

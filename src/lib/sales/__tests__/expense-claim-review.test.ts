@@ -4,7 +4,10 @@ import {
     CLAIM_REVIEW_ROLES,
     STALE_STATUS_MESSAGE,
     claimActionErrorMessage,
+    DEFAULT_REIMBURSEMENT_TAB,
+    REIMBURSEMENT_TABS,
     isStaleStatus,
+    parseReimbursementTab,
     parseReviewStatus,
     validateRejectionReason,
 } from '../expense-claim-review';
@@ -65,6 +68,32 @@ describe('claimActionErrorMessage', () => {
         };
         expect(claimActionErrorMessage(failure)).toBe(STALE_STATUS_MESSAGE);
         expect(isStaleStatus(failure)).toBe(true);
+    });
+});
+
+describe('parseReimbursementTab', () => {
+    it('lists the queue tab first and the paid history second', () => {
+        expect(REIMBURSEMENT_TABS.map((item) => [item.tab, item.label])).toEqual([
+            ['queue', 'Menunggu pencairan'],
+            ['paid', 'Sudah dibayar'],
+        ]);
+        expect(DEFAULT_REIMBURSEMENT_TAB).toBe('queue');
+    });
+
+    it.each(['queue', 'paid'])('accepts the %s tab', (tab) => {
+        expect(parseReimbursementTab(tab)).toBe(tab);
+    });
+
+    it('falls back to the queue for unknown, wrong-case or missing values', () => {
+        expect(parseReimbursementTab('PAID')).toBe('queue');
+        expect(parseReimbursementTab('junk')).toBe('queue');
+        expect(parseReimbursementTab('')).toBe('queue');
+        expect(parseReimbursementTab(undefined)).toBe('queue');
+    });
+
+    it('uses the first value when the param is repeated', () => {
+        expect(parseReimbursementTab(['paid', 'queue'])).toBe('paid');
+        expect(parseReimbursementTab([])).toBe('queue');
     });
 });
 

@@ -1,4 +1,4 @@
-import { ExpenseClaimStatus } from '@prisma/client';
+import { ExpenseClaimStatus, type Prisma } from '@prisma/client';
 import { prisma } from '@/lib/core/prisma';
 import {
     BusinessRuleError,
@@ -30,6 +30,10 @@ const RECEIPT_LOCKING_STATUSES = [
     ExpenseClaimStatus.PAID,
 ];
 const ENTITY_TYPE = 'ExpenseClaim';
+/** Advisory-lock key prefix: serializes concurrent submits of the same receipt photo. */
+const RECEIPT_LOCK_PREFIX = 'expense-claim-receipt:';
+
+type ClaimReader = Pick<Prisma.TransactionClient, 'expenseClaim'>;
 
 export interface SubmitClaimContext {
     /** Tenant key prefix used by the receipt upload route. */
@@ -37,17 +41,24 @@ export interface SubmitClaimContext {
 }
 
 async function findByClientClaimId(
+    db: ClaimReader,
     userId: string,
     clientClaimId: string,
 ): Promise<ClaimView | null> {
-    return prisma.expenseClaim.findFirst({
+    return db.expenseClaim.findFirst({
         where: { userId, clientClaimId },
         select: CLAIM_VIEW_SELECT,
     });
 }
 
-async function assertReceiptNotReused(receiptUrl: string) {
-    const used = await prisma.expenseClaim.findFirst({
+/** Holds until the surrounding transaction ends; the key is only the receipt URL. */
+async function lockReceipt(tx: Prisma.TransactionClient, receiptUrl: string) {
+    const key = `${RECEIPT_LOCK_PREFIX}${receiptUrl}`;
+    await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+}
+
+async function assertReceiptNotReused(db: ClaimReader, receiptUrl: string) {
+    const used = await db.expenseClaim.findFirst({
         where: { receiptUrl, status: { in: RECEIPT_LOCKING_STATUSES } },
         select: { id: true },
     });
@@ -82,6 +93,17 @@ async function createClaimOnce(
     now: Date,
 ): Promise<ClaimView> {
     return prisma.$transaction(async (tx) => {
+        // Lock first so a concurrent submit of the same receipt waits, then sees this claim.
+        await lockReceipt(tx, input.receiptUrl);
+        if (input.clientClaimId) {
+            const replay = await findByClientClaimId(
+                tx,
+                userId,
+                input.clientClaimId,
+            );
+            if (replay) return replay;
+        }
+        await assertReceiptNotReused(tx, input.receiptUrl);
         const claimNumber = await nextClaimNumber(tx, now);
         const claim = await tx.expenseClaim.create({
             data: {
@@ -126,6 +148,7 @@ async function createClaimWithRetry(
                 isUniqueViolationOn(error, 'clientClaimId')
             ) {
                 const existing = await findByClientClaimId(
+                    prisma,
                     userId,
                     input.clientClaimId,
                 );
@@ -153,7 +176,11 @@ export async function submitClaim(
 ): Promise<ClaimView> {
     const input = parseClaimInput(submitClaimSchema, raw);
     if (input.clientClaimId) {
-        const existing = await findByClientClaimId(userId, input.clientClaimId);
+        const existing = await findByClientClaimId(
+            prisma,
+            userId,
+            input.clientClaimId,
+        );
         if (existing) return existing;
     }
     const expenseDate = resolveExpenseDate(input.expenseDate, now);
@@ -162,7 +189,6 @@ export async function submitClaim(
             'Foto nota tidak valid, unggah ulang foto nota',
         );
     }
-    await assertReceiptNotReused(input.receiptUrl);
     await assertVisitOwnedBy(userId, input.salesVisitId);
     return createClaimWithRetry(userId, input, expenseDate, now);
 }

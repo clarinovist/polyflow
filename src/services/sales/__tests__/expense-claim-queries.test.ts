@@ -11,6 +11,7 @@ import {
     listClaimsForPayment,
     listClaimsForReview,
     listMyClaims,
+    listPaidClaims,
 } from '../expense-claim-queries';
 
 beforeEach(() => {
@@ -75,6 +76,40 @@ describe('listClaimsForPayment', () => {
         expect(args.where).toEqual({ status: 'APPROVED' });
         expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
         expect(args.take).toBe(50);
+    });
+});
+
+describe('listPaidClaims', () => {
+    it('lists only PAID claims, newest payment first, with a stable tie-break', async () => {
+        await listPaidClaims();
+        const args = mocks.claim.findMany.mock.calls[0][0];
+        expect(args.where).toEqual({ status: 'PAID' });
+        expect(args.orderBy).toEqual([{ paidAt: 'desc' }, { id: 'desc' }]);
+        expect(args.take).toBe(50);
+    });
+
+    it('clamps take to the list maximum and to at least one', async () => {
+        await listPaidClaims({ take: 100_000 });
+        await listPaidClaims({ take: 0 });
+        expect(mocks.claim.findMany.mock.calls[0][0].take).toBe(100);
+        expect(mocks.claim.findMany.mock.calls[1][0].take).toBe(1);
+    });
+
+    it('selects only the narrow paid projection with account codes/names and the journal number', async () => {
+        await listPaidClaims();
+        const { select, include } = mocks.claim.findMany.mock.calls[0][0];
+        expect(include).toBeUndefined();
+        expect(select.paidAt).toBe(true);
+        expect(select.user).toEqual({ select: { name: true } });
+        expect(select.expenseAccount).toEqual({ select: { code: true, name: true } });
+        expect(select.paymentAccount).toEqual({ select: { code: true, name: true } });
+        expect(select.journalEntry).toEqual({ select: { entryNumber: true } });
+    });
+
+    it('returns the rows as read', async () => {
+        const rows = [{ id: 'c1' }];
+        mocks.claim.findMany.mockResolvedValue(rows);
+        await expect(listPaidClaims()).resolves.toBe(rows);
     });
 });
 
