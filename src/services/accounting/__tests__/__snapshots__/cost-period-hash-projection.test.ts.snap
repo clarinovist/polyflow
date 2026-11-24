@@ -233,6 +233,7 @@ exports[`schema changes require an explicit cost hash projection decision > pins
     "atkEvidence AtkCostEvidence[] @relation("AtkEvidenceJournal")",
     "details JournalEntryDetail[]",
     "pettyCashTransaction PettyCashTransaction?",
+    "expenseClaim ExpenseClaim?",
     "reconciliationAdjustments BankReconciliationAdjustment[]",
     "priceAdjustmentSources InvoicePriceAdjustment[] @relation("PriceAdjustmentSource")",
     "priceAdjustmentJournal InvoicePriceAdjustment? @relation("PriceAdjustmentJournal")",
@@ -375,6 +376,7 @@ exports[`schema changes require an explicit cost hash projection decision > pins
     "PURCHASE_RETURN",
     "PETTY_CASH",
     "BANK_RECONCILIATION",
+    "EXPENSE_CLAIM",
   ],
   "ScrapRecord": [
     "id String @id @default(uuid())",

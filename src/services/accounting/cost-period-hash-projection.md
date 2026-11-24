@@ -97,7 +97,24 @@ fixtures include both ATK and purchase-price inverse relations without changing
 receipt verification. This exclusion does not authorize rewriting a sealed
 journal or treating new correction journals as historical sealed evidence.
 
+## Expense claim relation and reference type addition (2026-11-24)
+
+`JournalEntry.expenseClaim` is an inverse relation to a separate reimbursement
+document (`ExpenseClaim`), not a scalar cost field on the sealed journal. The new
+`ReferenceType.EXPENSE_CLAIM` value is used only by the payment journal of a sales
+expense claim (debit an expense account, credit a cash/bank account). It is not
+production, inventory, WIP or COGS evidence: such journals are never linked to stock
+movements or production orders, so they do not enter a cost-period source set.
+Both stay outside **both** frozen projections; no historical hash or receipt is
+rewritten, because existing rows keep their stored `referenceType` values. Only the
+complete-schema snapshot changes (the new relation line and the new enum value);
+the projection-list snapshot and pinned receipt hashes must stay byte-identical.
+This exclusion does not authorize treating a reimbursement journal as sealed cost
+evidence, or posting reimbursement through production cost accounts.
+
 ## Decision history
 
 - 2026-10-29: freeze original v1/v2 scalar shape; introduce COST_V1 using the
   exclusions above; preserve business receipt/audit and frozen-shell semantics.
+- 2026-11-24: sales expense claim inverse relation on JournalEntry and the
+  EXPENSE_CLAIM reference type recorded as non-cost additions (schema snapshot only).
