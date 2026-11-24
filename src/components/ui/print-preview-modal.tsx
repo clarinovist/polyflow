@@ -10,6 +10,62 @@ import {
 import { Button } from '@/components/ui/button';
 import { Printer, X } from 'lucide-react';
 
+/**
+ * Print layout for the open preview dialog.
+ *
+ * Everything outside the dialog is removed from layout with `display: none`
+ * (not `visibility: hidden`, which keeps the page behind it tall and adds
+ * blank pages). The dialog itself is made static: Radix positions it with
+ * `position: fixed` plus a translate, and Chrome repeats fixed elements on
+ * every printed page, starting from the middle of the page. The scroll lock
+ * Radix puts on html/body is lifted so the content can paginate.
+ * `translate` is reset separately because Tailwind v4 emits it as an
+ * individual property that `transform: none` does not cancel.
+ */
+const PRINT_PREVIEW_CSS = `
+@media print {
+  body > *:not(:has([data-print-preview-root])) {
+    display: none !important;
+  }
+  html,
+  body,
+  body[data-scroll-locked] {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  [data-slot='dialog-overlay'] {
+    display: none !important;
+  }
+  [data-slot='dialog-content'] {
+    position: static !important;
+    inset: auto !important;
+    translate: none !important;
+    transform: none !important;
+    animation: none !important;
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    background: transparent !important;
+  }
+  [data-print-preview-root] {
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+}
+`;
+
 interface PrintPreviewModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -66,30 +122,7 @@ export function PrintPreviewModal({
                     </Button>
                 </DialogFooter>
             </DialogContent>
-            {open && (
-                <style>{`
-          @media print {
-            body * {
-              visibility: hidden !important;
-            }
-
-            [data-print-preview-root],
-            [data-print-preview-root] * {
-              visibility: visible !important;
-            }
-
-            [data-print-preview-root] {
-              position: absolute !important;
-              inset: 0 auto auto 0 !important;
-              width: 100% !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              border: 0 !important;
-              overflow: visible !important;
-            }
-          }
-        `}</style>
-            )}
+            {open && <style>{PRINT_PREVIEW_CSS}</style>}
         </Dialog>
     );
 }

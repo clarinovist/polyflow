@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 import { formatQuantity, sumQuantities } from '@/lib/utils/utils';
+import { buildDotMatrixPrintCss } from '@/lib/printing/dot-matrix-print-css';
 
 type DeliveryItem = {
     id?: string;
@@ -269,39 +270,6 @@ export function SuratJalanDotMatrixPrint({
                 </div>
             </div>
 
-            {/* Dynamic @page from company paper size config */}
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-        @page {
-          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
-          margin: ${paperSize.marginMm}mm;
-        }
-
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          html, body {
-            width: ${paperSize.widthCm}cm;
-            min-height: ${paperSize.heightCm}cm;
-          }
-          .print-page {
-            width: ${paperSize.widthCm}cm;
-            min-height: ${paperSize.heightCm}cm;
-            max-width: none;
-            margin: 0;
-            box-sizing: border-box;
-          }
-        }
-      `,
-                }}
-            />
-
             <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
@@ -490,6 +458,12 @@ export function SuratJalanDotMatrixPrint({
           min-width: 90px;
         }
       `}</style>
+            {/* Print overrides must come after the screen stylesheet above. */}
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: buildDotMatrixPrintCss(paperSize),
+                }}
+            />
         </>
     );
 }

@@ -5,6 +5,7 @@ import { id as idLocale } from 'date-fns/locale';
 import { getCompanyConfig, type CompanyConfig } from '@/lib/config/company';
 import { terbilang } from '@/lib/utils/terbilang';
 import { formatQuantity, sumQuantities } from '@/lib/utils/utils';
+import { buildDotMatrixPrintCss } from '@/lib/printing/dot-matrix-print-css';
 import { InvoiceStatus } from '@prisma/client';
 import {
     invoiceSnapshotOrder,
@@ -419,41 +420,6 @@ export function InvoiceDotMatrixPrint({
                 <div className="invoice-note">NOTE :{COMPANY.footerNote}</div>
             </div>
 
-            {/* Dynamic @page from company paper size config */}
-            <style
-                dangerouslySetInnerHTML={{
-                    __html: `
-        @page {
-          size: ${paperSize.widthCm}cm ${paperSize.heightCm}cm;
-          margin: ${paperSize.marginMm}mm;
-        }
-
-        @media print {
-          .no-print {
-            display: none !important;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          html, body {
-            width: ${paperSize.widthCm}cm;
-            min-height: ${paperSize.heightCm}cm;
-          }
-          .print-page {
-            width: ${paperSize.widthCm}cm;
-            min-height: ${paperSize.heightCm}cm;
-            max-width: none;
-            margin: 0;
-            box-sizing: border-box;
-            page-break-inside: avoid;
-            page-break-after: avoid;
-          }
-        }
-      `,
-                }}
-            />
-
             <style>{`
         .print-page {
           font-family: 'Courier New', 'Consolas', 'Lucida Console', monospace;
@@ -749,7 +715,58 @@ export function InvoiceDotMatrixPrint({
           font-size: 10px;
           font-weight: bold;
         }
+
+        /*
+         * Paper is only 13.97 cm high, so the screen spacing leaves no room
+         * for the footer note once the table has 4+ rows. Tighter vertical
+         * rhythm for print only keeps up to 6 items on a single page.
+         */
+        @media print {
+          .print-page {
+            line-height: 1.2;
+          }
+          .title-section {
+            padding-top: 2px;
+          }
+          .invoice-header {
+            margin-bottom: 4px;
+            padding-bottom: 4px;
+          }
+          .customer-info-row {
+            margin-bottom: 4px;
+          }
+          .items-table th,
+          .items-table td {
+            padding-top: 2px;
+            padding-bottom: 2px;
+          }
+          .financial-summary {
+            margin-bottom: 4px;
+          }
+          .summary-row {
+            line-height: 1.3;
+          }
+          .bottom-section {
+            margin-top: 4px;
+          }
+          .hormat-text {
+            margin-bottom: 20px;
+          }
+          /* Never split the totals or the signature block across pages. */
+          .financial-summary,
+          .bottom-section,
+          .invoice-note {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
       `}</style>
+            {/* Print overrides must come after the screen stylesheet above. */}
+            <style
+                dangerouslySetInnerHTML={{
+                    __html: buildDotMatrixPrintCss(paperSize),
+                }}
+            />
         </>
     );
 }

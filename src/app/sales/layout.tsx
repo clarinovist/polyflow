@@ -98,20 +98,26 @@ export default async function SalesLayout({
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-background print:min-h-0 print:bg-white">
             <SkipToMainContent />
-            <SalesSidebar
-                user={session.user}
-                permissions={permissions}
-                currentTenantId={currentTenant?.id}
-                currentTenantName={currentTenant?.name}
-                workspaces={workspaces}
-                centralLoginHint={!session.user.globalAccountId}
-            />
-            <SidebarSpacer>
-                <main id="main-content" tabIndex={-1} className="min-h-screen">
-                    <div className="p-4 md:p-6 lg:p-8">
-                        <header className="mb-4 flex items-center gap-4">
+            <div className="print:hidden">
+                <SalesSidebar
+                    user={session.user}
+                    permissions={permissions}
+                    currentTenantId={currentTenant?.id}
+                    currentTenantName={currentTenant?.name}
+                    workspaces={workspaces}
+                    centralLoginHint={!session.user.globalAccountId}
+                />
+            </div>
+            <SidebarSpacer className="print:ml-0!">
+                <main
+                    id="main-content"
+                    tabIndex={-1}
+                    className="min-h-screen print:min-h-0"
+                >
+                    <div className="p-4 md:p-6 lg:p-8 print:p-0">
+                        <header className="mb-4 flex items-center gap-4 print:hidden">
                             <PathBreadCrumb className="mb-0 min-w-0" />
                             <div
                                 id="sales-assistant-desktop"
