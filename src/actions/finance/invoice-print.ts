@@ -11,19 +11,42 @@ import { safeAction } from '@/lib/errors/errors';
 /** Sales-side roles that may print an invoice (ADMIN and FINANCE are always allowed). */
 const INVOICE_PRINT_ROLES = ['SALES', 'MARKETING'];
 
-/** Same shape the finance print page reads through getInvoiceById. */
-const INVOICE_PRINT_INCLUDE = {
+/**
+ * Explicit field list for the sales-portal print page.
+ *
+ * The print template renders line items from `commercialSnapshot` and only
+ * needs the customer header from the live order. Never `include` whole
+ * relations here: this action is open to roles without finance access, and
+ * the page hands the result to a client component, so every selected column
+ * (e.g. variant buyPrice / standardCost) would reach the browser.
+ */
+const INVOICE_PRINT_SELECT = {
+    id: true,
+    invoiceNumber: true,
+    invoiceDate: true,
+    dueDate: true,
+    status: true,
+    totalAmount: true,
+    paidAmount: true,
+    creditedAmount: true,
+    priceAdjustmentAmount: true,
+    commercialSnapshot: true,
     salesOrder: {
-        include: {
-            customer: true,
-            items: {
-                include: {
-                    productVariant: { include: { product: true } },
+        select: {
+            orderNumber: true,
+            customer: {
+                select: {
+                    name: true,
+                    phone: true,
+                    email: true,
+                    billingAddress: true,
+                    shippingAddress: true,
+                    taxId: true,
                 },
             },
         },
     },
-} satisfies Prisma.InvoiceInclude;
+} satisfies Prisma.InvoiceSelect;
 
 /**
  * Read-only invoice lookup for the sales-portal print page.
@@ -41,7 +64,7 @@ export const getSalesInvoiceForPrint = withTenant(
                     id,
                     salesOrder: buildOperationalSalesReceivableOrderWhere(),
                 },
-                include: INVOICE_PRINT_INCLUDE,
+                select: INVOICE_PRINT_SELECT,
             });
             return serializeData(invoice);
         });

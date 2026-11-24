@@ -99,24 +99,46 @@ describe('getSalesInvoiceForPrint', () => {
         });
     });
 
-    it('includes the customer and line items needed to print', async () => {
+    it('selects only the fields the print template renders', async () => {
         signInAs('SALES');
 
         await getSalesInvoiceForPrint(INVOICE_ID);
 
         const args = vi.mocked(prisma.invoice.findFirst).mock.calls[0][0];
-        expect(args?.include).toEqual({
-            salesOrder: {
-                include: {
-                    customer: true,
-                    items: {
-                        include: {
-                            productVariant: { include: { product: true } },
+        expect(args?.include).toBeUndefined();
+        expect(args?.select).toEqual(
+            expect.objectContaining({
+                invoiceNumber: true,
+                commercialSnapshot: true,
+                salesOrder: {
+                    select: {
+                        orderNumber: true,
+                        customer: {
+                            select: {
+                                name: true,
+                                phone: true,
+                                email: true,
+                                billingAddress: true,
+                                shippingAddress: true,
+                                taxId: true,
+                            },
                         },
                     },
                 },
-            },
-        });
+            }),
+        );
+    });
+
+    it('never selects product cost data', async () => {
+        signInAs('MARKETING');
+
+        await getSalesInvoiceForPrint(INVOICE_ID);
+
+        const args = vi.mocked(prisma.invoice.findFirst).mock.calls[0][0];
+        const serialized = JSON.stringify(args?.select);
+        expect(serialized).not.toMatch(
+            /buyPrice|standardCost|costingMethod|productVariant|items/,
+        );
     });
 
     it('returns null data when the invoice is outside the operational scope', async () => {
