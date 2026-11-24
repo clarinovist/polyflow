@@ -27,6 +27,7 @@ Plain `requireAuth()` is NOT used — every action requires one of:
 | `getOutstandingInvoicesByCustomerId` | invoice.ts         | SALES, FIELD_SALES  | Field Sales AR lookup |
 | `getSalesInvoices`                   | invoices.ts        | SALES               | Sales invoice list    |
 | `getInvoiceStats`                    | invoices.ts        | SALES               | Sales invoice stats   |
+| `getSalesInvoiceForPrint`            | invoice-print.ts   | SALES, MARKETING    | Sales portal invoice PDF (operational scope only, findFirst) |
 | `getPurchaseInvoices`                | invoices.ts        | PROCUREMENT         | Purchasing AP         |
 | `getOutstandingPurchaseInvoices`     | invoices.ts        | PROCUREMENT         | Purchasing AP         |
 

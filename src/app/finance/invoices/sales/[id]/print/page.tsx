@@ -2,6 +2,7 @@ import { getInvoiceById } from '@/actions/finance/invoice';
 import { InvoiceDotMatrixPrint } from '@/components/finance/invoices/InvoiceDotMatrixPrint';
 import { notFound } from 'next/navigation';
 import { getCompanyConfigWithOverridesAsync } from '@/lib/config/company-settings';
+import { serializeInvoiceForPrint } from '@/lib/finance/serialize-invoice-for-print';
 import type { ComponentProps } from 'react';
 
 interface PrintPageProps {
@@ -24,40 +25,7 @@ export default async function InvoicePrintPage({ params }: PrintPageProps) {
         notFound();
     }
 
-    // Serialize Prisma Decimal → number for the client component
-    const invoice = {
-        ...raw,
-        totalAmount: Number(raw.totalAmount),
-        paidAmount: Number(raw.paidAmount),
-        creditedAmount: Number(raw.creditedAmount ?? 0),
-        priceAdjustmentAmount: Number(raw.priceAdjustmentAmount ?? 0),
-        salesOrder: raw.salesOrder
-            ? {
-                  ...raw.salesOrder,
-                  taxAmount:
-                      raw.salesOrder.taxAmount != null
-                          ? Number(raw.salesOrder.taxAmount)
-                          : 0,
-                  customer: raw.salesOrder.customer,
-                  items: raw.salesOrder.items?.map(
-                      (item: Record<string, unknown>) => ({
-                          ...item,
-                          quantity: Number(item.quantity),
-                          unitPrice: Number(item.unitPrice),
-                          subtotal: Number(item.subtotal),
-                          enteredQuantity:
-                              item.enteredQuantity != null
-                                  ? Number(item.enteredQuantity)
-                                  : undefined,
-                          enteredUnitPrice:
-                              item.enteredUnitPrice != null
-                                  ? Number(item.enteredUnitPrice)
-                                  : undefined,
-                      }),
-                  ),
-              }
-            : undefined,
-    };
+    const invoice = serializeInvoiceForPrint(raw);
 
     return (
         <InvoiceDotMatrixPrint

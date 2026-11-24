@@ -126,6 +126,7 @@ describe('compact Sales help rollout', () => {
         expect(mocks.invoiceTable).toHaveBeenLastCalledWith(expect.objectContaining({
             canPrint: true,
             canDelete: false,
+            pdfBasePath: '/sales/invoices',
         }));
         expect(screen.queryByRole('link', { name: /Lihat Aging/ })).toBeNull();
     });

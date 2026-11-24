@@ -308,6 +308,7 @@ export function SalesInvoicesShell({
                         // like 'PENDING').
                         initialStatus="ALL"
                         canPrint
+                        pdfBasePath="/sales/invoices"
                         canDelete={canAccessFinance}
                     />
                 </CardContent>

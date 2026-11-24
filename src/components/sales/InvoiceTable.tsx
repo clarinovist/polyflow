@@ -95,9 +95,16 @@ type FinanceInvoiceSortKey =
     | 'totalAmount';
 type FinanceInvoiceSortDirection = 'asc' | 'desc';
 
+/** Default print route: the finance portal (ADMIN/FINANCE). */
+const DEFAULT_PDF_BASE_PATH = '/finance/invoices/sales';
+const ACTIONS_COLUMN_WIDTH = 100;
+const ACTIONS_COLUMN_WIDTH_WITH_PRINT = 400;
+
 interface InvoiceTableProps {
     invoices: InvoiceData[];
     basePath?: string;
+    /** Route prefix of the print page; the link is `<pdfBasePath>/<invoiceId>/print`. */
+    pdfBasePath?: string;
     initialStatus?: string;
     overdueMode?: boolean;
     canDelete?: boolean;
@@ -129,9 +136,48 @@ function InvoicePrintLink({ invoice }: { invoice: InvoiceData }) {
     );
 }
 
+function InvoicePdfLink({
+    invoice,
+    pdfBasePath,
+}: {
+    invoice: InvoiceData;
+    pdfBasePath: string;
+}) {
+    return (
+        <Button variant="outline" size="sm" className="min-h-11" asChild>
+            <Link
+                href={`${pdfBasePath}/${encodeURIComponent(invoice.id)}/print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Cetak PDF invoice ${invoice.invoiceNumber}`}
+                title="Buka tampilan cetak untuk disimpan sebagai PDF"
+            >
+                <Printer className="h-4 w-4" aria-hidden="true" />
+                Cetak PDF
+            </Link>
+        </Button>
+    );
+}
+
+function InvoicePrintActions({
+    invoice,
+    pdfBasePath,
+}: {
+    invoice: InvoiceData;
+    pdfBasePath: string;
+}) {
+    return (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+            <InvoicePdfLink invoice={invoice} pdfBasePath={pdfBasePath} />
+            <InvoicePrintLink invoice={invoice} />
+        </div>
+    );
+}
+
 export function InvoiceTable({
     invoices,
     basePath = '/sales/orders',
+    pdfBasePath = DEFAULT_PDF_BASE_PATH,
     initialStatus,
     overdueMode,
     canDelete = true,
@@ -446,7 +492,9 @@ export function InvoiceTable({
             {
                 id: 'actions',
                 header: () => <div className="text-right">Aksi</div>,
-                size: canPrint ? 260 : 100,
+                size: canPrint
+                    ? ACTIONS_COLUMN_WIDTH_WITH_PRINT
+                    : ACTIONS_COLUMN_WIDTH,
                 enableSorting: false,
                 cell: ({ row }) => {
                     const invoice = row.original;
@@ -459,7 +507,10 @@ export function InvoiceTable({
                     return (
                         <div className="flex items-center justify-end gap-2">
                             {canPrint && isAR && (
-                                <InvoicePrintLink invoice={invoice} />
+                                <InvoicePrintActions
+                                    invoice={invoice}
+                                    pdfBasePath={pdfBasePath}
+                                />
                             )}
                             <Button
                                 variant="ghost"
@@ -528,7 +579,7 @@ export function InvoiceTable({
                 },
             },
         ],
-        [basePath, canDelete, canPrint, isDeleting, serverSorting],
+        [basePath, pdfBasePath, canDelete, canPrint, isDeleting, serverSorting],
     );
 
     const serverTable = useReactTable({
@@ -693,7 +744,10 @@ export function InvoiceTable({
                                         </div>
                                     </details>
                                     {canPrint && invoice.salesOrder && (
-                                        <InvoicePrintLink invoice={invoice} />
+                                        <InvoicePrintActions
+                                            invoice={invoice}
+                                            pdfBasePath={pdfBasePath}
+                                        />
                                     )}
                                     <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
                                         <span>
