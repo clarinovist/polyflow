@@ -53,6 +53,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
             { key: '/sales/team', label: 'Daftar Sales' },
             { key: '/sales/targets', label: 'Target Sales' },
             { key: '/sales/visits', label: 'Kunjungan' },
+            { key: '/sales/claims', label: 'Klaim Reimburse' },
             { key: '/sales/prospects', label: 'Prospek' },
             {
                 key: '/sales/reports/shipping-cost',
@@ -190,6 +191,7 @@ export const PERMISSION_CATALOG: PermissionNode[] = [
                     },
                 ],
             },
+            { key: '/finance/reimbursements', label: 'Reimburse Sales' },
             { key: '/finance/bank-reconciliation', label: 'Rekonsiliasi Bank' },
             { key: '/finance/aging', label: 'Aging AR/AP' },
             { key: '/finance/quick-entry', label: 'Quick Entry' },

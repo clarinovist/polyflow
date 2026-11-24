@@ -21,12 +21,15 @@ import {
     HandCoins,
     Kanban,
     Receipt,
+    ReceiptText,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
 import { AdminBackButton } from '@/components/layout/admin-back-button';
 import { salesSidebarLabels } from '@/lib/labels';
 import { filterNavGroups } from '@/lib/auth/permission-match';
+import { hasAnyRole } from '@/lib/auth/roles';
+import { CLAIM_REVIEW_ROLES } from '@/lib/sales/expense-claim-review';
 import { TenantSwitcher } from '@/components/layout/tenant-switcher';
 import type { CentralWorkspaceOption } from '@/lib/auth/central-workspaces';
 import Link from 'next/link';
@@ -36,6 +39,7 @@ interface SalesSidebarProps {
         name?: string | null;
         email?: string | null;
         role?: string | null;
+        roles?: string[] | null;
         image?: string | null;
     };
     permissions?: string[] | 'ALL';
@@ -141,6 +145,11 @@ export const salesLinks = [
                 label: salesSidebarLabels.visits,
             },
             {
+                href: '/sales/claims',
+                icon: ReceiptText,
+                label: salesSidebarLabels.expenseClaims,
+            },
+            {
                 href: '/sales/prospects',
                 icon: UserSearch,
                 label: salesSidebarLabels.prospects,
@@ -194,6 +203,22 @@ export const salesLinks = [
     },
 ];
 
+const CLAIM_REVIEW_HREF = '/sales/claims';
+
+/**
+ * A broad `/sales` grant also covers the claim review page, but only ADMIN
+ * and MARKETING may open it, so other roles do not see the entry.
+ */
+export function hideClaimReviewForOthers<
+    T extends { items: { href: string }[] },
+>(groups: T[], user: Parameters<typeof hasAnyRole>[0]): T[] {
+    if (hasAnyRole(user, [...CLAIM_REVIEW_ROLES])) return groups;
+    return groups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.href !== CLAIM_REVIEW_HREF),
+    }));
+}
+
 export function SalesSidebar({
     user,
     permissions,
@@ -202,7 +227,10 @@ export function SalesSidebar({
     workspaces = [],
     centralLoginHint = false,
 }: SalesSidebarProps) {
-    const filteredGroups = filterNavGroups(salesLinks, permissions);
+    const filteredGroups = hideClaimReviewForOthers(
+        filterNavGroups(salesLinks, permissions),
+        user,
+    );
     return (
         <PortalSidebarBase
             user={user}

@@ -15,6 +15,7 @@ import {
     TrendingUp,
     Wallet,
     Landmark,
+    ReceiptText,
 } from 'lucide-react';
 import { PortalSidebarBase } from '@/components/layout/portal-sidebar-base';
 import { PortalNavGroup } from '@/components/layout/portal-nav-item';
@@ -74,6 +75,11 @@ export const financeLinks = [
                         label: financeSidebarLabels.pettyCashRekap,
                     },
                 ],
+            },
+            {
+                href: '/finance/reimbursements',
+                icon: ReceiptText,
+                label: financeSidebarLabels.salesReimbursements,
             },
             {
                 href: '/finance/bank-reconciliation',
