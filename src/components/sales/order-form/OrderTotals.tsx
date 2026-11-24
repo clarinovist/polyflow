@@ -1,6 +1,7 @@
 import { Input } from '@/components/ui/input';
 import { formatRupiah } from '@/lib/utils/utils';
 import { formLabels } from '@/lib/labels';
+import { shippingCostFromInput } from '@/lib/utils/shipping-cost-input';
 import type { UseFormReturn } from 'react-hook-form';
 import type { SalesOrderFormValues } from './types';
 import type { computeOrderTotals } from '@/lib/utils/order-totals';
@@ -57,7 +58,7 @@ export function DesktopOrderTotals({
                         type="number"
                         min={0}
                         {...form.register('shippingCost', {
-                            valueAsNumber: true,
+                            setValueAs: shippingCostFromInput,
                         })}
                         className="w-32 text-right h-9"
                         aria-label="Ongkos Kirim (Rp)"
@@ -122,7 +123,7 @@ export function MobileOrderTotals({
                         type="number"
                         min={0}
                         {...form.register('shippingCost', {
-                            valueAsNumber: true,
+                            setValueAs: shippingCostFromInput,
                         })}
                         className="w-28 text-right h-11"
                         aria-label="Ongkos Kirim (Rp)"

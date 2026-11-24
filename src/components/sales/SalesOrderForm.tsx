@@ -4,8 +4,10 @@ import {
     useForm,
     useFieldArray,
     useWatch,
+    type FieldErrors,
     type Resolver,
 } from 'react-hook-form';
+import { toast } from 'sonner';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
     createSalesOrderSchema,
@@ -893,6 +895,13 @@ export function SalesOrderForm({
         };
     }
 
+    function onInvalid(errors: FieldErrors<SalesOrderFormValues>) {
+        const fields = Object.keys(errors).join(', ');
+        toast.error(
+            `Form belum bisa disimpan, periksa isian: ${fields || 'data tidak valid'}.`,
+        );
+    }
+
     async function onSubmit(data: SalesOrderFormValues) {
         if (mode === 'edit') {
             const confirmed = window.confirm(
@@ -905,7 +914,10 @@ export function SalesOrderForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+                onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+                className="space-y-8"
+            >
                 <ErrorAlert error={actionError} />
 
                 {mode === 'edit' && (
