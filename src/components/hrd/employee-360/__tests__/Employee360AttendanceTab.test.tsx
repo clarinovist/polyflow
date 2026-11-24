@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 
@@ -205,9 +205,17 @@ describe('Employee360AttendanceTab', () => {
         render(<Employee360AttendanceTab employeeId="e-1" employeeStatus="INACTIVE" />);
         await waitFor(() => expect(screen.getByText('Pagi')).toBeTruthy());
 
-        expect(screen.getAllByText('Tanpa catatan').length).toBeGreaterThanOrEqual(1);
-        expect(screen.getByText('12.00')).toBeTruthy();
-        expect(screen.getAllByText('1.50').length).toBeGreaterThanOrEqual(1);
+        const cardsGrid = screen.getByText('Jam Kerja').closest('.grid') as HTMLElement;
+        const cardValue = (label: string) =>
+            within(cardsGrid).getByText(label).nextElementSibling?.textContent;
+
+        expect(cardValue('Hadir')).toBe('1');
+        expect(cardValue('Terlambat')).toBe('1');
+        expect(cardValue('Alfa')).toBe('2');
+        expect(cardValue('Izin')).toBe('1');
+        expect(cardValue('Tanpa catatan')).toBe('3');
+        expect(cardValue('Jam Kerja')).toBe('12.00');
+        expect(cardValue('Lembur')).toBe('1.50');
         expect(screen.getByText(/Karyawan berstatus nonaktif/)).toBeTruthy();
 
         fireEvent.click(screen.getByRole('button', { name: /2026-05-04/ }));
