@@ -62,7 +62,7 @@ export interface AttendanceBasis {
     unlinkedLeaveDays: number;
 }
 
-interface DayRecordFlags {
+export interface DayRecordFlags {
     hasClockIn: boolean;
     hasAbsent: boolean;
     hasOnLeave: boolean;
@@ -70,7 +70,7 @@ interface DayRecordFlags {
 
 const dateKey = (date: Date): number => date.getTime();
 
-function indexRecordsByDate(
+export function indexRecordsByDate(
     records: readonly AttendanceRecordInput[],
 ): Map<number, DayRecordFlags> {
     const byDate = new Map<number, DayRecordFlags>();
@@ -90,7 +90,7 @@ function indexRecordsByDate(
     return byDate;
 }
 
-function coveringLeaveTypes(
+export function coveringLeaveTypes(
     leaves: readonly ApprovedLeaveInput[],
     day: Date,
 ): LeaveType[] {
@@ -99,7 +99,7 @@ function coveringLeaveTypes(
         .map((l) => l.type);
 }
 
-type DayOutcome =
+export type DayOutcome =
     | 'present'
     | 'paidLeave'
     | 'deductibleLeave'
@@ -108,7 +108,7 @@ type DayOutcome =
     | 'missing'
     | 'none';
 
-function classifyDay(
+export function classifyDay(
     day: Date,
     flags: DayRecordFlags | undefined,
     leaveTypes: readonly LeaveType[],

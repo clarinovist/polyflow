@@ -51,6 +51,9 @@ describe('AttendanceMonthlyView', () => {
 
     it('renders one row per employee, badging absences only when above zero', () => {
         setup();
+        expect(screen.getByRole('link', { name: 'Budi Contoh' }).getAttribute('href')).toBe(
+            '/dashboard/employees/e1?tab=attendance',
+        );
         const budi = screen.getByText('Budi Contoh').closest('tr') as HTMLElement;
         expect(within(budi).getAllByRole('cell').map((c) => c.textContent)).toEqual([
             'E001', 'Budi Contoh', '20', '2', '1', '3', '160.3j', '4.5j',

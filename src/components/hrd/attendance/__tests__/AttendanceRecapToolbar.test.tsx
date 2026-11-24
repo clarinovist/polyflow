@@ -47,8 +47,14 @@ describe('AttendanceRecapToolbar', () => {
         const { onSwitchMode } = setup();
         fireEvent.click(screen.getByRole('button', { name: 'Mingguan' }));
         fireEvent.click(screen.getByRole('button', { name: 'Bulanan' }));
+        fireEvent.click(screen.getByRole('button', { name: 'Tren' }));
         fireEvent.click(screen.getByRole('button', { name: 'Harian' }));
-        expect(onSwitchMode.mock.calls.map((c) => c[0])).toEqual(['weekly', 'monthly', 'daily']);
+        expect(onSwitchMode.mock.calls.map((c) => c[0])).toEqual(['weekly', 'monthly', 'trend', 'daily']);
+    });
+
+    it('hides the CSV export link in trend mode', () => {
+        setup({ viewMode: 'trend' });
+        expect(screen.queryByRole('link', { name: /CSV/ })).toBeNull();
     });
 
     it('renders the export link as an anchor with the given href', () => {

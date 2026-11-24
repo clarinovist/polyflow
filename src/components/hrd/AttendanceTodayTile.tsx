@@ -230,10 +230,18 @@ export function AttendanceTodayTile({
                         <StaleSessionRow count={data.staleOpen} />
                     )}
                 </ul>
-                <p className="text-xs text-muted-foreground">
-                    {formatHours(data.overtimeHours)} jam lembur pada catatan
-                    hadir
-                </p>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <p>
+                        {formatHours(data.overtimeHours)} jam lembur pada
+                        catatan hadir
+                    </p>
+                    <Link
+                        href="/hrd/attendance?mode=trend"
+                        className="shrink-0 font-medium text-primary hover:underline"
+                    >
+                        Lihat tren →
+                    </Link>
+                </div>
             </CardContent>
         </Card>
     );

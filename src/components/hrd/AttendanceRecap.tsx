@@ -17,6 +17,7 @@ import { AttendanceRecapToolbar } from './attendance/AttendanceRecapToolbar';
 import { AttendanceStaleSessions } from './attendance/AttendanceStaleSessions';
 import { AttendanceSummaryChips } from './attendance/AttendanceSummaryChips';
 import { AttendanceWeeklyView } from './attendance/AttendanceWeeklyView';
+import { AttendanceTrendCard } from './attendance/AttendanceTrendCard';
 import { CorrectAttendanceDialog } from './attendance/CorrectAttendanceDialog';
 import { SelfieLightbox } from './attendance/SelfieLightbox';
 import {
@@ -213,6 +214,13 @@ export function AttendanceRecap({
                     error={weekly.error}
                     rangeLabel={weekLabel(weekBounds.start, weekBounds.end)}
                     onRetry={() => loadWeekly(currentDate)}
+                />
+            )}
+
+            {viewMode === 'trend' && (
+                <AttendanceTrendCard
+                    shifts={shifts}
+                    initialShiftId={currentShift}
                 />
             )}
 

@@ -107,7 +107,10 @@ export function Employee360Tabs({ employee, initialTab }: Props) {
                         <Employee360Overview employee={employee} />
                     )}
                     {activeTab === 'attendance' && (
-                        <Employee360AttendanceTab employeeId={employee.id} />
+                        <Employee360AttendanceTab
+                            employeeId={employee.id}
+                            employeeStatus={employee.status}
+                        />
                     )}
                     {activeTab === 'production' && isPiece && (
                         <Employee360ProductionTab employeeId={employee.id} />

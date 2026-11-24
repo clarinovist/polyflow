@@ -101,10 +101,13 @@ describe('AttendanceTodayTile', () => {
         expect(screen.queryByText('Tanpa selfie')).toBeNull();
     });
 
-    it('shows the overtime hours supporting line', () => {
+    it('shows the overtime hours supporting line and trend link', () => {
         render(<AttendanceTodayTile section={available()} workDate={WORK_DATE} />);
 
         expect(screen.getByText(/2,25 jam lembur/)).toBeTruthy();
+        expect(screen.getByRole('link', { name: /Lihat tren/ }).getAttribute('href')).toBe(
+            '/hrd/attendance?mode=trend',
+        );
     });
 
     it('renders valid zeroes as numbers rather than an unavailable state', () => {

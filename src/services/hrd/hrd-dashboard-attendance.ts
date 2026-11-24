@@ -73,7 +73,7 @@ export function resolveAnomalyRadiusMeters(
     return Number.isFinite(radius) && radius > 0 ? radius : null;
 }
 
-function bestStatusPerEmployee(
+export function bestStatusPerEmployee(
     records: AttendanceTodayRecord[],
 ): Map<string, AttendanceTodayRecord['status']> {
     const byEmployee = new Map<string, AttendanceTodayRecord['status']>();
@@ -89,7 +89,7 @@ function bestStatusPerEmployee(
     return byEmployee;
 }
 
-function isLateRecord(
+export function isLateRecord(
     record: AttendanceTodayRecord,
     workDate: string,
     graceMinutes: number,

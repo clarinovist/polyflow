@@ -16,6 +16,7 @@ describe('attendance-recap-nav', () => {
     it('parses the view mode and defaults to daily', () => {
         expect(parseViewMode('weekly')).toBe('weekly');
         expect(parseViewMode('monthly')).toBe('monthly');
+        expect(parseViewMode('trend')).toBe('trend');
         expect(parseViewMode('daily')).toBe('daily');
         expect(parseViewMode('bogus')).toBe('daily');
         expect(parseViewMode(null)).toBe('daily');
@@ -37,7 +38,7 @@ describe('attendance-recap-nav', () => {
         expect(monthly.get('mode')).toBe('monthly');
         expect(monthly.get('year')).toBe('2026');
         expect(monthly.get('month')).toBe('11');
-        for (const mode of ['daily', 'weekly'] as const) {
+        for (const mode of ['daily', 'weekly', 'trend'] as const) {
             const sp = withViewMode(source, mode, 2026, 11);
             expect(sp.get('mode')).toBe(mode);
             expect(sp.has('year')).toBe(false);

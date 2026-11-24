@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
     requireHrdFinance: vi.fn(),
     listByEmployee: vi.fn(),
     appSettingFindMany: vi.fn(),
     workShiftFindMany: vi.fn(),
+    employeeFindUnique: vi.fn(),
+    leaveRequestFindMany: vi.fn(),
+    attendanceRecordFindMany: vi.fn(),
 }));
 
 vi.mock('@/lib/core/tenant', () => ({ withTenant: (fn: unknown) => fn }));
@@ -12,6 +15,9 @@ vi.mock('@/lib/core/prisma', () => ({
     prisma: {
         appSetting: { findMany: mocks.appSettingFindMany },
         workShift: { findMany: mocks.workShiftFindMany },
+        employee: { findUnique: mocks.employeeFindUnique },
+        leaveRequest: { findMany: mocks.leaveRequestFindMany },
+        attendanceRecord: { findMany: mocks.attendanceRecordFindMany },
     },
 }));
 vi.mock('@/lib/auth/hrd-access', () => ({
@@ -24,7 +30,11 @@ vi.mock('@/services/hrd/attendance-service', () => ({
     AttendanceService: { listByEmployee: mocks.listByEmployee },
 }));
 
-import { listAttendanceByEmployee } from '../attendance-employee';
+import {
+    getEmployeeAttendanceCalendar,
+    getEmployeeAttendanceTrend,
+    listAttendanceByEmployee,
+} from '../attendance-employee';
 
 const VALID_SELFIE = '/api/images/tenant-x/attendance/e-1/selfie.jpg';
 
@@ -136,5 +146,147 @@ describe('listAttendanceByEmployee', () => {
 
         expect(res).toEqual({ success: true, data: [] });
         expect(queryCalls()).toBe(0);
+    });
+});
+
+describe('getEmployeeAttendanceCalendar', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-05-10T05:00:00Z'));
+        mocks.requireHrdFinance.mockResolvedValue({ user: { role: 'HRD' } });
+        mocks.employeeFindUnique.mockResolvedValue({
+            id: 'e-1',
+            status: 'ACTIVE',
+            joinDate: new Date('2026-01-01T00:00:00Z'),
+        });
+        mocks.appSettingFindMany.mockResolvedValue([
+            { key: 'attendance.lateGraceMinutes', value: '5' },
+        ]);
+        mocks.workShiftFindMany.mockResolvedValue([
+            { id: 'shift-1', startTime: '08:00' },
+        ]);
+        mocks.leaveRequestFindMany.mockResolvedValue([]);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('rejects unauthorized roles without touching DB', async () => {
+        mocks.requireHrdFinance.mockRejectedValue(new Error('Forbidden'));
+        const res = await getEmployeeAttendanceCalendar('e-1', 2026, 5);
+        expect(res.success).toBe(false);
+        expect(mocks.employeeFindUnique).not.toHaveBeenCalled();
+    });
+
+    it('validates employeeId, year, and month', async () => {
+        expect((await getEmployeeAttendanceCalendar('', 2026, 5)).success).toBe(false);
+        expect((await getEmployeeAttendanceCalendar('e-1', 1999, 5)).success).toBe(false);
+        expect((await getEmployeeAttendanceCalendar('e-1', 2026, 13)).success).toBe(false);
+        expect(mocks.employeeFindUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns NotFound when employee does not exist', async () => {
+        mocks.employeeFindUnique.mockResolvedValue(null);
+        const res = await getEmployeeAttendanceCalendar('missing', 2026, 5);
+        expect(res.success).toBe(false);
+        if (!res.success) expect(res.error).toContain('Karyawan tidak ditemukan');
+    });
+
+    it('returns calendar days and summary matching records, late flags, and approved leaves', async () => {
+        mocks.listByEmployee.mockResolvedValue([
+            record(0),
+            record(1, { clockInAt: new Date('2026-05-02T01:30:00Z') }),
+        ]);
+        mocks.leaveRequestFindMany.mockResolvedValue([
+            {
+                type: 'SICK',
+                startDate: new Date('2026-05-04T00:00:00Z'),
+                endDate: new Date('2026-05-04T00:00:00Z'),
+            },
+        ]);
+
+        const res = await getEmployeeAttendanceCalendar('e-1', 2026, 5);
+        expect(res.success).toBe(true);
+        if (!res.success) return;
+        expect(res.data.employeeStatus).toBe('ACTIVE');
+        expect(res.data.days).toHaveLength(31);
+        expect(res.data.summary.presentDays).toBe(2);
+        expect(res.data.summary.lateDays).toBe(1);
+        expect(res.data.summary.onTimeDays).toBe(1);
+        expect(res.data.summary.paidLeaveDays).toBe(1);
+    });
+});
+
+describe('getEmployeeAttendanceTrend', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date('2026-05-10T05:00:00Z'));
+        mocks.requireHrdFinance.mockResolvedValue({ user: { role: 'HRD' } });
+        mocks.employeeFindUnique.mockResolvedValue({
+            id: 'e-1',
+            status: 'ACTIVE',
+            joinDate: new Date('2025-01-01T00:00:00Z'),
+        });
+        mocks.attendanceRecordFindMany.mockResolvedValue([]);
+        mocks.leaveRequestFindMany.mockResolvedValue([]);
+        mocks.appSettingFindMany.mockResolvedValue([
+            { key: 'attendance.lateGraceMinutes', value: '5' },
+        ]);
+        mocks.workShiftFindMany.mockResolvedValue([
+            { id: 'shift-1', startTime: '08:00' },
+        ]);
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    it('rejects unauthorized roles and invalid months', async () => {
+        expect((await getEmployeeAttendanceTrend('e-1', 0)).success).toBe(false);
+        expect((await getEmployeeAttendanceTrend('e-1', 13)).success).toBe(false);
+
+        mocks.requireHrdFinance.mockRejectedValue(new Error('Forbidden'));
+        expect((await getEmployeeAttendanceTrend('e-1', 6)).success).toBe(false);
+        expect(mocks.employeeFindUnique).not.toHaveBeenCalled();
+    });
+
+    it('skips settings/shift queries when there are no records in the range', async () => {
+        const res = await getEmployeeAttendanceTrend('e-1', 6);
+        expect(res.success).toBe(true);
+        if (!res.success) return;
+        expect(res.data.points).toHaveLength(6);
+        expect(queryCalls()).toBe(0);
+    });
+
+    it('returns 6 monthly points with late counts when records exist', async () => {
+        mocks.attendanceRecordFindMany.mockResolvedValue([
+            {
+                workDate: new Date('2026-05-02T00:00:00Z'),
+                status: 'PRESENT',
+                clockInAt: new Date('2026-05-02T01:30:00Z'),
+                workShiftId: 'shift-1',
+            },
+        ]);
+
+        const res = await getEmployeeAttendanceTrend('e-1', 6);
+        expect(res.success).toBe(true);
+        if (!res.success) return;
+        expect(res.data.points).toHaveLength(6);
+        expect(res.data.points[5]).toMatchObject({
+            year: 2026,
+            month: 5,
+            lateDays: 1,
+            onTimeDays: 0,
+            presentDays: 1,
+        });
+    });
+
+    it('surfaces DB failures honestly', async () => {
+        mocks.attendanceRecordFindMany.mockRejectedValue(new Error('db down'));
+        const res = await getEmployeeAttendanceTrend('e-1', 6);
+        expect(res.success).toBe(false);
     });
 });

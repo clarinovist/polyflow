@@ -52,6 +52,9 @@ describe('AttendanceDailyTable', () => {
         const cells = cellTexts('Budi Contoh');
         expect(cells[0]).toBe('E001');
         expect(cells[1]).toContain('Terlambat');
+        expect(screen.getByRole('link', { name: 'Budi Contoh' }).getAttribute('href')).toBe(
+            '/dashboard/employees/e1?tab=attendance',
+        );
         expect(cells.slice(3, 10)).toEqual(['Pagi', '8.0j', '07.00', '15.30', '8.5j', '+1.5j', 'Ya']);
     });
 

@@ -51,6 +51,9 @@ describe('AttendanceWeeklyView', () => {
 
     it('renders per-employee earnings', () => {
         setup();
+        expect(screen.getByRole('link', { name: 'Budi Contoh' }).getAttribute('href')).toBe(
+            '/dashboard/employees/e1?tab=attendance',
+        );
         const row = screen.getByText('Budi Contoh').closest('tr') as HTMLElement;
         const cells = within(row).getAllByRole('cell').map((c) => c.textContent as string);
         expect(cells.slice(0, 5)).toEqual(['E001', 'Budi Contoh', '5', '40.0j', '2.0j']);

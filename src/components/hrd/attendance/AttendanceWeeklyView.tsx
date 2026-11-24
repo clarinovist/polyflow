@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Clock, Users } from 'lucide-react';
 import {
     Table,
@@ -121,7 +122,12 @@ export function AttendanceWeeklyView({
                                             {r.employeeCode}
                                         </TableCell>
                                         <TableCell>
-                                            {r.employeeName}
+                                            <Link
+                                                href={`/dashboard/employees/${r.employeeId}?tab=attendance`}
+                                                className="hover:underline"
+                                            >
+                                                {r.employeeName}
+                                            </Link>
                                         </TableCell>
                                         <TableCell className="text-center">
                                             {r.daysPresent}

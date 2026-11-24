@@ -15,11 +15,12 @@ import { MONTH_NAMES } from './attendance-format';
 import { buildYearOptions, currentWibYear } from './attendance-recap-helpers';
 import type { ViewMode, WorkShift } from './attendance-recap-types';
 
-const VIEW_MODES: readonly ViewMode[] = ['daily', 'weekly', 'monthly'];
+const VIEW_MODES: readonly ViewMode[] = ['daily', 'weekly', 'monthly', 'trend'];
 const VIEW_MODE_LABELS: Record<ViewMode, string> = {
     daily: 'Harian',
     weekly: 'Mingguan',
     monthly: 'Bulanan',
+    trend: 'Tren',
 };
 const ALL_SHIFTS_VALUE = '__all__';
 const FIELD_LABEL_CLASS = 'text-sm font-medium text-muted-foreground';
@@ -222,11 +223,13 @@ export function AttendanceRecapToolbar(props: Props) {
             {viewMode === 'daily' && <DailyControls {...props} />}
             {viewMode === 'weekly' && <WeeklyControls {...props} />}
             {viewMode === 'monthly' && <MonthlyControls {...props} />}
-            <Button asChild size="sm" variant="outline" className="ml-auto gap-1">
-                <a href={props.exportHref}>
-                    <Download className="h-3.5 w-3.5" /> CSV
-                </a>
-            </Button>
+            {viewMode !== 'trend' && (
+                <Button asChild size="sm" variant="outline" className="ml-auto gap-1">
+                    <a href={props.exportHref}>
+                        <Download className="h-3.5 w-3.5" /> CSV
+                    </a>
+                </Button>
+            )}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
     Table,
@@ -14,8 +14,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CalendarDays, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { attendanceStatusLabel } from '@/lib/hrd/attendance-status-label';
-import { listAttendanceByEmployee } from '@/actions/hrd/attendance-employee';
+import { getEmployeeAttendanceCalendar } from '@/actions/hrd/attendance-employee';
 import { AttendanceRowBadges } from '@/components/hrd/attendance/AttendanceRowBadges';
+import { wibDateFrom } from '@/services/hrd/shift-window';
+import type {
+    DayOutcomeEntry,
+    MonthOutcomeSummary,
+} from '@/services/hrd/attendance-day-outcomes';
+import { AttendanceMonthCalendar } from './AttendanceMonthCalendar';
+import { EmployeeAttendanceTrend } from './EmployeeAttendanceTrend';
 
 type AttendanceRow = {
     id: string;
@@ -37,6 +44,19 @@ type AttendanceRow = {
     isLate?: boolean;
     isOutsideRadius?: boolean;
     hasValidSelfie?: boolean;
+};
+
+const EMPTY_SUMMARY: MonthOutcomeSummary = {
+    workingDays: 0,
+    presentDays: 0,
+    onTimeDays: 0,
+    lateDays: 0,
+    absentDays: 0,
+    paidLeaveDays: 0,
+    deductibleLeaveDays: 0,
+    unlinkedLeaveDays: 0,
+    leaveDays: 0,
+    missingDays: 0,
 };
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -82,12 +102,16 @@ function fmtHours(n: number | null): string {
     return n != null ? n.toFixed(2) : '-';
 }
 
+function isoDateKey(d: Date | string): string {
+    return new Date(d).toISOString().slice(0, 10);
+}
+
 function monthRange(base: Date) {
     const y = base.getUTCFullYear();
     const m = base.getUTCMonth();
     return {
-        from: new Date(Date.UTC(y, m, 1)),
-        to: new Date(Date.UTC(y, m + 1, 0)),
+        year: y,
+        month: m + 1,
         label: new Intl.DateTimeFormat('id-ID', {
             month: 'long',
             year: 'numeric',
@@ -104,37 +128,64 @@ export function shiftMonthBase(base: Date, delta: number): Date {
 
 interface Props {
     employeeId: string;
+    employeeStatus?: string;
 }
 
-export function Employee360AttendanceTab({ employeeId }: Props) {
+export function Employee360AttendanceTab({
+    employeeId,
+    employeeStatus,
+}: Props) {
     const [records, setRecords] = useState<AttendanceRow[]>([]);
+    const [days, setDays] = useState<DayOutcomeEntry[]>([]);
+    const [summary, setSummary] = useState<MonthOutcomeSummary>(EMPTY_SUMMARY);
+    const [resolvedStatus, setResolvedStatus] = useState<string | undefined>(
+        employeeStatus,
+    );
     const [loading, setLoading] = useState(true);
     const [loadFailed, setLoadFailed] = useState(false);
-    const [baseDate, setBaseDate] = useState(new Date());
+    const [baseDate, setBaseDate] = useState(() => wibDateFrom(new Date()));
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
     const [photoModal, setPhotoModal] = useState<string | null>(null);
+    const requestSeq = useRef(0);
+    const tableContainerRef = useRef<HTMLDivElement | null>(null);
 
     const load = useCallback(
         async (base: Date) => {
+            const seq = ++requestSeq.current;
             setLoading(true);
             setLoadFailed(false);
-            const { from, to } = monthRange(base);
+            setSelectedDate(null);
+            const { year, month } = monthRange(base);
             try {
-                const res = await listAttendanceByEmployee(
+                const res = await getEmployeeAttendanceCalendar(
                     employeeId,
-                    from.toISOString(),
-                    to.toISOString(),
+                    year,
+                    month,
                 );
-                if (!res.success) {
+                if (seq !== requestSeq.current) return;
+                if (!res.success || !res.data) {
                     setRecords([]);
+                    setDays([]);
+                    setSummary(EMPTY_SUMMARY);
                     setLoadFailed(true);
                 } else {
-                    setRecords((res.data ?? []) as unknown as AttendanceRow[]);
+                    setRecords(
+                        (res.data.records ?? []) as unknown as AttendanceRow[],
+                    );
+                    setDays(res.data.days ?? []);
+                    setSummary(res.data.summary ?? EMPTY_SUMMARY);
+                    setResolvedStatus(res.data.employeeStatus);
                 }
             } catch {
+                if (seq !== requestSeq.current) return;
                 setRecords([]);
+                setDays([]);
+                setSummary(EMPTY_SUMMARY);
                 setLoadFailed(true);
             } finally {
-                setLoading(false);
+                if (seq === requestSeq.current) {
+                    setLoading(false);
+                }
             }
         },
         [employeeId],
@@ -147,11 +198,23 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
     const prevMonth = () => setBaseDate(shiftMonthBase(baseDate, -1));
     const nextMonth = () => setBaseDate(shiftMonthBase(baseDate, 1));
 
-    const { label } = monthRange(baseDate);
-    const daysPresent = records.filter((r) => r.status === 'PRESENT').length;
-    const daysAbsent = records.filter((r) => r.status === 'ABSENT').length;
-    const daysOnLeave = records.filter((r) => r.status === 'ON_LEAVE').length;
+    const handleSelectDate = (date: string) => {
+        const next = selectedDate === date ? null : date;
+        setSelectedDate(next);
+        if (next && tableContainerRef.current) {
+            const row = tableContainerRef.current.querySelector<HTMLElement>(
+                `tr[data-work-date="${next}"]`,
+            );
+            row?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+        }
+    };
+
+    const { year, month, label } = monthRange(baseDate);
     const totalHours = records.reduce((s, r) => s + (r.actualHours ?? 0), 0);
+    const totalOvertime = records.reduce(
+        (s, r) => s + (r.overtimeHours ?? 0),
+        0,
+    );
 
     return (
         <div className="space-y-4">
@@ -189,30 +252,46 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                         <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/10">
                             <div className="text-[10px] uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                                Hadir
+                                {attendanceStatusLabel('PRESENT')}
                             </div>
                             <div className="text-xl font-bold">
-                                {daysPresent}
-                            </div>
-                        </div>
-                        <div className="bg-rose-500/5 p-3 rounded-lg border border-rose-500/10">
-                            <div className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                                Alfa
-                            </div>
-                            <div className="text-xl font-bold">
-                                {daysAbsent}
+                                {summary.presentDays}
                             </div>
                         </div>
                         <div className="bg-amber-500/5 p-3 rounded-lg border border-amber-500/10">
                             <div className="text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                                Izin
+                                {attendanceStatusLabel('LATE')}
                             </div>
                             <div className="text-xl font-bold">
-                                {daysOnLeave}
+                                {summary.lateDays}
+                            </div>
+                        </div>
+                        <div className="bg-rose-500/5 p-3 rounded-lg border border-rose-500/10">
+                            <div className="text-[10px] uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                                {attendanceStatusLabel('ABSENT')}
+                            </div>
+                            <div className="text-xl font-bold">
+                                {summary.absentDays}
+                            </div>
+                        </div>
+                        <div className="bg-sky-500/5 p-3 rounded-lg border border-sky-500/10">
+                            <div className="text-[10px] uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                                {attendanceStatusLabel('ON_LEAVE')}
+                            </div>
+                            <div className="text-xl font-bold">
+                                {summary.leaveDays}
+                            </div>
+                        </div>
+                        <div className="bg-orange-500/5 p-3 rounded-lg border border-orange-500/10">
+                            <div className="text-[10px] uppercase tracking-wider text-orange-700 dark:text-orange-400">
+                                Tanpa catatan
+                            </div>
+                            <div className="text-xl font-bold">
+                                {summary.missingDays}
                             </div>
                         </div>
                         <div className="bg-muted/30 p-3 rounded-lg">
@@ -221,6 +300,14 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                             </div>
                             <div className="text-xl font-bold">
                                 {fmtHours(totalHours)}
+                            </div>
+                        </div>
+                        <div className="bg-muted/30 p-3 rounded-lg">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                Lembur
+                            </div>
+                            <div className="text-xl font-bold">
+                                {fmtHours(totalOvertime)}
                             </div>
                         </div>
                     </div>
@@ -242,124 +329,180 @@ export function Employee360AttendanceTab({ employeeId }: Props) {
                                 Coba lagi
                             </Button>
                         </div>
-                    ) : records.length === 0 ? (
-                        <p className="text-xs text-muted-foreground text-center py-8">
-                            Tidak ada data kehadiran bulan ini.
-                        </p>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <TableHeader className="bg-muted/30">
-                                    <TableRow>
-                                        <TableHead>Tanggal</TableHead>
-                                        <TableHead>Shift</TableHead>
-                                        <TableHead>Masuk</TableHead>
-                                        <TableHead>Pulang</TableHead>
-                                        <TableHead className="text-right">
-                                            Jam
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Lembur
-                                        </TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Sumber</TableHead>
-                                        <TableHead className="text-right">
-                                            Upah
-                                        </TableHead>
-                                        <TableHead className="text-center">
-                                            Selfie
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {records.map((r) => (
-                                        <TableRow key={r.id}>
-                                            <TableCell className="text-sm">
-                                                {fmtDate(r.workDate)}
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                {r.shiftName}
-                                            </TableCell>
-                                            <TableCell className="text-sm font-mono">
-                                                {fmtTime(r.clockInAt)}
-                                            </TableCell>
-                                            <TableCell className="text-sm font-mono">
-                                                {fmtTime(r.clockOutAt)}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm">
-                                                {fmtHours(r.actualHours)}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm">
-                                                {r.overtimeHours > 0
-                                                    ? fmtHours(r.overtimeHours)
-                                                    : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-[10px] ${
-                                                        r.status === 'PRESENT'
-                                                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
-                                                            : r.status ===
-                                                                'ABSENT'
-                                                              ? 'bg-rose-500/10 text-rose-600 border-rose-500/10'
-                                                              : 'bg-amber-500/10 text-amber-600 border-amber-500/10'
-                                                    }`}
-                                                >
-                                                    {r.isOvertimeShift
-                                                        ? 'Lembur'
-                                                        : attendanceStatusLabel(
-                                                              r.status,
-                                                          )}
-                                                </Badge>
-                                                {r.status === 'PRESENT' && (
-                                                    <div className="mt-1">
-                                                        <AttendanceRowBadges
-                                                            record={r}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-[10px] ${sourceBadgeClass(r.source)}`}
-                                                >
-                                                    {SOURCE_LABELS[r.source] ?? r.source}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-sm">
-                                                {fmtIdr(r.totalEarnings)}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {r.clockInPhotoUrl ||
-                                                r.clockOutPhotoUrl ? (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 px-2 text-[10px]"
-                                                        onClick={() =>
-                                                            setPhotoModal(
-                                                                r.clockInPhotoUrl ||
-                                                                    r.clockOutPhotoUrl,
-                                                            )
+                        <>
+                            {days.length > 0 && (
+                                <AttendanceMonthCalendar
+                                    year={year}
+                                    month={month}
+                                    days={days}
+                                    selectedDate={selectedDate}
+                                    isInactiveEmployee={
+                                        resolvedStatus !== undefined &&
+                                        resolvedStatus !== 'ACTIVE'
+                                    }
+                                    onSelectDate={handleSelectDate}
+                                />
+                            )}
+
+                            {records.length === 0 ? (
+                                <p className="text-xs text-muted-foreground text-center py-6">
+                                    Tidak ada data kehadiran bulan ini.
+                                </p>
+                            ) : (
+                                <div
+                                    ref={tableContainerRef}
+                                    className="overflow-x-auto"
+                                >
+                                    <Table>
+                                        <TableHeader className="bg-muted/30">
+                                            <TableRow>
+                                                <TableHead>Tanggal</TableHead>
+                                                <TableHead>Shift</TableHead>
+                                                <TableHead>Masuk</TableHead>
+                                                <TableHead>Pulang</TableHead>
+                                                <TableHead className="text-right">
+                                                    Jam
+                                                </TableHead>
+                                                <TableHead className="text-right">
+                                                    Lembur
+                                                </TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead>Sumber</TableHead>
+                                                <TableHead className="text-right">
+                                                    Upah
+                                                </TableHead>
+                                                <TableHead className="text-center">
+                                                    Selfie
+                                                </TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {records.map((r) => {
+                                                const dateKey = isoDateKey(
+                                                    r.workDate,
+                                                );
+                                                const isHighlighted =
+                                                    selectedDate === dateKey;
+                                                return (
+                                                    <TableRow
+                                                        key={r.id}
+                                                        data-work-date={dateKey}
+                                                        className={
+                                                            isHighlighted
+                                                                ? 'bg-primary/10'
+                                                                : undefined
                                                         }
                                                     >
-                                                        <Eye className="h-3 w-3 mr-1" />
-                                                        Lihat
-                                                    </Button>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                        <TableCell className="text-sm">
+                                                            {fmtDate(
+                                                                r.workDate,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm">
+                                                            {r.shiftName}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm font-mono">
+                                                            {fmtTime(
+                                                                r.clockInAt,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-sm font-mono">
+                                                            {fmtTime(
+                                                                r.clockOutAt,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono text-sm">
+                                                            {fmtHours(
+                                                                r.actualHours,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono text-sm">
+                                                            {r.overtimeHours > 0
+                                                                ? fmtHours(
+                                                                      r.overtimeHours,
+                                                                  )
+                                                                : '-'}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`text-[10px] ${
+                                                                    r.status ===
+                                                                    'PRESENT'
+                                                                        ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
+                                                                        : r.status ===
+                                                                            'ABSENT'
+                                                                          ? 'bg-rose-500/10 text-rose-600 border-rose-500/10'
+                                                                          : 'bg-amber-500/10 text-amber-600 border-amber-500/10'
+                                                                }`}
+                                                            >
+                                                                {r.isOvertimeShift
+                                                                    ? 'Lembur'
+                                                                    : attendanceStatusLabel(
+                                                                          r.status,
+                                                                      )}
+                                                            </Badge>
+                                                            {r.status ===
+                                                                'PRESENT' && (
+                                                                <div className="mt-1">
+                                                                    <AttendanceRowBadges
+                                                                        record={
+                                                                            r
+                                                                        }
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={`text-[10px] ${sourceBadgeClass(r.source)}`}
+                                                            >
+                                                                {SOURCE_LABELS[
+                                                                    r.source
+                                                                ] ?? r.source}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono text-sm">
+                                                            {fmtIdr(
+                                                                r.totalEarnings,
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            {r.clockInPhotoUrl ||
+                                                            r.clockOutPhotoUrl ? (
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 px-2 text-[10px]"
+                                                                    onClick={() =>
+                                                                        setPhotoModal(
+                                                                            r.clockInPhotoUrl ||
+                                                                                r.clockOutPhotoUrl,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <Eye className="h-3 w-3 mr-1" />
+                                                                    Lihat
+                                                                </Button>
+                                                            ) : (
+                                                                '-'
+                                                            )}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            )}
+                        </>
                     )}
                 </CardContent>
             </Card>
+
+            <EmployeeAttendanceTrend employeeId={employeeId} />
 
             {/* Photo modal */}
             {photoModal && (

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import {
     Table,
     TableBody,
@@ -110,7 +111,12 @@ function AttendanceDailyRow({
         <TableRow className="hover:bg-muted/50">
             <TableCell className="font-medium">{r.employeeCode}</TableCell>
             <TableCell>
-                <div>{r.employeeName}</div>
+                <Link
+                    href={`/dashboard/employees/${r.employeeId}?tab=attendance`}
+                    className="hover:underline"
+                >
+                    {r.employeeName}
+                </Link>
                 <AttendanceRowBadges record={r} />
             </TableCell>
             <TableCell>

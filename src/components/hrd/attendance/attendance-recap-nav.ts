@@ -11,6 +11,7 @@ interface ParamsSource {
 export function parseViewMode(raw: string | null): ViewMode {
     if (raw === 'monthly') return 'monthly';
     if (raw === 'weekly') return 'weekly';
+    if (raw === 'trend') return 'trend';
     return 'daily';
 }
 

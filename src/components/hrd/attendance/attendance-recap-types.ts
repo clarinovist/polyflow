@@ -42,7 +42,7 @@ export interface WorkShift {
     status?: string;
 }
 
-export type ViewMode = 'daily' | 'weekly' | 'monthly';
+export type ViewMode = 'daily' | 'weekly' | 'monthly' | 'trend';
 
 export interface MonthlySummary {
     employeeId: string;
