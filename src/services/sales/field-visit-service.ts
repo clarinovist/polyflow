@@ -3,6 +3,10 @@ import { logActivity } from '@/lib/tools/audit';
 import { Decimal } from '@prisma/client/runtime/library';
 import { NotFoundError } from '@/lib/errors/errors';
 import { getInitialReviewStatus } from '@/lib/sales/route-compliance';
+import {
+    normalizeVisitPurpose,
+    purposeBackfill,
+} from '@/lib/sales/visit-purpose';
 
 type StartVisitInput = {
     userId: string;
@@ -14,6 +18,7 @@ type StartVisitInput = {
     clientVisitId: string;
     isExtraCall?: boolean;
     extraReason?: string;
+    purpose?: string | null;
 };
 
 type CheckOutVisitInput = {
@@ -21,6 +26,35 @@ type CheckOutVisitInput = {
     clientVisitId: string;
     notes: string;
     photoUrl?: string;
+    purpose?: string | null;
+};
+
+type SyncVisitLog = {
+    clientVisitId: string;
+    customerId: string;
+    checkInTime: string;
+    checkOutTime: string;
+    durationSeconds: number;
+    latitude: number;
+    longitude: number;
+    distance: number;
+    notes: string | null;
+    photoUrl: string | null;
+    isExtraCall?: boolean;
+    extraReason?: string;
+    routePlanItemId?: string;
+    purpose?: string | null;
+};
+
+type ExistingVisitSnapshot = {
+    id: string;
+    notes?: string | null;
+    photoUrl?: string | null;
+    purpose?: string | null;
+    durationSeconds?: number;
+    checkOutTime?: Date | null;
+    reviewStatus?: string;
+    routePlanItemId?: string | null;
 };
 
 /**
@@ -39,6 +73,8 @@ export async function startFieldVisit(input: StartVisitInput) {
         isExtraCall = false,
         extraReason,
     } = input;
+    // Validate at the boundary before opening the transaction
+    const purpose = normalizeVisitPurpose(input.purpose);
 
     return prisma.$transaction(async (tx) => {
         // Check idempotency
@@ -81,6 +117,7 @@ export async function startFieldVisit(input: StartVisitInput) {
                 longitude: new Decimal(longitude),
                 distance,
                 clientVisitId,
+                purpose,
                 routePlanItemId: routePlanItemId || undefined,
                 isExtraCall,
                 extraReason: isExtraCall
@@ -115,10 +152,12 @@ export async function startFieldVisit(input: StartVisitInput) {
 
 /**
  * Checks out a visit session. Updates duration, notes, photo,
- * and marks route plan item as COMPLETED.
+ * and marks route plan item as COMPLETED. Backfills purpose only
+ * when the stored value is still empty.
  */
 export async function completeFieldVisit(input: CheckOutVisitInput) {
     const { userId, clientVisitId, notes, photoUrl } = input;
+    const purpose = normalizeVisitPurpose(input.purpose);
 
     return prisma.$transaction(async (tx) => {
         const visit = await tx.salesVisit.findUnique({
@@ -142,6 +181,7 @@ export async function completeFieldVisit(input: CheckOutVisitInput) {
                 durationSeconds,
                 notes: notes || null,
                 photoUrl: photoUrl || null,
+                ...purposeBackfill(visit.purpose, purpose),
             },
         });
 
@@ -166,27 +206,61 @@ export async function completeFieldVisit(input: CheckOutVisitInput) {
 }
 
 /**
+ * Reconciles an already-stored visit with an incoming offline log:
+ * finishes an unfinished visit and backfills an empty purpose.
+ * Never overwrites a stored purpose or resets the review status.
+ */
+async function reconcileExistingVisit(
+    existing: ExistingVisitSnapshot,
+    log: SyncVisitLog,
+    purpose: string | null,
+) {
+    if (typeof prisma.salesVisit.update !== 'function') return;
+
+    const backfill = purposeBackfill(existing.purpose, purpose);
+    const isUnfinished =
+        Boolean(log.checkOutTime) &&
+        (existing.durationSeconds === 0 || !existing.checkOutTime) &&
+        existing.reviewStatus !== 'APPROVED';
+
+    if (!isUnfinished) {
+        if (backfill.purpose) {
+            await prisma.salesVisit.update({
+                where: { id: existing.id },
+                data: backfill,
+            });
+        }
+        return;
+    }
+
+    await prisma.salesVisit.update({
+        where: { id: existing.id },
+        data: {
+            checkOutTime: new Date(log.checkOutTime),
+            durationSeconds: log.durationSeconds,
+            notes: log.notes ?? existing.notes,
+            photoUrl: log.photoUrl ?? existing.photoUrl,
+            ...backfill,
+        },
+    });
+
+    const routePlanItemId = existing.routePlanItemId ?? log.routePlanItemId;
+    if (
+        routePlanItemId &&
+        typeof prisma.salesRoutePlanItem?.update === 'function'
+    ) {
+        await prisma.salesRoutePlanItem.update({
+            where: { id: routePlanItemId },
+            data: { status: 'COMPLETED' },
+        });
+    }
+}
+
+/**
  * Syncs offline visit logs with idempotency.
  * Returns the result for each client visit.
  */
-export async function syncVisitLogs(
-    userId: string,
-    logs: {
-        clientVisitId: string;
-        customerId: string;
-        checkInTime: string;
-        checkOutTime: string;
-        durationSeconds: number;
-        latitude: number;
-        longitude: number;
-        distance: number;
-        notes: string | null;
-        photoUrl: string | null;
-        isExtraCall?: boolean;
-        extraReason?: string;
-        routePlanItemId?: string;
-    }[],
-) {
+export async function syncVisitLogs(userId: string, logs: SyncVisitLog[]) {
     const results: {
         clientVisitId: string;
         success: boolean;
@@ -196,6 +270,8 @@ export async function syncVisitLogs(
 
     for (const log of logs) {
         try {
+            const purpose = normalizeVisitPurpose(log.purpose);
+
             // Check idempotency
             const existing = await prisma.salesVisit.findUnique({
                 where: {
@@ -207,35 +283,7 @@ export async function syncVisitLogs(
             });
 
             if (existing) {
-                const isUnfinished =
-                    Boolean(log.checkOutTime) &&
-                    (existing.durationSeconds === 0 || !existing.checkOutTime) &&
-                    existing.reviewStatus !== 'APPROVED';
-
-                if (isUnfinished && typeof prisma.salesVisit.update === 'function') {
-                    await prisma.salesVisit.update({
-                        where: { id: existing.id },
-                        data: {
-                            checkOutTime: new Date(log.checkOutTime),
-                            durationSeconds: log.durationSeconds,
-                            notes: log.notes ?? existing.notes,
-                            photoUrl: log.photoUrl ?? existing.photoUrl,
-                        },
-                    });
-
-                    const routePlanItemId =
-                        existing.routePlanItemId ?? log.routePlanItemId;
-                    if (
-                        routePlanItemId &&
-                        typeof prisma.salesRoutePlanItem?.update === 'function'
-                    ) {
-                        await prisma.salesRoutePlanItem.update({
-                            where: { id: routePlanItemId },
-                            data: { status: 'COMPLETED' },
-                        });
-                    }
-                }
-
+                await reconcileExistingVisit(existing, log, purpose);
                 results.push({
                     clientVisitId: log.clientVisitId,
                     success: true,
@@ -261,6 +309,7 @@ export async function syncVisitLogs(
                     distance: log.distance,
                     notes: log.notes,
                     photoUrl: log.photoUrl,
+                    purpose,
                     clientVisitId: log.clientVisitId,
                     isExtraCall: log.isExtraCall ?? false,
                     extraReason: log.extraReason

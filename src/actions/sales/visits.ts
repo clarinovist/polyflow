@@ -19,6 +19,7 @@ type VisitLogInput = {
     isExtraCall?: boolean;
     extraReason?: string;
     routePlanItemId?: string;
+    purpose?: string | null;
 };
 
 export const syncVisitLogsAction = withTenant(
@@ -44,6 +45,7 @@ export const syncVisitLogsAction = withTenant(
                     isExtraCall: log.isExtraCall,
                     extraReason: log.extraReason,
                     routePlanItemId: log.routePlanItemId,
+                    purpose: log.purpose,
                 })),
             );
 

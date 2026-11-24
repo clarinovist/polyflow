@@ -32,6 +32,7 @@ type VisitLog = {
     durationSeconds: number;
     distance: number;
     notes: string;
+    purpose?: string | null;
     photoUrl?: string | null;
     synced?: boolean;
     isExtraCall?: boolean;
@@ -314,6 +315,17 @@ export default function SalesMobileVisitsHistoryClient({
                                         </p>
                                     </div>
                                 </div>
+
+                                {log.purpose && (
+                                    <div className="pl-1.5 text-xs">
+                                        <span className="font-semibold text-muted-foreground">
+                                            Tujuan:
+                                        </span>{' '}
+                                        <span className="text-foreground whitespace-pre-line">
+                                            {log.purpose}
+                                        </span>
+                                    </div>
+                                )}
 
                                 <div className="pl-1.5 p-3 bg-muted/40 rounded-xl space-y-1 text-xs">
                                     <span className="flex items-center gap-1 text-muted-foreground font-semibold text-xs">

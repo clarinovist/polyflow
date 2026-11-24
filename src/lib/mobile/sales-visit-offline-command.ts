@@ -35,6 +35,7 @@ function toPayload(log: QueuedVisitLog) {
         isExtraCall: log.isOutsideRoute || false,
         extraReason: log.extraReason || undefined,
         routePlanItemId: log.routePlanItemId || undefined,
+        purpose: log.purpose || undefined,
     };
 }
 function registerSalesVisitOfflineCommand() {

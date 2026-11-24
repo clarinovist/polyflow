@@ -11,6 +11,7 @@ type Visit = {
     checkInTime: string | Date;
     checkOutTime?: string | Date | null;
     notes?: string | null;
+    purpose?: string | null;
     latitude?: number | null;
     longitude?: number | null;
     user?: { name?: string | null; email?: string | null } | null;
@@ -73,6 +74,14 @@ export function CustomerVisitsTab({ customerId }: { customerId: string }) {
                                     {fmtDate(v.checkInTime)}{' '}
                                     {v.user?.name ? `· ${v.user.name}` : ''}
                                 </div>
+                                {v.purpose && (
+                                    <div className="text-xs mt-0.5">
+                                        <span className="font-semibold">
+                                            Tujuan:
+                                        </span>{' '}
+                                        {v.purpose}
+                                    </div>
+                                )}
                                 {v.notes && (
                                     <div className="text-xs text-muted-foreground mt-0.5">
                                         {v.notes}

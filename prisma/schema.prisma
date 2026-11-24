@@ -4095,6 +4095,8 @@ model SalesVisit {
   distance        Float
   notes           String?                @db.Text
   photoUrl        String?                @db.Text
+  // Tujuan kunjungan (diisi sales saat check-in); nullable agar data lama tetap sah
+  purpose         String?
   // ── EC & route integration ──
   clientVisitId   String?
   routePlanItemId String?

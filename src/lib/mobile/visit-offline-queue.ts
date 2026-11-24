@@ -22,6 +22,8 @@ export interface QueuedVisitLog {
     extraReason?: string | null;
     clientVisitId?: string;
     routePlanItemId?: string | null;
+    /** Tujuan kunjungan; opsional agar item antrean lama (tanpa purpose) tetap sah. */
+    purpose?: string;
 }
 export function visitQueueKey(partition: VisitQueuePartition) {
     if (!partition.tenantId || !partition.userId)

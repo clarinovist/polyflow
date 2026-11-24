@@ -7,7 +7,7 @@ import { serializeData } from '@/lib/utils/utils';
 import {
     startFieldVisit,
     completeFieldVisit,
-    } from '@/services/sales/field-visit-service';
+} from '@/services/sales/field-visit-service';
 
 // ── Start visit ──────────────────────────────────────────────────
 
@@ -21,6 +21,7 @@ export const startFieldVisitAction = withTenant(
         routePlanItemId?: string;
         isExtraCall?: boolean;
         extraReason?: string;
+        purpose?: string;
     }) {
         return safeAction(async () => {
             const session = await requireSalesAccess();
@@ -40,6 +41,7 @@ export const completeFieldVisitAction = withTenant(
         clientVisitId: string;
         notes: string;
         photoUrl?: string;
+        purpose?: string;
     }) {
         return safeAction(async () => {
             const session = await requireSalesAccess();

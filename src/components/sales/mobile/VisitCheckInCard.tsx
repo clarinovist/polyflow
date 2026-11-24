@@ -40,6 +40,7 @@ import {
     type VisitQueuePartition,
 } from '@/lib/mobile/visit-offline-queue';
 import '@/lib/mobile/sales-visit-offline-command';
+import { VISIT_PURPOSE_MAX_LENGTH } from '@/lib/sales/visit-purpose';
 
 type VisitCheckInCardProps = {
     customerId: string;
@@ -59,6 +60,7 @@ type ActiveVisit = {
     longitude: number;
     distance: number;
     clientVisitId?: string;
+    purpose?: string;
 };
 
 type VisitLog = {
@@ -78,6 +80,7 @@ type VisitLog = {
     extraReason?: string | null;
     clientVisitId?: string;
     routePlanItemId?: string;
+    purpose?: string;
 };
 
 type JourneyItem = {
@@ -114,6 +117,7 @@ export function VisitCheckInCard({
     const [timerText, setTimerText] = useState('00:00');
     const [showCheckoutModal, setShowCheckoutModal] = useState(false);
     const [notes, setNotes] = useState('');
+    const [purpose, setPurpose] = useState('');
     const [warningMsg, setWarningMsg] = useState<string | null>(null);
     const [tempVisitData, setTempVisitData] = useState<ActiveVisit | null>(
         null,
@@ -190,6 +194,10 @@ export function VisitCheckInCard({
     };
 
     const handleCheckIn = () => {
+        if (!purpose.trim()) {
+            setError('Isi tujuan kunjungan terlebih dahulu.');
+            return;
+        }
         if (!navigator.geolocation) {
             setError('Geolocation tidak didukung oleh browser Anda.');
             return;
@@ -222,6 +230,7 @@ export function VisitCheckInCard({
                     longitude,
                     distance,
                     clientVisitId,
+                    purpose: purpose.trim(),
                 };
 
                 // If distance > 100 meters, show warning
@@ -276,6 +285,7 @@ export function VisitCheckInCard({
                 extraReason: isOutsideRoute
                     ? extraReason || undefined
                     : undefined,
+                purpose: visitData.purpose,
             });
             if (!result.success) {
                 void trackTaskFailed(
@@ -348,6 +358,7 @@ export function VisitCheckInCard({
             extraReason: isOutsideRoute ? extraReason : undefined,
             clientVisitId,
             routePlanItemId: routePlanItemId || undefined,
+            purpose: activeVisit.purpose,
         };
 
         // Queue checkout idempotently for the partitioned sync banner.
@@ -370,6 +381,7 @@ export function VisitCheckInCard({
                 clientVisitId,
                 notes,
                 photoUrl: photoUrl || undefined,
+                purpose: activeVisit.purpose,
             });
             if (result.success) {
                 hapticSuccess();
@@ -419,6 +431,7 @@ export function VisitCheckInCard({
         setActiveVisit(null);
         setShowCheckoutModal(false);
         setNotes('');
+        setPurpose('');
         setPhotoUrl(null);
     };
 
@@ -537,6 +550,13 @@ export function VisitCheckInCard({
                         </div>
                     </div>
 
+                    {activeVisit.purpose && (
+                        <p className="text-xs text-muted-foreground whitespace-pre-line">
+                            <span className="font-semibold">Tujuan:</span>{' '}
+                            {activeVisit.purpose}
+                        </p>
+                    )}
+
                     {/* Guided Actions — Next best actions */}
                     <div className="grid grid-cols-2 gap-2">
                         <Link
@@ -570,9 +590,29 @@ export function VisitCheckInCard({
                         toko customer untuk mencatat waktu dan rute kunjungan
                         Anda.
                     </p>
+                    <div className="space-y-1">
+                        <label
+                            htmlFor="visit-purpose"
+                            className="text-xs font-semibold"
+                        >
+                            Tujuan kunjungan *
+                        </label>
+                        <textarea
+                            id="visit-purpose"
+                            className="w-full h-16 p-2.5 border rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-muted-foreground"
+                            placeholder="Contoh: Tagih piutang, tawarkan produk baru, cek stok toko..."
+                            maxLength={VISIT_PURPOSE_MAX_LENGTH}
+                            value={purpose}
+                            onChange={(e) => setPurpose(e.target.value)}
+                            disabled={loading || Boolean(tempVisitData)}
+                        />
+                        <p className="text-right text-[10px] text-muted-foreground">
+                            {purpose.length}/{VISIT_PURPOSE_MAX_LENGTH}
+                        </p>
+                    </div>
                     <Button
                         onClick={handleCheckIn}
-                        disabled={loading}
+                        disabled={loading || !purpose.trim()}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center justify-center gap-2 h-11 rounded-xl active:scale-98 transition-all"
                     >
                         {loading ? (

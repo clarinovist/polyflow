@@ -35,6 +35,7 @@ type VisitLog = {
     extraReason?: string | null;
     clientVisitId?: string;
     routePlanItemId?: string | null;
+    purpose?: string;
 };
 
 const MAX_RETRIES = 3;
@@ -116,6 +117,7 @@ export function VisitSyncBanner({
                 isExtraCall: log.isOutsideRoute || false,
                 extraReason: log.extraReason || undefined,
                 routePlanItemId: log.routePlanItemId || undefined,
+                purpose: log.purpose || undefined,
             }));
 
             const res =

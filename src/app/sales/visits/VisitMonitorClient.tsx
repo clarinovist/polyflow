@@ -71,6 +71,7 @@ type Visit = {
     latitude?: number | string | null;
     longitude?: number | string | null;
     notes?: string | null;
+    purpose?: string | null;
     photoUrl?: string | null;
     isExtraCall: boolean;
     extraReason?: string | null;
@@ -472,6 +473,14 @@ export function VisitMonitorClient({
                                                             0,
                                                             8,
                                                         )}
+                                                    {v.purpose && (
+                                                        <div
+                                                            className="truncate text-[10px] text-muted-foreground"
+                                                            title={v.purpose}
+                                                        >
+                                                            Tujuan: {v.purpose}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="px-3 py-2.5 whitespace-nowrap">
                                                     {Math.floor(

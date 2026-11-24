@@ -805,6 +805,7 @@ export const getServerVisits = withTenant(async function getServerVisits(
             durationSeconds: v.durationSeconds,
             distance: v.distance,
             notes: v.notes,
+            purpose: v.purpose,
             photoUrl: v.photoUrl,
             synced: true,
             isExtraCall: v.isExtraCall,
