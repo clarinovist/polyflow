@@ -12,9 +12,11 @@ import {
     CloudLightning,
     CheckCircle,
     AlertTriangle,
+    Receipt,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { getServerVisits } from '@/actions/sales/route-plans';
@@ -350,6 +352,18 @@ export default function SalesMobileVisitsHistoryClient({
                                                 alt="Bukti Kunjungan"
                                             />
                                         </div>
+                                    </div>
+                                )}
+
+                                {isSynced && (
+                                    <div className="pl-1.5">
+                                        <Link
+                                            href={`/field/sales/claims?visitId=${log.id}`}
+                                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary"
+                                        >
+                                            <Receipt className="h-3.5 w-3.5" />
+                                            Klaim nota
+                                        </Link>
                                     </div>
                                 )}
                             </div>

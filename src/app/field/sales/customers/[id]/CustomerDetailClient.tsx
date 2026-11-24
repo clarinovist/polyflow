@@ -9,6 +9,7 @@ import {
     Navigation,
     Plus,
     CreditCard,
+    Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -75,7 +76,9 @@ export function CustomerDetailClient({
     queuePartition,
 }: CustomerDetailClientProps) {
     const router = useRouter();
-    const [isOutsideRoute, setIsOutsideRoute] = useState(() => !routePlanItemId);
+    const [isOutsideRoute, setIsOutsideRoute] = useState(
+        () => !routePlanItemId,
+    );
 
     useEffect(() => {
         if (routePlanItemId) {
@@ -198,6 +201,14 @@ export function CustomerDetailClient({
                 routePlanItemId={routePlanItemId || undefined}
                 queuePartition={queuePartition}
             />
+
+            <Link
+                href="/field/sales/claims"
+                className="flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium active:scale-95 transition-transform"
+            >
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+                Klaim nota
+            </Link>
 
             {/* Address */}
             <div className="border rounded-xl p-4 space-y-3">
